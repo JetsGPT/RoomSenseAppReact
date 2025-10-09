@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { authAPI } from '../services/api';
 
 const AuthContext = createContext(null);
@@ -7,15 +8,28 @@ export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const location = useLocation();
 
     // Check if user is already logged in on mount
     useEffect(() => {
         checkAuth();
     }, []);
 
-    const checkAuth = async () => {
+    // Re-validate session on every route change
+    useEffect(() => {
+        if (user) {
+            // Only check auth if we think we're logged in
+            // This prevents unnecessary calls when user is already null
+            // Don't show loading spinner for route change validations
+            checkAuth(false);
+        }
+    }, [location.pathname]);
+
+    const checkAuth = async (showLoading = true) => {
         try {
-            setLoading(true);
+            if (showLoading) {
+                setLoading(true);
+            }
             const userData = await authAPI.getCurrentUser();
             setUser(userData);
             setError(null);
@@ -23,7 +37,9 @@ export const AuthProvider = ({ children }) => {
             // User is not logged in or session expired
             setUser(null);
         } finally {
-            setLoading(false);
+            if (showLoading) {
+                setLoading(false);
+            }
         }
     };
 
