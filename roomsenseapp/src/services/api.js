@@ -39,10 +39,8 @@ export const authAPI = {
     },
 };
 
-// Sensor API calls (placeholder for future use)
-export const sensorAPI = {
-    // Add sensor endpoints as needed
-};
+// Import sensors API
+export { sensorsAPI, sensorHelpers } from './sensorsAPI.js';
 
 export default api;
 
