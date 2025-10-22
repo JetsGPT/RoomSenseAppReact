@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { Input } from '../components/ui/input';
+import { Button } from '../components/ui/button';
 
 const Login = () => {
     const [username, setUsername] = useState('');
@@ -54,7 +56,7 @@ const Login = () => {
     };
 
     return (
-        <div>
+        <div className="flex flex-col items-center justify-center h-screen">
             <h1>RoomSense - {isRegistering ? 'Register' : 'Login'}</h1>
             
             {localError && <div style={{ color: 'red' }}>{localError}</div>}
@@ -62,7 +64,7 @@ const Login = () => {
             <form onSubmit={handleSubmit}>
                 <div>
                     <label htmlFor="username">Username</label>
-                    <input
+                    <Input
                         type="text"
                         id="username"
                         value={username}
@@ -74,7 +76,7 @@ const Login = () => {
 
                 <div>
                     <label htmlFor="password">Password</label>
-                    <input
+                    <Input
                         type="password"
                         id="password"
                         value={password}
@@ -99,13 +101,13 @@ const Login = () => {
                     </div>
                 )}
 
-                <div>
-                    <button type="submit" disabled={isLoading}>
+                <div className='flex flex-col gap-2'>
+                    <Button type="submit" size='lg' variant='default' disabled={isLoading}>
                         {isLoading ? 'Processing...' : isRegistering ? 'Register' : 'Login'}
-                    </button>
-                    <button type="button" onClick={toggleMode} disabled={isLoading}>
+                    </Button>
+                    <Button type="button" size='lg' variant='outline' onClick={toggleMode} disabled={isLoading}>
                         {isRegistering ? 'Back to Login' : 'Create Account'}
-                    </button>
+                    </Button>
                 </div>
             </form>
         </div>

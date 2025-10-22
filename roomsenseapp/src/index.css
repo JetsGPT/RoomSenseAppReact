@@ -1,11 +1,230 @@
-/* Minimal global styles */
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
+/* Import Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600&family=Outfit:wght@500&family=Inter:wght@400&display=swap');
+
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* RoomSense Design System */
+:root {
+  /* Color Palette */
+  --cambridge-blue: #CEEACE;
+  --cambridge-blue-rgb: 206, 234, 206;
+  
+  --moss-green: #A4C6B0;
+  --moss-green-rgb: 164, 198, 176;
+  
+  --dark-slate-green: #455453;
+  --dark-slate-green-rgb: 69, 84, 83;
+  
+  --tea-green: #79BC9E;
+  --tea-green-rgb: 121, 188, 158;
+  
+  --honeydew-2: #ECF3E6;
+  --honeydew-2-rgb: 236, 243, 230;
+
+  /* Font Families */
+  --font-display: 'Space Grotesk', sans-serif;
+  --font-heading: 'Outfit', sans-serif;
+  --font-body: 'Inter', sans-serif;
+
+  /* Font Weights */
+  --font-weight-display: 600;
+  --font-weight-heading: 500;
+  --font-weight-body: 400;
+
+  /* Design Tokens */
+  --radius: 0.5rem;
+  --radius-sm: 0.25rem;
+  --radius-md: 0.375rem;
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.75rem;
+
+  /* Light Theme Colors */
+  --background: var(--honeydew-2);
+  --foreground: var(--dark-slate-green);
+  --card: #ffffff;
+  --card-foreground: var(--dark-slate-green);
+  --popover: #ffffff;
+  --popover-foreground: var(--dark-slate-green);
+  --primary: var(--tea-green);
+  --primary-foreground: #ffffff;
+  --secondary: var(--cambridge-blue);
+  --secondary-foreground: var(--dark-slate-green);
+  --muted: var(--cambridge-blue);
+  --muted-foreground: var(--dark-slate-green);
+  --accent: var(--moss-green);
+  --accent-foreground: #ffffff;
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+  --border: var(--moss-green);
+  --input: var(--cambridge-blue);
+  --ring: var(--tea-green);
+  
+  /* Chart Colors */
+  --chart-1: var(--tea-green);
+  --chart-2: var(--moss-green);
+  --chart-3: var(--cambridge-blue);
+  --chart-4: var(--dark-slate-green);
+  --chart-5: var(--honeydew-2);
+  
+  /* Sidebar Colors */
+  --sidebar: var(--cambridge-blue);
+  --sidebar-foreground: var(--dark-slate-green);
+  --sidebar-primary: var(--tea-green);
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: var(--moss-green);
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: var(--moss-green);
+  --sidebar-ring: var(--tea-green);
 }
 
-body {
-  font-family: system-ui, -apple-system, sans-serif;
-  padding: 20px;
+/* Dark Theme */
+.dark {
+  --background: var(--dark-slate-green);
+  --foreground: var(--honeydew-2);
+  --card: #2a2a2a;
+  --card-foreground: var(--honeydew-2);
+  --popover: #2a2a2a;
+  --popover-foreground: var(--honeydew-2);
+  --primary: var(--tea-green);
+  --primary-foreground: var(--dark-slate-green);
+  --secondary: #3a3a3a;
+  --secondary-foreground: var(--honeydew-2);
+  --muted: #3a3a3a;
+  --muted-foreground: var(--moss-green);
+  --accent: var(--moss-green);
+  --accent-foreground: var(--honeydew-2);
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+  --border: #4a4a4a;
+  --input: #3a3a3a;
+  --ring: var(--tea-green);
+  
+  /* Dark Chart Colors */
+  --chart-1: var(--tea-green);
+  --chart-2: var(--moss-green);
+  --chart-3: var(--cambridge-blue);
+  --chart-4: var(--honeydew-2);
+  --chart-5: #ffffff;
+  
+  /* Dark Sidebar Colors */
+  --sidebar: #2a2a2a;
+  --sidebar-foreground: var(--honeydew-2);
+  --sidebar-primary: var(--tea-green);
+  --sidebar-primary-foreground: var(--dark-slate-green);
+  --sidebar-accent: var(--moss-green);
+  --sidebar-accent-foreground: var(--honeydew-2);
+  --sidebar-border: #4a4a4a;
+  --sidebar-ring: var(--tea-green);
+}
+
+/* Tailwind Theme Integration */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+/* Base Styles */
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  
+  html {
+    font-family: var(--font-body);
+    font-weight: var(--font-weight-body);
+  }
+  
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--font-body);
+    font-weight: var(--font-weight-body);
+    line-height: 1.6;
+  }
+  
+  /* Typography Classes */
+  .font-display {
+    font-family: var(--font-display);
+    font-weight: var(--font-weight-display);
+  }
+  
+  .font-heading {
+    font-family: var(--font-heading);
+    font-weight: var(--font-weight-heading);
+  }
+  
+  .font-body {
+    font-family: var(--font-body);
+    font-weight: var(--font-weight-body);
+  }
+  
+  /* Heading Styles */
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-display);
+    font-weight: var(--font-weight-display);
+    color: var(--foreground);
+  }
+  
+  /* Button and Link Styles */
+  button, .btn, a {
+    font-family: var(--font-heading);
+    font-weight: var(--font-weight-heading);
+  }
+  
+  /* Input and Form Styles */
+  input, textarea, select {
+    font-family: var(--font-body);
+    font-weight: var(--font-weight-body);
+  }
+  
+  /* Brand Colors Utility Classes */
+  .text-cambridge-blue { color: var(--cambridge-blue); }
+  .text-moss-green { color: var(--moss-green); }
+  .text-dark-slate-green { color: var(--dark-slate-green); }
+  .text-tea-green { color: var(--tea-green); }
+  .text-honeydew-2 { color: var(--honeydew-2); }
+  
+  .bg-cambridge-blue { background-color: var(--cambridge-blue); }
+  .bg-moss-green { background-color: var(--moss-green); }
+  .bg-dark-slate-green { background-color: var(--dark-slate-green); }
+  .bg-tea-green { background-color: var(--tea-green); }
+  .bg-honeydew-2 { background-color: var(--honeydew-2); }
+  
+  .border-cambridge-blue { border-color: var(--cambridge-blue); }
+  .border-moss-green { border-color: var(--moss-green); }
+  .border-dark-slate-green { border-color: var(--dark-slate-green); }
+  .border-tea-green { border-color: var(--tea-green); }
+  .border-honeydew-2 { border-color: var(--honeydew-2); }
 }
