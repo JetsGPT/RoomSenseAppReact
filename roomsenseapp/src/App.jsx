@@ -1,16 +1,24 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
+import { ThemeProvider } from './contexts/ThemeContext';
 import { RequireAuth, RequireRole, PublicOnly } from './components/ProtectedRoute';
+import Navigation from './components/ui/Navigation';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Unauthorized from './pages/Unauthorized';
 import './App.css';
 
-function App() {
+function AppContent() {
+    const location = useLocation();
+    
+    // Define routes where Navigation should NOT be shown
+    const hideNavigationRoutes = ['/login','/unauthorized'];
+    const shouldShowNavigation = !hideNavigationRoutes.includes(location.pathname);
+
     return (
-        <BrowserRouter>
-            <AuthProvider>
-                <Routes>
+        <>
+            {shouldShowNavigation && <Navigation />}
+            <Routes>
                     {/* Public routes - redirects to dashboard if already logged in */}
                     <Route
                         path="/login"
@@ -65,7 +73,18 @@ function App() {
                     {/* 404 - could create a NotFound page later */}
                     <Route path="*" element={<Navigate to="/dashboard" replace />} />
                 </Routes>
-            </AuthProvider>
+        </>
+    );
+}
+
+function App() {
+    return (
+        <BrowserRouter>
+            <ThemeProvider>
+                <AuthProvider>
+                    <AppContent />
+                </AuthProvider>
+            </ThemeProvider>
         </BrowserRouter>
     );
 }

@@ -55,7 +55,7 @@
   --muted: var(--cambridge-blue);
   --muted-foreground: var(--dark-slate-green);
   --accent: var(--moss-green);
-  --accent-foreground: #ffffff;
+  --accent-foreground: var(--dark-slate-green);
   --destructive: #ef4444;
   --destructive-foreground: #ffffff;
   --border: var(--moss-green);
@@ -81,7 +81,7 @@
 }
 
 /* Dark Theme */
-.dark {
+[data-theme="dark"] {
   --background: var(--dark-slate-green);
   --foreground: var(--honeydew-2);
   --card: #2a2a2a;
