@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Input } from '../components/ui/input';
 import { Button } from '../components/ui/button';
+import Time from '../components/ui/Time';
 
 const Login = () => {
     const [username, setUsername] = useState('');
@@ -57,6 +58,9 @@ const Login = () => {
 
     return (
         <div className="flex flex-col items-center justify-center h-screen">
+           
+            <Time className='text-6xl font-bold' showSeconds={true} />
+           
             <h1>RoomSense - {isRegistering ? 'Register' : 'Login'}</h1>
             
             {localError && <div style={{ color: 'red' }}>{localError}</div>}
