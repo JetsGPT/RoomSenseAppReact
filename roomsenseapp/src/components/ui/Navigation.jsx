@@ -22,7 +22,7 @@ import {
 // Navigation links array to be used in both desktop and mobile menus
 const navigationLinks = [
   { href: "/dashboard", label: "Dashboard", icon: HouseIcon },
-  { href: "/unauthorized", label: "Boxes", icon: InboxIcon },
+  { href: "/about-me", label: "About", icon: InboxIcon },
   { href: "#", label: "Help", icon: ZapIcon },
 ]
 
@@ -83,12 +83,12 @@ export default function Component() {
                       <NavigationMenuItem key={index} className="w-full">
                         <NavigationMenuLink
                           href={link.href}
-                          className="flex-row items-center gap-2 py-1.5 hover:text-accent-foreground hover:bg-accent/100"
+                          className="flex-row items-center gap-2 py-1.5 hover:text-accent-foreground hover:bg-accent/100 data-[active]:bg-accent/60 data-[active]:text-accent-foreground"
                           active={isActive}
                         >
                           <Icon
                             size={16}
-                            className="text-muted-foreground/80"
+                            className={isActive ? "text-accent-foreground" : "text-muted-foreground/80"}
                             aria-hidden="true"
                           />
                           <span>{link.label}</span>
@@ -120,11 +120,11 @@ export default function Component() {
                   <NavigationMenuLink
                     active={isActive}
                     href={link.href}
-                    className="flex-row items-center gap-2 py-1.5 font-medium text-foreground hover:text-accent-foreground hover:bg-accent/45"
+                    className="flex-row items-center gap-2 py-1.5 font-medium text-foreground hover:text-accent-foreground hover:bg-accent/45 data-[active]:bg-accent/60 data-[active]:text-accent-foreground"
                   >
                     <Icon
                       size={16}
-                      className="text-muted-foreground/80"
+                      className={isActive ? "text-accent-foreground" : "text-muted-foreground/80"}
                       aria-hidden="true"
                     />
                     <span>{link.label}</span>

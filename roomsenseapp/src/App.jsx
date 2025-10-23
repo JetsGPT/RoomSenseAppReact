@@ -4,9 +4,10 @@ import { ThemeProvider } from './contexts/ThemeContext';
 import { RequireAuth, RequireRole, PublicOnly } from './components/ProtectedRoute';
 import Navigation from './components/ui/Navigation';
 import Login from './pages/Login';
-import Dashboard from './pages/Dashboard';
+import AboutMe from './pages/AboutMe';
 import Unauthorized from './pages/Unauthorized';
 import './App.css';
+import Dashboard from './pages/Dashboard';
 
 function AppContent() {
     const location = useLocation();
@@ -30,6 +31,14 @@ function AppContent() {
                     />
 
                     {/* Protected routes - requires authentication */}
+                    <Route
+                        path="/about-me"
+                        element={
+                            <RequireAuth>
+                                <AboutMe />
+                            </RequireAuth>
+                        }
+                    />
                     <Route
                         path="/dashboard"
                         element={
@@ -68,10 +77,10 @@ function AppContent() {
                     <Route path="/unauthorized" element={<Unauthorized />} />
 
                     {/* Default redirect */}
-                    <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                    <Route path="/" element={<Navigate to="/about-me" replace />} />
 
                     {/* 404 - could create a NotFound page later */}
-                    <Route path="*" element={<Navigate to="/dashboard" replace />} />
+                    <Route path="*" element={<Navigate to="/about-me" replace />} />
                 </Routes>
         </>
     );

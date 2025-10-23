@@ -94,7 +94,7 @@
   --secondary-foreground: var(--honeydew-2);
   --muted: #3a3a3a;
   --muted-foreground: var(--moss-green);
-  --accent: var(--moss-green);
+  --accent: #3a4a3a;
   --accent-foreground: var(--honeydew-2);
   --destructive: #ef4444;
   --destructive-foreground: #ffffff;
