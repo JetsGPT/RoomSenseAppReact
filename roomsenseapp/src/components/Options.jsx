@@ -131,37 +131,11 @@ export function Options({ fetchDelay, onFetchDelayChange, onRefreshData }) {
                                     className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                                 />
                             </div>
-                            <Button
-                                onClick={handleSave}
-                                disabled={isSaving || localDelay === fetchDelay}
-                                className="px-6"
-                            >
-                                {isSaving ? (
-                                    <>
-                                        <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                                        Saving...
-                                    </>
-                                ) : (
-                                    <>
-                                        <Save className="w-4 h-4 mr-2" />
-                                        Save
-                                    </>
-                                )}
-                            </Button>
                         </div>
                         <p className="text-xs text-muted-foreground mt-2">
                             Minimum: 5 seconds, Maximum: 1 hour (3600 seconds)
                         </p>
                     </div>
-
-                    {/* Status Messages */}
-                    {localDelay !== fetchDelay && (
-                        <div className="p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-md">
-                            <p className="text-sm text-yellow-800 dark:text-yellow-200">
-                                You have unsaved changes. Click "Save" to apply the new settings.
-                            </p>
-                        </div>
-                    )}
 
                     {isSaving && (
                         <div className="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md">
@@ -173,17 +147,43 @@ export function Options({ fetchDelay, onFetchDelayChange, onRefreshData }) {
                 </CardContent>
             </Card>
 
-            {/* Additional Settings Placeholder */}
-            <Card>
-                <CardHeader>
-                    <CardTitle>Additional Settings</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <p className="text-muted-foreground">
-                        More configuration options will be added here in future updates.
+            {/* Status Messages */}
+            {localDelay !== fetchDelay && (
+                <div className="p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-md">
+                    <p className="text-sm text-yellow-800 dark:text-yellow-200">
+                        You have unsaved changes. Click "Save" to apply the new settings.
                     </p>
-                </CardContent>
-            </Card>
+                </div>
+            )}
+
+            {/* Save Button */}
+            <div className="flex justify-end gap-3 pt-6 border-t border-border">
+                <Button
+                    onClick={handleReset}
+                    variant="outline"
+                    disabled={isSaving}
+                >
+                    <RotateCcw className="w-4 h-4 mr-2" />
+                    Reset to Default
+                </Button>
+                <Button
+                    onClick={handleSave}
+                    disabled={isSaving || localDelay === fetchDelay}
+                    className="px-8"
+                >
+                    {isSaving ? (
+                        <>
+                            <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                            Saving...
+                        </>
+                    ) : (
+                        <>
+                            <Save className="w-4 h-4 mr-2" />
+                            Save Settings
+                        </>
+                    )}
+                </Button>
+            </div>
         </div>
     );
 }

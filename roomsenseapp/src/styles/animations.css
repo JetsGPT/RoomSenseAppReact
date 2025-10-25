@@ -1,0 +1,135 @@
+/* ============================================
+   ANIMATION STYLES
+   ============================================ */
+
+/* ===== KEYFRAME ANIMATIONS ===== */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-5px); }
+  75% { transform: translateX(5px); }
+}
+
+@keyframes fadeIn {
+  from { 
+    opacity: 0; 
+    transform: translateY(10px); 
+  }
+  to { 
+    opacity: 1; 
+    transform: translateY(0); 
+  }
+}
+
+@keyframes fadeOut {
+  from { 
+    opacity: 1; 
+    transform: translateY(0); 
+  }
+  to { 
+    opacity: 0; 
+    transform: translateY(-10px); 
+  }
+}
+
+@keyframes slideIn {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+
+@keyframes slideOut {
+  from { transform: translateX(0); }
+  to { transform: translateX(-100%); }
+}
+
+@keyframes scaleIn {
+  from { 
+    opacity: 0; 
+    transform: scale(0.9); 
+  }
+  to { 
+    opacity: 1; 
+    transform: scale(1); 
+  }
+}
+
+@keyframes scaleOut {
+  from { 
+    opacity: 1; 
+    transform: scale(1); 
+  }
+  to { 
+    opacity: 0; 
+    transform: scale(0.9); 
+  }
+}
+
+/* ===== ANIMATION UTILITY CLASSES ===== */
+@layer utilities {
+  .animate-spin { animation: spin 1s linear infinite; }
+  .animate-pulse { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+  .animate-bounce { animation: bounce 1s infinite; }
+  .animate-shake { animation: shake 0.5s ease-in-out; }
+
+  .fade-in { animation: fadeIn 0.3s ease-in-out; }
+  .fade-out { animation: fadeOut 0.3s ease-in-out; }
+  .slide-in { animation: slideIn 0.3s ease-out; }
+  .slide-out { animation: slideOut 0.3s ease-in; }
+  .scale-in { animation: scaleIn 0.3s ease-out; }
+  .scale-out { animation: scaleOut 0.3s ease-in; }
+
+  /* ===== HOVER ANIMATIONS ===== */
+  .hover-lift {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .hover-lift:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  }
+
+  .hover-scale {
+    transition: transform 0.2s ease;
+  }
+
+  .hover-scale:hover {
+    transform: scale(1.05);
+  }
+
+  .hover-rotate {
+    transition: transform 0.2s ease;
+  }
+
+  .hover-rotate:hover {
+    transform: rotate(5deg);
+  }
+
+  .hover-glow {
+    transition: box-shadow 0.2s ease;
+  }
+
+  .hover-glow:hover {
+    box-shadow: 0 0 20px rgba(121, 188, 158, 0.3);
+  }
+
+  /* ===== TRANSITION UTILITIES ===== */
+  .transition-all { transition: all 0.2s ease; }
+  .transition-colors { transition: color 0.2s ease, background-color 0.2s ease; }
+  .transition-transform { transition: transform 0.2s ease; }
+  .transition-opacity { transition: opacity 0.2s ease; }
+  .transition-shadow { transition: box-shadow 0.2s ease; }
+}

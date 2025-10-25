@@ -1,15 +1,43 @@
 import axios from 'axios';
 
-const API_BASE_URL = 'https://localhost:8081/api'; // TODO: Change to the actual API URL
+// Get API base URL from localStorage or use default
+const getApiBaseUrl = () => {
+    try {
+        const savedSettings = localStorage.getItem('roomsense-settings');
+        if (savedSettings) {
+            const settings = JSON.parse(savedSettings);
+            return settings.apiBaseUrl || 'https://localhost:8081/api';
+        }
+    } catch (error) {
+        console.error('Error loading API settings:', error);
+    }
+    return 'https://localhost:8081/api';
+};
 
-// Create axios instance with default config
-const api = axios.create({
-    baseURL: API_BASE_URL,
-    withCredentials: true, // Important for session cookies
-    headers: {
-        'Content-Type': 'application/json',
-    },
-});
+// Create axios instance with configurable base URL
+const createApiInstance = () => {
+    return axios.create({
+        baseURL: getApiBaseUrl(),
+        withCredentials: true, // Important for session cookies
+        headers: {
+            'Content-Type': 'application/json',
+        },
+    });
+};
+
+// Create initial instance
+let api = createApiInstance();
+
+// Function to update API base URL
+export const updateApiBaseUrl = (newUrl) => {
+    api = axios.create({
+        baseURL: newUrl,
+        withCredentials: true,
+        headers: {
+            'Content-Type': 'application/json',
+        },
+    });
+};
 
 // Auth API calls
 export const authAPI = {

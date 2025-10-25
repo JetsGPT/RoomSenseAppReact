@@ -1,49 +1,50 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { motion } from 'framer-motion';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import {sensorsAPI} from '../services/api';
+import { useSidebar } from '../shared/contexts/SidebarContext';
+import { useSensorData } from '../hooks/useSensorData';
 import { InfoBlock, InfoItem } from '../components/ui/InfoBlock';
-import { SensorLineChart, SensorAreaChart, MultiSensorChart } from '../components/ui/SensorChart';
-import { Sidebar } from '../components/ui/Sidebar';
+import { SensorLineChart, SensorAreaChart, MultiSensorChart } from '../components/ui/SensorCharts';
 import { Overview } from '../components/Overview';
 import { BoxDetail } from '../components/BoxDetail';
 import { Options } from '../components/Options';
-import { Thermometer, Droplets, Gauge, Sun } from 'lucide-react';
+import { StaggeredContainer, StaggeredItem, FadeIn, SlideIn } from '../components/ui/PageTransition';
+import { 
+    getSensorConfig, 
+    getSensorIcon, 
+    getSensorUnit, 
+    getSensorColor, 
+    getSensorName,
+    CHART_CONFIG,
+    DEFAULT_SENSOR_TYPES 
+} from '../config/sensorConfig';
 
 
 
 const Dashboard = () => {
-    const [sensorData, setSensorData] = useState([]);
-    const [activeView, setActiveView] = useState('overview');
+    const { activeView, setActiveView } = useSidebar();
     const [fetchDelay, setFetchDelay] = useState(() => {
         // Get from localStorage or default to 30 seconds
         const saved = localStorage.getItem('sensorFetchDelay');
         return saved ? parseInt(saved) : 30;
     });
 
-    const fetchSensorData = async () => {
-        try {
-            const data = await sensorsAPI.getSensorData();
-            setSensorData(data);
-        } catch (error) {
-            console.error('Failed to fetch sensor data:', error);
-        }
-    };
-
-    useEffect(() => {
-        fetchSensorData();
-    }, []);
-
-    // Auto-refresh functionality
-    useEffect(() => {
-        if (fetchDelay > 0) {
-            const interval = setInterval(() => {
-                fetchSensorData();
-            }, fetchDelay * 1000);
-
-            return () => clearInterval(interval);
-        }
-    }, [fetchDelay]);
+    // Use the custom hook for data fetching
+    const {
+        data: sensorData,
+        groupedData,
+        sensorBoxes,
+        sensorTypes,
+        loading,
+        error,
+        refresh: refreshData
+    } = useSensorData({
+        timeRange: '-24h',
+        limit: 500,
+        autoRefresh: fetchDelay > 0,
+        refreshInterval: fetchDelay * 1000
+    });
 
     // Save fetch delay to localStorage
     useEffect(() => {
@@ -55,102 +56,21 @@ const Dashboard = () => {
     };
 
     const handleRefreshData = () => {
-        fetchSensorData();
+        refreshData();
     };
 
-    // Group sensor data by sensor_box
-    const groupedData = sensorData.reduce((acc, reading) => {
-        const boxId = reading.sensor_box;
-        if (!acc[boxId]) {
-            acc[boxId] = [];
-        }
-        acc[boxId].push(reading);
-        return acc;
-    }, {});
-
-    // Get sensor type icon
-    const getSensorIcon = (sensorType) => {
-        switch (sensorType) {
-            case 'temperature':
-                return Thermometer;
-            case 'humidity':
-                return Droplets;
-            case 'pressure':
-                return Gauge;
-            case 'light':
-                return Sun;
-            default:
-                return Gauge;
-        }
-    };
-
-    // Get unit for sensor type
+    // Get unit for sensor type (using centralized config)
     const getUnit = (sensorType) => {
-        switch (sensorType) {
-            case 'temperature':
-                return '°C';
-            case 'humidity':
-                return '%';
-            case 'pressure':
-                return ' hPa';
-            case 'light':
-                return ' lux';
-            default:
-                return '';
-        }
+        return getSensorUnit(sensorType);
     };
 
-    // Get latest reading for each sensor type in a box
-    const getLatestReadings = (readings) => {
-        const latestByType = {};
-        readings.forEach(reading => {
-            if (!latestByType[reading.sensor_type] || 
-                new Date(reading.timestamp) > new Date(latestByType[reading.sensor_type].timestamp)) {
-                latestByType[reading.sensor_type] = reading;
-            }
-        });
-        return Object.values(latestByType);
-    };
-
-    // Prepare chart data for a specific sensor type
-    const getChartDataForSensorType = (sensorType) => {
-        return sensorData
-            .filter(reading => reading.sensor_type === sensorType)
-            .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
-            .map(reading => ({
-                timestamp: reading.timestamp,
-                value: reading.value,
-                sensor_box: reading.sensor_box
-            }));
-    };
-
-    // Prepare multi-sensor chart data for a specific box
-    const getMultiSensorChartData = (boxId) => {
-        const boxReadings = sensorData.filter(reading => reading.sensor_box === boxId);
-        const timePoints = [...new Set(boxReadings.map(r => r.timestamp))].sort();
-        
-        return timePoints.map(timestamp => {
-            const readingsAtTime = boxReadings.filter(r => r.timestamp === timestamp);
-            const dataPoint = { timestamp };
-            
-            readingsAtTime.forEach(reading => {
-                dataPoint[reading.sensor_type] = reading.value;
-            });
-            
-            return dataPoint;
-        });
-    };
-
-    // Chart colors
-    const chartColors = {
-        temperature: '#ef4444', // red
-        humidity: '#3b82f6',     // blue
-        pressure: '#10b981',     // emerald
-        light: '#f59e0b'         // amber
-    };
-
-    // Get sensor boxes for sidebar
-    const sensorBoxes = Object.keys(groupedData);
+    // Get chart colors from centralized config
+    const chartColors = useMemo(() => {
+        return sensorTypes.reduce((colors, sensorType) => {
+            colors[sensorType] = getSensorColor(sensorType);
+            return colors;
+        }, {});
+    }, [sensorTypes]);
 
     // Render content based on active view
     const renderContent = () => {
@@ -174,8 +94,16 @@ const Dashboard = () => {
                 <div className="space-y-8">
                     <h2 className="text-2xl font-semibold text-foreground">Analytics Dashboard</h2>
                     <div className="grid gap-6 md:grid-cols-2">
-                        {['temperature', 'humidity', 'pressure', 'light'].map(sensorType => {
-                            const chartData = getChartDataForSensorType(sensorType);
+                        {sensorTypes.map(sensorType => {
+                            const chartData = sensorData
+                                .filter(reading => reading.sensor_type === sensorType)
+                                .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
+                                .map(reading => ({
+                                    timestamp: reading.timestamp,
+                                    value: reading.value,
+                                    sensor_box: reading.sensor_box
+                                }));
+                            
                             if (chartData.length === 0) return null;
                             
                             return (
@@ -203,24 +131,67 @@ const Dashboard = () => {
         return null;
     };
 
-    return (
-        <div className="min-h-screen bg-background flex flex-col sm:flex-row">
-            {/* Sidebar */}
-            <div className="flex justify-center sm:justify-start">
-                <Sidebar 
-                    activeView={activeView}
-                    onViewChange={setActiveView}
-                    sensorBoxes={sensorBoxes}
-                />
-            </div>
-            
-            {/* Main Content */}
-            <div className="flex-1 overflow-auto">
-                <div className="container mx-auto px-3 sm:px-6 py-4 sm:py-8">
-                    {renderContent()}
+    // Show loading state
+    if (loading && sensorData.length === 0) {
+        return (
+            <div className="min-h-screen bg-background flex items-center justify-center">
+                <div className="text-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+                    <p className="text-muted-foreground">Loading sensor data...</p>
                 </div>
             </div>
-        </div>
+        );
+    }
+
+    // Show error state
+    if (error) {
+        return (
+            <div className="min-h-screen bg-background flex items-center justify-center">
+                <div className="text-center">
+                    <div className="text-red-500 text-6xl mb-4">⚠️</div>
+                    <h2 className="text-2xl font-semibold text-foreground mb-2">Error Loading Data</h2>
+                    <p className="text-muted-foreground mb-4">{error.message}</p>
+                    <button 
+                        onClick={refreshData}
+                        className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
+                    >
+                        Retry
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <motion.div 
+            className="min-h-screen bg-background"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.3 }}
+        >
+            {/* Main Content */}
+            <div className="container mx-auto px-3 sm:px-6 py-4 sm:py-8">
+                {loading && (
+                    <motion.div 
+                        className="fixed top-4 right-4 z-50"
+                        initial={{ opacity: 0, y: -20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -20 }}
+                        transition={{ duration: 0.2 }}
+                    >
+                        <div className="bg-background/80 backdrop-blur-sm border rounded-2xl px-4 py-3 flex items-center gap-3 shadow-lg">
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
+                            <span className="text-sm text-muted-foreground font-medium">Updating...</span>
+                        </div>
+                    </motion.div>
+                )}
+                <StaggeredContainer delay={0.1}>
+                    <StaggeredItem>
+                        {renderContent()}
+                    </StaggeredItem>
+                </StaggeredContainer>
+            </div>
+        </motion.div>
     );
 };
 

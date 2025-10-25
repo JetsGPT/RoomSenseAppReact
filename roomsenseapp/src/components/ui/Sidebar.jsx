@@ -28,14 +28,7 @@ export function Sidebar({ activeView, onViewChange, sensorBoxes }) {
     return (
         <div className="w-full max-w-sm sm:w-64 bg-card border-r border-border h-full flex flex-col sm:border-r rounded-lg sm:rounded-none shadow-lg sm:shadow-none">
             {/* Header */}
-            <div className="p-3 sm:p-6 border-b border-border">
-                <h2 className="font-heading text-base sm:text-lg font-semibold text-foreground">
-                    RoomSense
-                </h2>
-                <p className="text-xs sm:text-sm text-muted-foreground">
-                    Sensor Dashboard
-                </p>
-            </div>
+            
 
             {/* Navigation */}
             <nav className="flex-1 p-2 sm:p-4 space-y-1 sm:space-y-2">

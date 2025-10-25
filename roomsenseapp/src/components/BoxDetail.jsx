@@ -1,55 +1,55 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { InfoBlock, InfoItem } from './ui/InfoBlock';
-import { SensorLineChart, SensorAreaChart, MultiSensorChart } from './ui/SensorChart';
-import { Thermometer, Droplets, Gauge, Sun, Clock, Activity } from 'lucide-react';
+import { SensorLineChart, SensorAreaChart, MultiSensorChart } from './ui/SensorCharts';
+import { Activity } from 'lucide-react';
+import NumberFlow from "@number-flow/react";
+import { 
+    getSensorConfig, 
+    getSensorIcon, 
+    getSensorUnit, 
+    getSensorColor, 
+    getSensorName, 
+    formatSensorValue,
+    CHART_CONFIG 
+} from '../config/sensorConfig';
 
 export function BoxDetail({ boxId, sensorData }) {
     // Filter data for this specific box
-    const boxData = sensorData.filter(reading => reading.sensor_box === boxId);
+    const boxData = useMemo(() => 
+        sensorData.filter(reading => reading.sensor_box === boxId),
+        [sensorData, boxId]
+    );
     
-    // Get sensor type icon
-    const getSensorIcon = (sensorType) => {
-        switch (sensorType) {
-            case 'temperature':
-                return Thermometer;
-            case 'humidity':
-                return Droplets;
-            case 'pressure':
-                return Gauge;
-            case 'light':
-                return Sun;
-            default:
-                return Gauge;
-        }
-    };
-
-    // Get unit for sensor type
+    // Get unit for sensor type (using centralized config)
     const getUnit = (sensorType) => {
-        switch (sensorType) {
-            case 'temperature':
-                return '°C';
-            case 'humidity':
-                return '%';
-            case 'pressure':
-                return ' hPa';
-            case 'light':
-                return ' lux';
-            default:
-                return '';
-        }
+        return getSensorUnit(sensorType);
     };
 
     // Get latest reading for each sensor type
-    const getLatestReadings = (readings) => {
+    const latestReadings = useMemo(() => {
         const latestByType = {};
-        readings.forEach(reading => {
+        boxData.forEach(reading => {
             if (!latestByType[reading.sensor_type] || 
                 new Date(reading.timestamp) > new Date(latestByType[reading.sensor_type].timestamp)) {
                 latestByType[reading.sensor_type] = reading;
             }
         });
         return Object.values(latestByType);
-    };
+    }, [boxData]);
+
+    const sensorTypes = useMemo(() => 
+        [...new Set(boxData.map(r => r.sensor_type))],
+        [boxData]
+    );
+
+    // Get chart colors from centralized config
+    const chartColors = useMemo(() => 
+        sensorTypes.reduce((colors, sensorType) => {
+            colors[sensorType] = getSensorColor(sensorType);
+            return colors;
+        }, {}),
+        [sensorTypes]
+    );
 
     // Prepare chart data for a specific sensor type in this box
     const getChartDataForSensorType = (sensorType) => {
@@ -78,17 +78,6 @@ export function BoxDetail({ boxId, sensorData }) {
         });
     };
 
-    const latestReadings = getLatestReadings(boxData);
-    const sensorTypes = [...new Set(boxData.map(r => r.sensor_type))];
-
-    // Chart colors
-    const chartColors = {
-        temperature: '#ef4444', // red
-        humidity: '#3b82f6',     // blue
-        pressure: '#10b981',     // emerald
-        light: '#f59e0b'         // amber
-    };
-
     if (boxData.length === 0) {
         return (
             <div className="flex items-center justify-center h-64">
@@ -108,7 +97,7 @@ export function BoxDetail({ boxId, sensorData }) {
                 <div>
                     <h2 className="text-xl sm:text-2xl font-semibold text-foreground">Sensor Box {boxId}</h2>
                     <p className="text-sm sm:text-base text-muted-foreground">
-                        {boxData.length} total readings • {sensorTypes.length} sensor types
+                        <NumberFlow value={boxData.length} /> total readings • <NumberFlow value={sensorTypes.length} /> sensor types
                     </p>
                 </div>
                 <div className="text-left sm:text-right">
@@ -123,13 +112,15 @@ export function BoxDetail({ boxId, sensorData }) {
             <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
                 {latestReadings.map((reading, index) => {
                     const Icon = getSensorIcon(reading.sensor_type);
+                    const sensorName = getSensorName(reading.sensor_type);
+                    const formattedValue = formatSensorValue(reading.value, reading.sensor_type);
                     return (
-                        <InfoBlock key={`${reading.sensor_type}-${index}`} title={reading.sensor_type.charAt(0).toUpperCase() + reading.sensor_type.slice(1)}>
+                        <InfoBlock key={`${reading.sensor_type}-${index}`} title={sensorName}>
                             <div className="flex items-center gap-2 sm:gap-3">
                                 <Icon className="w-6 h-6 sm:w-8 sm:h-8 text-primary" />
                                 <div>
                                     <div className="text-lg sm:text-2xl font-bold text-foreground">
-                                        {reading.value.toFixed(1)}{getUnit(reading.sensor_type)}
+                                        <NumberFlow value={formattedValue} />{getUnit(reading.sensor_type)}
                                     </div>
                                     <div className="text-xs sm:text-sm text-muted-foreground">
                                         {new Date(reading.timestamp).toLocaleTimeString()}

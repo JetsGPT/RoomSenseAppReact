@@ -54,7 +54,7 @@ export default function UserMenu() {
           <span className={`truncate text-xs font-normal ${
     user?.role === "admin" ? "text-red-500" : "text-muted-foreground"
   }`}>
-            Role : {user?.role.toUpperCase()}
+            Role : {user?.role?.toUpperCase() || 'User'}
           </span>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />

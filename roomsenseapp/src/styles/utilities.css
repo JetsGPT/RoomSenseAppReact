@@ -1,0 +1,47 @@
+/* ============================================
+   UTILITY CLASSES
+   ============================================ */
+
+@layer utilities {
+  /* ===== BRAND COLOR UTILITIES ===== */
+  .text-cambridge-blue { color: var(--cambridge-blue); }
+  .text-moss-green { color: var(--moss-green); }
+  .text-dark-slate-green { color: var(--dark-slate-green); }
+  .text-tea-green { color: var(--tea-green); }
+  .text-honeydew-2 { color: var(--honeydew-2); }
+  
+  .bg-cambridge-blue { background-color: var(--cambridge-blue); }
+  .bg-moss-green { background-color: var(--moss-green); }
+  .bg-dark-slate-green { background-color: var(--dark-slate-green); }
+  .bg-tea-green { background-color: var(--tea-green); }
+  .bg-honeydew-2 { background-color: var(--honeydew-2); }
+  
+  .border-cambridge-blue { border-color: var(--cambridge-blue); }
+  .border-moss-green { border-color: var(--moss-green); }
+  .border-dark-slate-green { border-color: var(--dark-slate-green); }
+  .border-tea-green { border-color: var(--tea-green); }
+  .border-honeydew-2 { border-color: var(--honeydew-2); }
+  
+  /* ===== ROUNDED UTILITIES ===== */
+  .rounded-global { border-radius: var(--radius); }
+  .rounded-global-sm { border-radius: var(--radius-sm); }
+  .rounded-global-md { border-radius: var(--radius-md); }
+  .rounded-global-lg { border-radius: var(--radius-lg); }
+  .rounded-global-xl { border-radius: var(--radius-xl); }
+  .rounded-global-2xl { border-radius: var(--radius-2xl); }
+  .rounded-global-3xl { border-radius: var(--radius-3xl); }
+  
+  /* ===== SHADOW UTILITIES ===== */
+  .shadow-global-sm { box-shadow: var(--shadow-sm); }
+  .shadow-global-md { box-shadow: var(--shadow-md); }
+  .shadow-global-lg { box-shadow: var(--shadow-lg); }
+  .shadow-global-xl { box-shadow: var(--shadow-xl); }
+  
+  /* ===== SPACING UTILITIES ===== */
+  .space-global-xs { gap: var(--spacing-xs); }
+  .space-global-sm { gap: var(--spacing-sm); }
+  .space-global-md { gap: var(--spacing-md); }
+  .space-global-lg { gap: var(--spacing-lg); }
+  .space-global-xl { gap: var(--spacing-xl); }
+  .space-global-2xl { gap: var(--spacing-2xl); }
+}

@@ -1,7 +1,8 @@
 import React from 'react';
 import { InfoBlock, InfoItem } from './ui/InfoBlock';
-import { SensorLineChart } from './ui/SensorChart';
+import { SensorLineChart } from './ui/SensorCharts';
 import { Thermometer, Droplets, Gauge, Sun, Activity } from 'lucide-react';
+import NumberFlow from "@number-flow/react"
 
 export function Overview({ sensorData, groupedData }) {
     // Get sensor type icon
@@ -75,23 +76,22 @@ export function Overview({ sensorData, groupedData }) {
                 <InfoBlock title="Total Boxes" className="text-center">
                     <div className="flex items-center justify-center">
                         <Activity className="w-6 h-6 sm:w-8 sm:h-8 text-primary" />
-                        <span className="ml-1 sm:ml-2 text-lg sm:text-2xl font-bold">{Object.keys(groupedData).length}</span>
+                        <NumberFlow className="ml-1 sm:ml-2 text-lg sm:text-2xl font-bold" value={Object.keys(groupedData).length} />
+                        
                     </div>
                 </InfoBlock>
                 
                 <InfoBlock title="Sensor Types" className="text-center">
                     <div className="flex items-center justify-center">
                         <Thermometer className="w-6 h-6 sm:w-8 sm:h-8 text-primary" />
-                        <span className="ml-1 sm:ml-2 text-lg sm:text-2xl font-bold">
-                            {[...new Set(sensorData.map(r => r.sensor_type))].length}
-                        </span>
+                        <NumberFlow className="ml-1 sm:ml-2 text-lg sm:text-2xl font-bold" value={[...new Set(sensorData.map(r => r.sensor_type))].length} />
                     </div>
                 </InfoBlock>
                 
                 <InfoBlock title="Total Readings" className="text-center">
                     <div className="flex items-center justify-center">
                         <Gauge className="w-6 h-6 sm:w-8 sm:h-8 text-primary" />
-                        <span className="ml-1 sm:ml-2 text-lg sm:text-2xl font-bold">{sensorData.length}</span>
+                        <NumberFlow className="ml-1 sm:ml-2 text-lg sm:text-2xl font-bold" value = {sensorData.length}/ >
                     </div>
                 </InfoBlock>
                 
@@ -118,14 +118,14 @@ export function Overview({ sensorData, groupedData }) {
                                         <InfoItem
                                             key={`${reading.sensor_type}-${index}`}
                                             label={reading.sensor_type.charAt(0).toUpperCase() + reading.sensor_type.slice(1)}
-                                            value={`${reading.value.toFixed(1)}${getUnit(reading.sensor_type)}`}
+                                            value={<><NumberFlow value={reading.value.toFixed(1)} />{getUnit(reading.sensor_type)}</>}
                                             icon={Icon}
                                         />
                                     );
                                 })}
                                 <div className="pt-2 border-t border-border">
                                     <p className="text-xs text-muted-foreground">
-                                        {readings.length} readings
+                                        <NumberFlow value={readings.length} /> readings
                                     </p>
                                 </div>
                             </div>
