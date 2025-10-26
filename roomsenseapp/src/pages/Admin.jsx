@@ -6,8 +6,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Input } from '../components/ui/input';
 import { Server, Globe, TestTube, Save, RotateCcw, Shield } from 'lucide-react';
 import { useSettings } from '../contexts/SettingsContext';
-import { updateApiBaseUrl } from '../services/api';
-import { updateSensorsApiBaseUrl } from '../services/sensorsAPI';
 import { StaggeredContainer, StaggeredItem, FadeIn, SlideIn } from '../components/ui/PageTransition';
 
 export function Admin() {
@@ -32,10 +30,6 @@ export function Admin() {
                 apiBaseUrl: localApiBaseUrl,
                 sensorsApiUrl: localSensorsApiUrl
             });
-            
-            // Update API instances
-            updateApiBaseUrl(localApiBaseUrl);
-            updateSensorsApiBaseUrl(localSensorsApiUrl);
             
             // Simulate save delay for better UX
             setTimeout(() => {

@@ -1,43 +1,16 @@
 import axios from 'axios';
 
-// Get Sensors API base URL from localStorage or use default
-const getSensorsApiBaseUrl = () => {
-    try {
-        const savedSettings = localStorage.getItem('roomsense-settings');
-        if (savedSettings) {
-            const settings = JSON.parse(savedSettings);
-            return settings.sensorsApiUrl || 'https://localhost:8081/api';
-        }
-    } catch (error) {
-        console.error('Error loading sensors API settings:', error);
-    }
-    return 'https://localhost:8081/api';
-};
+// Hardcoded Sensors API base URL
+const SENSORS_API_BASE_URL = 'https://192.168.0.117:8081/api';
 
-// Create axios instance with configurable base URL
-const createSensorsApiInstance = () => {
-    return axios.create({
-        baseURL: getSensorsApiBaseUrl(),
-        withCredentials: true, // Important for session cookies
-        headers: {
-            'Content-Type': 'application/json',
-        },
-    });
-};
-
-// Create initial instance
-let api = createSensorsApiInstance();
-
-// Function to update Sensors API base URL
-export const updateSensorsApiBaseUrl = (newUrl) => {
-    api = axios.create({
-        baseURL: newUrl,
-        withCredentials: true,
-        headers: {
-            'Content-Type': 'application/json',
-        },
-    });
-};
+// Create axios instance
+const api = axios.create({
+    baseURL: SENSORS_API_BASE_URL,
+    withCredentials: true, // Important for session cookies
+    headers: {
+        'Content-Type': 'application/json',
+    },
+});
 
 // Sensors API calls
 export const sensorsAPI = {
