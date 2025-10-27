@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // Hardcoded Sensors API base URL
-const SENSORS_API_BASE_URL = 'https://192.168.0.117:8081/api';
+const SENSORS_API_BASE_URL = 'https://server.roomsense.duckdns.org/api';
 
 // Create axios instance
 const api = axios.create({

@@ -4,9 +4,10 @@ import { InfoBlock, InfoItem } from '../components/ui/InfoBlock';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Input } from '../components/ui/input';
-import { Server, Globe, TestTube, Save, RotateCcw, Shield } from 'lucide-react';
+import { Server, Globe, TestTube, Save, RotateCcw, Shield, Database } from 'lucide-react';
 import { useSettings } from '../contexts/SettingsContext';
 import { StaggeredContainer, StaggeredItem, FadeIn, SlideIn } from '../components/ui/PageTransition';
+import api from '../services/api';
 
 export function Admin() {
     const { settings, updateSettings } = useSettings();
@@ -15,6 +16,8 @@ export function Admin() {
     const [isSaving, setIsSaving] = useState(false);
     const [isTestingConnection, setIsTestingConnection] = useState(false);
     const [connectionStatus, setConnectionStatus] = useState(null);
+    const [isWritingTestData, setIsWritingTestData] = useState(false);
+    const [testDataStatus, setTestDataStatus] = useState(null);
 
     // Update local state when settings change
     useEffect(() => {
@@ -73,6 +76,20 @@ export function Admin() {
             setConnectionStatus({ type, status: 'error', message: `Connection failed: ${error.message}` });
         } finally {
             setIsTestingConnection(false);
+        }
+    };
+
+    const writeTestData = async () => {
+        setIsWritingTestData(true);
+        setTestDataStatus(null);
+        
+        try {
+            const response = await api.get('/sensors/writeTestData');
+            setTestDataStatus({ status: 'success', message: 'Test data written successfully!' });
+        } catch (error) {
+            setTestDataStatus({ status: 'error', message: error.response?.data?.error || error.message || 'Failed to write test data' });
+        } finally {
+            setIsWritingTestData(false);
         }
     };
 
@@ -151,6 +168,15 @@ export function Admin() {
                                                 <TestTube className="w-4 h-4 mr-2" />
                                                 Test Sensors API
                                             </Button>
+                                            <Button
+                                                onClick={writeTestData}
+                                                className="w-full justify-start"
+                                                variant="outline"
+                                                disabled={isWritingTestData || isTestingConnection}
+                                            >
+                                                <Database className="w-4 h-4 mr-2" />
+                                                Write Test Data
+                                            </Button>
                                         </div>
                                     </InfoBlock>
                                 </div>
@@ -208,6 +234,23 @@ export function Admin() {
                                         }`}>
                                             {connectionStatus.type === 'auth' ? 'Auth API: ' : 'Sensors API: '}
                                             {connectionStatus.message}
+                                        </p>
+                                    </div>
+                                )}
+
+                                {/* Test Data Status */}
+                                {testDataStatus && (
+                                    <div className={`p-3 rounded-md border ${
+                                        testDataStatus.status === 'success' 
+                                            ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800' 
+                                            : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
+                                    }`}>
+                                        <p className={`text-sm ${
+                                            testDataStatus.status === 'success' 
+                                                ? 'text-green-800 dark:text-green-200' 
+                                                : 'text-red-800 dark:text-red-200'
+                                        }`}>
+                                            Test Data: {testDataStatus.message}
                                         </p>
                                     </div>
                                 )}

@@ -50,7 +50,27 @@ export const AuthProvider = ({ children }) => {
             setUser(userData);
             return { success: true };
         } catch (err) {
-            const errorMessage = err.response?.data?.error || 'Login failed';
+            console.error('[AuthContext] Login error:', err);
+            
+            // Build detailed error message
+            let errorMessage = 'Login failed';
+            
+            if (err.response) {
+                // Server responded with error
+                errorMessage = `Server error (${err.response.status}): ${err.response.data?.error || err.response.data?.message || JSON.stringify(err.response.data)}`;
+            } else if (err.request) {
+                // Request made but no response
+                errorMessage = `No response from server: ${err.message || 'Connection failed'}`;
+            } else {
+                // Request setup error
+                errorMessage = `Request error: ${err.message || 'Unknown error'}`;
+            }
+            
+            // Add error code if available
+            if (err.code) {
+                errorMessage += ` (Code: ${err.code})`;
+            }
+            
             setError(errorMessage);
             return { success: false, error: errorMessage };
         }
@@ -63,7 +83,27 @@ export const AuthProvider = ({ children }) => {
             // After registration, log the user in
             return await login(username, password);
         } catch (err) {
-            const errorMessage = err.response?.data?.error || 'Registration failed';
+            console.error('[AuthContext] Registration error:', err);
+            
+            // Build detailed error message
+            let errorMessage = 'Registration failed';
+            
+            if (err.response) {
+                // Server responded with error
+                errorMessage = `Server error (${err.response.status}): ${err.response.data?.error || err.response.data?.message || JSON.stringify(err.response.data)}`;
+            } else if (err.request) {
+                // Request made but no response
+                errorMessage = `No response from server: ${err.message || 'Connection failed'}`;
+            } else {
+                // Request setup error
+                errorMessage = `Request error: ${err.message || 'Unknown error'}`;
+            }
+            
+            // Add error code if available
+            if (err.code) {
+                errorMessage += ` (Code: ${err.code})`;
+            }
+            
             setError(errorMessage);
             return { success: false, error: errorMessage };
         }

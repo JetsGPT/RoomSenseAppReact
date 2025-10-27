@@ -45,7 +45,35 @@ const Login = () => {
                 setLocalError(result.error || 'Authentication failed');
             }
         } catch (err) {
-            setLocalError('An unexpected error occurred');
+            // Show detailed error information
+            let errorMessage = 'An unexpected error occurred';
+            
+            if (err.response) {
+                // Server responded with error status
+                errorMessage = `Server error (${err.response.status}): ${err.response.data?.message || err.response.data || 'Unknown error'}`;
+                console.error('[Login] Server response:', err.response.data);
+            } else if (err.request) {
+                // Request made but no response received
+                errorMessage = `No response from server: ${err.message || 'Connection failed'}`;
+                console.error('[Login] Request error:', err.request);
+            } else {
+                // Something else happened
+                errorMessage = `Error: ${err.message || 'Unknown error'}`;
+                console.error('[Login] Error:', err.message);
+            }
+            
+            // Add error code if available
+            if (err.code) {
+                errorMessage += ` (Code: ${err.code})`;
+                console.error('[Login] Error code:', err.code);
+            }
+            
+            // Add URL info
+            if (err.config) {
+                console.error('[Login] Request URL:', err.config.baseURL + err.config.url);
+            }
+            
+            setLocalError(errorMessage);
         } finally {
             setIsLoading(false);
         }
