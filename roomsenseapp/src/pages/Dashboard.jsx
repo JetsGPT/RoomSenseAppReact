@@ -1,29 +1,23 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { useAuth } from '../contexts/AuthContext';
-import { useNavigate } from 'react-router-dom';
 import { useSidebar } from '../shared/contexts/SidebarContext';
 import { useSensorData } from '../hooks/useSensorData';
+import { useSensorSelection } from '../hooks/useSensorSelection';
 import { InfoBlock, InfoItem } from '../components/ui/InfoBlock';
 import { SensorLineChart, SensorAreaChart, MultiSensorChart } from '../components/ui/SensorCharts';
 import { Overview } from '../components/Overview';
 import { BoxDetail } from '../components/BoxDetail';
 import { Options } from '../components/Options';
+import { SensorChartManager } from '../components/SensorChartManager';
 import { StaggeredContainer, StaggeredItem, FadeIn, SlideIn } from '../components/ui/PageTransition';
 import { 
-    getSensorConfig, 
-    getSensorIcon, 
     getSensorUnit, 
-    getSensorColor, 
-    getSensorName,
-    CHART_CONFIG,
-    DEFAULT_SENSOR_TYPES 
+    getSensorColor 
 } from '../config/sensorConfig';
 
 
-
 const Dashboard = () => {
-    const { activeView, setActiveView } = useSidebar();
+    const { activeView } = useSidebar();
     const [fetchDelay, setFetchDelay] = useState(() => {
         // Get from localStorage or default to 30 seconds
         const saved = localStorage.getItem('sensorFetchDelay');
@@ -34,16 +28,24 @@ const Dashboard = () => {
     const {
         data: sensorData,
         groupedData,
-        sensorBoxes,
         sensorTypes,
         loading,
         error,
         refresh: refreshData
     } = useSensorData({
-        timeRange: '-24h',
-        limit: 500,
+        timeRange: '-30d',
+        limit: 2000,
         autoRefresh: fetchDelay > 0,
         refreshInterval: fetchDelay * 1000
+    });
+
+    const {
+        selectedSensors: analyticsSensorTypes,
+        setSelectedSensors: setAnalyticsSensorTypes
+    } = useSensorSelection({
+        storageKey: 'roomsense.dashboard.selectedSensors',
+        availableSensors: sensorTypes,
+        defaultToAll: true
     });
 
     // Save fetch delay to localStorage
@@ -72,6 +74,10 @@ const Dashboard = () => {
         }, {});
     }, [sensorTypes]);
 
+    const activeSensorTypes = useMemo(() => {
+        return analyticsSensorTypes.filter((sensor) => sensorTypes.includes(sensor));
+    }, [analyticsSensorTypes, sensorTypes]);
+
     // Render content based on active view
     const renderContent = () => {
         if (activeView === 'overview') {
@@ -90,33 +96,52 @@ const Dashboard = () => {
                 />
             );
         } else if (activeView === 'analytics') {
+            const analyticsCharts = activeSensorTypes.map(sensorType => {
+                const chartData = sensorData
+                    .filter(reading => reading.sensor_type === sensorType)
+                    .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
+                    .map(reading => ({
+                        timestamp: reading.timestamp,
+                        value: reading.value,
+                        sensor_box: reading.sensor_box
+                    }));
+
+                if (chartData.length === 0) return null;
+
+                return (
+                    <SensorLineChart
+                        key={sensorType}
+                        data={chartData}
+                        sensorType={sensorType}
+                        color={chartColors[sensorType]}
+                        unit={getUnit(sensorType)}
+                    />
+                );
+            }).filter(Boolean);
+
             return (
-                <div className="space-y-8">
-                    <h2 className="text-2xl font-semibold text-foreground">Analytics Dashboard</h2>
-                    <div className="grid gap-6 md:grid-cols-2">
-                        {sensorTypes.map(sensorType => {
-                            const chartData = sensorData
-                                .filter(reading => reading.sensor_type === sensorType)
-                                .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
-                                .map(reading => ({
-                                    timestamp: reading.timestamp,
-                                    value: reading.value,
-                                    sensor_box: reading.sensor_box
-                                }));
-                            
-                            if (chartData.length === 0) return null;
-                            
-                            return (
-                                <SensorLineChart
-                                    key={sensorType}
-                                    data={chartData}
-                                    sensorType={sensorType}
-                                    color={chartColors[sensorType]}
-                                    unit={getUnit(sensorType)}
-                                />
-                            );
-                        })}
+                <div className="space-y-6">
+                    <div className="space-y-3">
+                        <h2 className="text-2xl font-semibold text-foreground">Analytics Dashboard</h2>
+                        <SensorChartManager
+                            availableSensors={sensorTypes}
+                            selectedSensors={activeSensorTypes}
+                            onChange={setAnalyticsSensorTypes}
+                        />
                     </div>
+                    {activeSensorTypes.length === 0 ? (
+                        <div className="rounded-2xl border border-dashed border-border bg-muted/20 p-8 text-center text-sm text-muted-foreground">
+                            Select at least one sensor type to display its chart.
+                        </div>
+                    ) : analyticsCharts.length === 0 ? (
+                        <div className="rounded-2xl border border-dashed border-border bg-muted/20 p-8 text-center text-sm text-muted-foreground">
+                            No readings available for the selected sensors.
+                        </div>
+                    ) : (
+                        <div className="grid gap-6 md:grid-cols-2">
+                            {analyticsCharts}
+                        </div>
+                    )}
                 </div>
             );
         } else if (activeView === 'options') {

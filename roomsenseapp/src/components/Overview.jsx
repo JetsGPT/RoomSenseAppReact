@@ -1,8 +1,11 @@
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 import { InfoBlock, InfoItem } from './ui/InfoBlock';
 import { SensorLineChart } from './ui/SensorCharts';
-import { Thermometer, Droplets, Gauge, Sun, Activity } from 'lucide-react';
+import { Thermometer, Droplets, Gauge, Sun, Activity, PencilLine } from 'lucide-react';
 import NumberFlow from "@number-flow/react"
+import { Button } from './ui/button';
+import { SensorChartManager } from './SensorChartManager';
+import { useSensorSelection } from '../hooks/useSensorSelection';
 
 export function Overview({ sensorData, groupedData }) {
     // Get sensor type icon
@@ -61,13 +64,36 @@ export function Overview({ sensorData, groupedData }) {
             }));
     };
 
-    // Chart colors
-    const chartColors = {
-        temperature: '#ef4444', // red
-        humidity: '#3b82f6',     // blue
-        pressure: '#10b981',     // emerald
-        light: '#f59e0b'         // amber
-    };
+    const [showQuickTrendManager, setShowQuickTrendManager] = useState(false);
+
+    const availableSensorTypes = useMemo(() => {
+        return Array.from(new Set(sensorData.map((reading) => reading.sensor_type))).filter(Boolean);
+    }, [sensorData]);
+
+    const {
+        selectedSensors: quickTrendSensorTypes,
+        setSelectedSensors: setQuickTrendSensorTypes
+    } = useSensorSelection({
+        storageKey: 'roomsense.overview.selectedSensors',
+        availableSensors: availableSensorTypes,
+        defaultToAll: false,
+        defaultSelection: ['temperature', 'humidity']
+    });
+
+    const quickTrendCharts = quickTrendSensorTypes.map((sensorType) => {
+        const chartData = getChartDataForSensorType(sensorType);
+        if (chartData.length === 0) {
+            return null;
+        }
+
+        return (
+            <SensorLineChart
+                key={sensorType}
+                data={chartData}
+                sensorType={sensorType}
+            />
+        );
+    }).filter(Boolean);
 
     return (
         <div className="space-y-4 sm:space-y-6">
@@ -91,7 +117,7 @@ export function Overview({ sensorData, groupedData }) {
                 <InfoBlock title="Total Readings" className="text-center">
                     <div className="flex items-center justify-center">
                         <Gauge className="w-6 h-6 sm:w-8 sm:h-8 text-primary" />
-                        <NumberFlow className="ml-1 sm:ml-2 text-lg sm:text-2xl font-bold" value = {sensorData.length}/ >
+                        <NumberFlow className="ml-1 sm:ml-2 text-lg sm:text-2xl font-bold" value={sensorData.length} />
                     </div>
                 </InfoBlock>
                 
@@ -135,24 +161,38 @@ export function Overview({ sensorData, groupedData }) {
             </div>
 
             {/* Quick Trends */}
-            <div>
-                <h3 className="text-base sm:text-lg font-semibold text-foreground mb-3 sm:mb-4">Quick Trends</h3>
-                <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2">
-                    {['temperature', 'humidity'].map(sensorType => {
-                        const chartData = getChartDataForSensorType(sensorType);
-                        if (chartData.length === 0) return null;
-                        
-                        return (
-                            <SensorLineChart
-                                key={sensorType}
-                                data={chartData}
-                                sensorType={sensorType}
-                                color={chartColors[sensorType]}
-                                unit={getUnit(sensorType)}
-                            />
-                        );
-                    })}
+            <div className="space-y-3 sm:space-y-4">
+                <div className="flex items-center justify-between gap-2">
+                    <h3 className="text-base sm:text-lg font-semibold text-foreground">Quick Trends</h3>
+                    <Button
+                        type="button"
+                        size="icon-sm"
+                        variant={showQuickTrendManager ? 'secondary' : 'ghost'}
+                        onClick={() => setShowQuickTrendManager((prev) => !prev)}
+                        aria-pressed={showQuickTrendManager}
+                        className="shrink-0"
+                    >
+                        <PencilLine className="h-4 w-4" />
+                        <span className="sr-only">Configure quick trend charts</span>
+                    </Button>
                 </div>
+                {showQuickTrendManager && (
+                    <SensorChartManager
+                        availableSensors={availableSensorTypes}
+                        selectedSensors={quickTrendSensorTypes}
+                        onChange={setQuickTrendSensorTypes}
+                        className="bg-background"
+                    />
+                )}
+                {quickTrendSensorTypes.length === 0 || quickTrendCharts.length === 0 ? (
+                    <div className="rounded-2xl border border-dashed border-border bg-muted/20 p-6 text-center text-sm text-muted-foreground">
+                        Select at least one sensor type to display quick trend charts.
+                    </div>
+                ) : (
+                    <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2">
+                        {quickTrendCharts}
+                    </div>
+                )}
             </div>
         </div>
     );

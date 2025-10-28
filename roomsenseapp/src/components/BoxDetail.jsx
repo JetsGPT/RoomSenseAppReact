@@ -1,16 +1,17 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { InfoBlock, InfoItem } from './ui/InfoBlock';
 import { SensorLineChart, SensorAreaChart, MultiSensorChart } from './ui/SensorCharts';
-import { Activity } from 'lucide-react';
+import { Activity, PencilLine } from 'lucide-react';
 import NumberFlow from "@number-flow/react";
+import { Button } from './ui/button';
+import { SensorChartManager } from './SensorChartManager';
+import { useSensorSelection } from '../hooks/useSensorSelection';
 import { 
-    getSensorConfig, 
     getSensorIcon, 
     getSensorUnit, 
     getSensorColor, 
     getSensorName, 
-    formatSensorValue,
-    CHART_CONFIG 
+    formatSensorValue 
 } from '../config/sensorConfig';
 
 export function BoxDetail({ boxId, sensorData }) {
@@ -37,19 +38,43 @@ export function BoxDetail({ boxId, sensorData }) {
         return Object.values(latestByType);
     }, [boxData]);
 
-    const sensorTypes = useMemo(() => 
+    const availableSensorTypes = useMemo(() => 
         [...new Set(boxData.map(r => r.sensor_type))],
         [boxData]
     );
 
+    const [showChartManager, setShowChartManager] = useState(false);
+
+    const {
+        selectedSensors: selectedSensorTypes,
+        setSelectedSensors: setSelectedSensorTypes
+    } = useSensorSelection({
+        storageKey: `roomsense.box.${boxId}.selectedSensors`,
+        availableSensors: availableSensorTypes,
+        defaultToAll: true
+    });
+
     // Get chart colors from centralized config
     const chartColors = useMemo(() => 
-        sensorTypes.reduce((colors, sensorType) => {
+        availableSensorTypes.reduce((colors, sensorType) => {
             colors[sensorType] = getSensorColor(sensorType);
             return colors;
         }, {}),
-        [sensorTypes]
+        [availableSensorTypes]
     );
+
+    const activeSensorTypes = useMemo(() => {
+        return selectedSensorTypes.filter((sensorType) => availableSensorTypes.includes(sensorType));
+    }, [selectedSensorTypes, availableSensorTypes]);
+
+    const activeChartColors = useMemo(() => {
+        return activeSensorTypes.reduce((colors, sensorType) => {
+            if (chartColors[sensorType]) {
+                colors[sensorType] = chartColors[sensorType];
+            }
+            return colors;
+        }, {});
+    }, [activeSensorTypes, chartColors]);
 
     // Prepare chart data for a specific sensor type in this box
     const getChartDataForSensorType = (sensorType) => {
@@ -93,19 +118,44 @@ export function BoxDetail({ boxId, sensorData }) {
     return (
         <div className="space-y-4 sm:space-y-6">
             {/* Box Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-0">
-                <div>
-                    <h2 className="text-xl sm:text-2xl font-semibold text-foreground">Sensor Box {boxId}</h2>
-                    <p className="text-sm sm:text-base text-muted-foreground">
-                        <NumberFlow value={boxData.length} /> total readings • <NumberFlow value={sensorTypes.length} /> sensor types
-                    </p>
+            <div className="space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4">
+                    <div>
+                        <h2 className="text-xl sm:text-2xl font-semibold text-foreground">Sensor Box {boxId}</h2>
+                        <p className="text-sm sm:text-base text-muted-foreground">
+                            <NumberFlow value={boxData.length} /> total readings • <NumberFlow value={availableSensorTypes.length} /> sensor types
+                        </p>
+                    </div>
+                    <div className="flex flex-col items-start sm:items-end gap-2">
+                        <div className="flex items-center gap-2">
+                            <Button
+                                type="button"
+                                size="icon-sm"
+                                variant={showChartManager ? 'secondary' : 'ghost'}
+                                onClick={() => setShowChartManager((prev) => !prev)}
+                                aria-pressed={showChartManager}
+                                className="shrink-0"
+                            >
+                                <PencilLine className="h-4 w-4" />
+                                <span className="sr-only">Configure sensor charts</span>
+                            </Button>
+                            <div className="text-left sm:text-right">
+                                <p className="text-xs sm:text-sm text-muted-foreground">Last updated</p>
+                                <p className="text-sm sm:text-base font-medium">
+                                    {new Date(Math.max(...boxData.map(r => new Date(r.timestamp)))).toLocaleString()}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                <div className="text-left sm:text-right">
-                    <p className="text-xs sm:text-sm text-muted-foreground">Last updated</p>
-                    <p className="text-sm sm:text-base font-medium">
-                        {new Date(Math.max(...boxData.map(r => new Date(r.timestamp)))).toLocaleString()}
-                    </p>
-                </div>
+                {showChartManager && (
+                    <SensorChartManager
+                        availableSensors={availableSensorTypes}
+                        selectedSensors={activeSensorTypes}
+                        onChange={setSelectedSensorTypes}
+                        className="bg-background"
+                    />
+                )}
             </div>
 
             {/* Current Readings */}
@@ -135,53 +185,67 @@ export function BoxDetail({ boxId, sensorData }) {
             {/* Individual Sensor Charts */}
             <div>
                 <h3 className="text-base sm:text-lg font-semibold text-foreground mb-3 sm:mb-4">Individual Sensor Trends</h3>
-                <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2">
-                    {sensorTypes.map(sensorType => {
-                        const chartData = getChartDataForSensorType(sensorType);
-                        if (chartData.length === 0) return null;
-                        
-                        return (
-                            <SensorLineChart
-                                key={sensorType}
-                                data={chartData}
-                                sensorType={sensorType}
-                                color={chartColors[sensorType]}
-                                unit={getUnit(sensorType)}
-                            />
-                        );
-                    })}
-                </div>
+                {activeSensorTypes.length === 0 ? (
+                    <div className="rounded-2xl border border-dashed border-border bg-muted/20 p-6 text-center text-sm text-muted-foreground">
+                        Select at least one sensor type to display individual charts.
+                    </div>
+                ) : (
+                    <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2">
+                        {activeSensorTypes.map(sensorType => {
+                            const chartData = getChartDataForSensorType(sensorType);
+                            if (chartData.length === 0) return null;
+                            
+                            return (
+                                <SensorLineChart
+                                    key={sensorType}
+                                    data={chartData}
+                                    sensorType={sensorType}
+                                />
+                            );
+                        }).filter(Boolean)}
+                    </div>
+                )}
             </div>
 
             {/* Combined View */}
             <div>
                 <h3 className="text-base sm:text-lg font-semibold text-foreground mb-3 sm:mb-4">All Sensors Combined</h3>
-                <MultiSensorChart
-                    data={getMultiSensorChartData()}
-                    title={`Box ${boxId} - All Sensors`}
-                    colors={chartColors}
-                />
+                {activeSensorTypes.length === 0 ? (
+                    <div className="rounded-2xl border border-dashed border-border bg-muted/20 p-6 text-center text-sm text-muted-foreground">
+                        Select at least one sensor type to display the combined chart.
+                    </div>
+                ) : (
+                    <MultiSensorChart
+                        data={getMultiSensorChartData()}
+                        title={`Box ${boxId} - Selected Sensors`}
+                        colors={activeChartColors}
+                    />
+                )}
             </div>
 
             {/* Area Charts for Trends */}
             <div>
                 <h3 className="text-base sm:text-lg font-semibold text-foreground mb-3 sm:mb-4">Trend Analysis</h3>
-                <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2">
-                    {sensorTypes.slice(0, 2).map(sensorType => {
-                        const chartData = getChartDataForSensorType(sensorType);
-                        if (chartData.length === 0) return null;
-                        
-                        return (
-                            <SensorAreaChart
-                                key={sensorType}
-                                data={chartData}
-                                sensorType={sensorType}
-                                color={chartColors[sensorType]}
-                                unit={getUnit(sensorType)}
-                            />
-                        );
-                    })}
-                </div>
+                {activeSensorTypes.length === 0 ? (
+                    <div className="rounded-2xl border border-dashed border-border bg-muted/20 p-6 text-center text-sm text-muted-foreground">
+                        Select at least one sensor type to analyse trend data.
+                    </div>
+                ) : (
+                    <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2">
+                        {activeSensorTypes.slice(0, 2).map(sensorType => {
+                            const chartData = getChartDataForSensorType(sensorType);
+                            if (chartData.length === 0) return null;
+                            
+                            return (
+                                <SensorAreaChart
+                                    key={sensorType}
+                                    data={chartData}
+                                    sensorType={sensorType}
+                                />
+                            );
+                        }).filter(Boolean)}
+                    </div>
+                )}
             </div>
         </div>
     );
