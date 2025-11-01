@@ -4,7 +4,12 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { sensorsAPI, sensorHelpers } from '../services/sensorsAPI';
-import { DEFAULT_TIME_RANGE_VALUE, DEFAULT_DATA_LIMIT, DEFAULT_REFRESH_INTERVAL } from '../config/sensorConfig';
+import { 
+    DEFAULT_TIME_RANGE_VALUE, 
+    DEFAULT_DATA_LIMIT, 
+    DEFAULT_REFRESH_INTERVAL,
+    DATA_LIMITS 
+} from '../config/sensorConfig';
 
 /**
  * Custom hook for sensor data fetching with automatic refresh and memoization.
@@ -88,12 +93,16 @@ export const useSensorData = (options = {}) => {
         return [...new Set(data.map(r => r.sensor_type))];
     }, [data]);
 
+    // Get latest readings - one per sensor type (aggregates across all boxes)
+    // Note: This groups by sensor_type only, not by box+type.
+    // For latest readings per box+type combination, use sensorHelpers.getLatestReadings(data)
     const latestReadings = useMemo(() => {
         const latestByType = {};
         data.forEach(reading => {
-            if (!latestByType[reading.sensor_type] || 
-                new Date(reading.timestamp) > new Date(latestByType[reading.sensor_type].timestamp)) {
-                latestByType[reading.sensor_type] = reading;
+            const sensorType = reading.sensor_type;
+            if (!latestByType[sensorType] || 
+                new Date(reading.timestamp) > new Date(latestByType[sensorType].timestamp)) {
+                latestByType[sensorType] = reading;
             }
         });
         return Object.values(latestByType);
@@ -165,7 +174,7 @@ export const useRealTimeSensorData = (options = {}) => {
     return useSensorData({
         ...options,
         timeRange: '-5m',
-        limit: 100,
+        limit: DATA_LIMITS.realtime,
         refreshInterval: 10000, // 10 seconds for real-time
     });
 };
@@ -179,7 +188,7 @@ export const useAnalyticsSensorData = (options = {}) => {
     return useSensorData({
         ...options,
         timeRange: '-7d',
-        limit: 1000,
+        limit: DATA_LIMITS.analytics,
         refreshInterval: 60000, // 1 minute for analytics
     });
 };

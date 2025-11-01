@@ -15,14 +15,15 @@ import Admin from './pages/Admin';
 import './App.css';
 import Dashboard from './pages/Dashboard';
 import { useSensorData } from './hooks/useSensorData';
+import { DEFAULT_TIME_RANGE_VALUE, DATA_LIMITS, DEFAULT_REFRESH_INTERVAL } from './config/sensorConfig';
 
 function DashboardWrapper() {
     // Fetch sensor data at the app level to make it available to sidebar
     const { sensorBoxes } = useSensorData({
-        timeRange: '-24h',
-        limit: 100, // Smaller limit for sidebar data
+        timeRange: DEFAULT_TIME_RANGE_VALUE,
+        limit: DATA_LIMITS.realtime, // Smaller limit for sidebar data
         autoRefresh: true,
-        refreshInterval: 30000 // 30 seconds
+        refreshInterval: DEFAULT_REFRESH_INTERVAL
     });
 
     return (

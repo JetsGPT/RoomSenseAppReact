@@ -16,7 +16,10 @@ import {
     getSensorUnit, 
     getSensorColor, 
     getSensorName,
-    CHART_CONFIG
+    CHART_CONFIG,
+    DEFAULT_TIME_RANGE_VALUE,
+    DEFAULT_DATA_LIMIT,
+    DEFAULT_REFRESH_INTERVAL
 } from '../config/sensorConfig';
 
 
@@ -24,9 +27,9 @@ import {
 const Dashboard = () => {
     const { activeView, setActiveView } = useSidebar();
     const [fetchDelay, setFetchDelay] = useState(() => {
-        // Get from localStorage or default to 30 seconds
+        // Get from localStorage or default to DEFAULT_REFRESH_INTERVAL / 1000 seconds
         const saved = localStorage.getItem('sensorFetchDelay');
-        return saved ? parseInt(saved) : 30;
+        return saved ? parseInt(saved) : DEFAULT_REFRESH_INTERVAL / 1000;
     });
 
     // Use the custom hook for data fetching
@@ -39,8 +42,8 @@ const Dashboard = () => {
         error,
         refresh: refreshData
     } = useSensorData({
-        timeRange: '-24h',
-        limit: 500,
+        timeRange: DEFAULT_TIME_RANGE_VALUE,
+        limit: DEFAULT_DATA_LIMIT,
         autoRefresh: fetchDelay > 0,
         refreshInterval: fetchDelay * 1000
     });
@@ -58,12 +61,8 @@ const Dashboard = () => {
         refreshData();
     };
 
-    // Get unit for sensor type (using centralized config)
-    const getUnit = (sensorType) => {
-        return getSensorUnit(sensorType);
-    };
-
     // Get chart colors from centralized config
+    // Note: This duplicates CHART_CONFIG.colors logic but allows for dynamic sensor types
     const chartColors = useMemo(() => {
         return sensorTypes.reduce((colors, sensorType) => {
             colors[sensorType] = getSensorColor(sensorType);
@@ -144,12 +143,13 @@ const Dashboard = () => {
 
     // Show error state
     if (error) {
+        const errorMessage = error?.message || error?.toString() || 'Unknown error occurred';
         return (
             <div className="min-h-screen bg-background flex items-center justify-center">
                 <div className="text-center">
                     <div className="text-red-500 text-6xl mb-4">⚠️</div>
                     <h2 className="text-2xl font-semibold text-foreground mb-2">Error Loading Data</h2>
-                    <p className="text-muted-foreground mb-4">{error.message}</p>
+                    <p className="text-muted-foreground mb-4">{errorMessage}</p>
                     <button 
                         onClick={refreshData}
                         className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
