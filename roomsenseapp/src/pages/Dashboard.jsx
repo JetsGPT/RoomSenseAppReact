@@ -110,7 +110,7 @@ const Dashboard = () => {
                                     data={chartData}
                                     sensorType={sensorType}
                                     color={chartColors[sensorType]}
-                                    unit={getUnit(sensorType)}
+                                    unit={getSensorUnit(sensorType)}
                                 />
                             );
                         })}

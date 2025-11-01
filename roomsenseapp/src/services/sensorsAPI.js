@@ -13,7 +13,7 @@ import { DEFAULT_TIME_RANGE_VALUE, DEFAULT_DATA_LIMIT } from '../config/sensorCo
 // ============================================================================
 
 /** Sensors API base URL */
-const SENSORS_API_BASE_URL = 'https://server.roomsense.duckdns.org/api';
+const SENSORS_API_BASE_URL = 'https://localhost:8081/api';
 
 /** Create axios instance with default configuration */
 const api = axios.create({
