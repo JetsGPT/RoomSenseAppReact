@@ -16,8 +16,7 @@ import {
     getSensorUnit, 
     getSensorColor, 
     getSensorName,
-    CHART_CONFIG,
-    DEFAULT_SENSOR_TYPES 
+    CHART_CONFIG
 } from '../config/sensorConfig';
 
 

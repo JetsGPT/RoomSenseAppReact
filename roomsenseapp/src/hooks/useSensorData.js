@@ -1,15 +1,32 @@
+/**
+ * Custom hooks for sensor data fetching with caching and memoization.
+ */
+
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { sensorsAPI, sensorHelpers } from '../services/sensorsAPI';
+import { DEFAULT_TIME_RANGE_VALUE, DEFAULT_DATA_LIMIT, DEFAULT_REFRESH_INTERVAL } from '../config/sensorConfig';
 
-// Custom hook for sensor data fetching with caching and memoization
+/**
+ * Custom hook for sensor data fetching with automatic refresh and memoization.
+ * 
+ * @param {Object} options - Configuration options
+ * @param {string} [options.sensor_box] - Filter by sensor box ID
+ * @param {string} [options.sensor_type] - Filter by sensor type
+ * @param {string} [options.timeRange='-24h'] - Time range for data fetching (e.g., '-24h', '-7d')
+ * @param {number} [options.limit=500] - Maximum number of records to fetch
+ * @param {boolean} [options.autoRefresh=true] - Enable automatic refresh
+ * @param {number} [options.refreshInterval=30000] - Refresh interval in milliseconds
+ * @param {boolean} [options.enabled=true] - Enable/disable data fetching
+ * @returns {Object} Sensor data, loading state, error, and helper functions
+ */
 export const useSensorData = (options = {}) => {
     const {
         sensor_box,
         sensor_type,
-        timeRange = '-24h',
-        limit = 500,
+        timeRange = DEFAULT_TIME_RANGE_VALUE,
+        limit = DEFAULT_DATA_LIMIT,
         autoRefresh = true,
-        refreshInterval = 30000, // 30 seconds
+        refreshInterval = DEFAULT_REFRESH_INTERVAL,
         enabled = true
     } = options;
 
@@ -58,16 +75,9 @@ export const useSensorData = (options = {}) => {
         return () => clearInterval(interval);
     }, [autoRefresh, refreshInterval, fetchData, enabled]);
 
-    // Memoized computed values
+    // Memoized computed values - using helper function to avoid duplication
     const groupedData = useMemo(() => {
-        return data.reduce((acc, reading) => {
-            const boxId = reading.sensor_box;
-            if (!acc[boxId]) {
-                acc[boxId] = [];
-            }
-            acc[boxId].push(reading);
-            return acc;
-        }, {});
+        return sensorHelpers.groupByBox(data);
     }, [data]);
 
     const sensorBoxes = useMemo(() => {
@@ -146,7 +156,11 @@ export const useSensorData = (options = {}) => {
     };
 };
 
-// Hook for real-time data
+/**
+ * Hook for real-time sensor data with optimized settings.
+ * @param {Object} options - Same options as useSensorData
+ * @returns {Object} Same return object as useSensorData
+ */
 export const useRealTimeSensorData = (options = {}) => {
     return useSensorData({
         ...options,
@@ -156,7 +170,11 @@ export const useRealTimeSensorData = (options = {}) => {
     });
 };
 
-// Hook for analytics data
+/**
+ * Hook for analytics sensor data with optimized settings for historical analysis.
+ * @param {Object} options - Same options as useSensorData
+ * @returns {Object} Same return object as useSensorData
+ */
 export const useAnalyticsSensorData = (options = {}) => {
     return useSensorData({
         ...options,
