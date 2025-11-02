@@ -15,24 +15,19 @@ import Admin from './pages/Admin';
 import './App.css';
 import Dashboard from './pages/Dashboard';
 import { useSensorData } from './hooks/useSensorData';
+import { DEFAULT_TIME_RANGE_VALUE, DATA_LIMITS, DEFAULT_REFRESH_INTERVAL } from './config/sensorConfig';
 
 function DashboardWrapper() {
-    const location = useLocation();
-    const isDashboardRoute = location.pathname.startsWith('/dashboard');
-
-    // Fetch sensor data for the sidebar only when the dashboard is active
+    // Fetch sensor data at the app level to make it available to sidebar
     const { sensorBoxes } = useSensorData({
-        timeRange: '-24h',
-        limit: 100, // Smaller limit for sidebar data
-        autoRefresh: isDashboardRoute,
-        refreshInterval: 30000, // 30 seconds
-        enabled: isDashboardRoute
+        timeRange: DEFAULT_TIME_RANGE_VALUE,
+        limit: DATA_LIMITS.realtime, // Smaller limit for sidebar data
+        autoRefresh: true,
+        refreshInterval: DEFAULT_REFRESH_INTERVAL
     });
 
-    const effectiveSensorBoxes = isDashboardRoute ? sensorBoxes : [];
-
     return (
-        <SidebarProvider sensorBoxes={effectiveSensorBoxes}>
+        <SidebarProvider sensorBoxes={sensorBoxes}>
             <AppContent />
         </SidebarProvider>
     );

@@ -1,7 +1,57 @@
-// Centralized sensor configuration
+/**
+ * Centralized sensor configuration
+ * 
+ * This module defines all sensor types, their properties, and provides helper functions
+ * for accessing sensor configurations. To add a new sensor type, simply add it to the
+ * SENSOR_TYPES object below with the required properties.
+ */
+
 import { Thermometer, Droplets, Gauge, Sun, Activity, Zap, Wind, Eye } from 'lucide-react';
 
-// Sensor type definitions with all their properties
+// ============================================================================
+// Constants
+// ============================================================================
+
+/** Default values for unknown sensor types */
+const DEFAULT_SENSOR_CONFIG = {
+    icon: Gauge,
+    color: '#6b7280', // gray
+    unit: '',
+    min: 0,
+    max: 100,
+    precision: 1
+};
+
+/** Default time range for data fetching */
+export const DEFAULT_TIME_RANGE_VALUE = '-24h';
+
+/** Default limit for data fetching */
+export const DEFAULT_DATA_LIMIT = 500;
+
+/** Default refresh interval in milliseconds */
+export const DEFAULT_REFRESH_INTERVAL = 30000; // 30 seconds
+
+// ============================================================================
+// Sensor Type Definitions
+// ============================================================================
+
+/**
+ * Sensor type definitions with all their properties.
+ * 
+ * @typedef {Object} SensorConfig
+ * @property {string} name - Display name of the sensor
+ * @property {string} unit - Unit of measurement (e.g., '°C', '%', 'V')
+ * @property {Component} icon - Lucide React icon component
+ * @property {string} color - Hex color code for charts/UI
+ * @property {string} description - Human-readable description
+ * @property {number} min - Minimum expected value
+ * @property {number} max - Maximum expected value
+ * @property {number} precision - Decimal places for formatting
+ * 
+ * To add a new sensor type:
+ * 1. Import the icon from 'lucide-react'
+ * 2. Add a new entry to SENSOR_TYPES with all required properties
+ */
 export const SENSOR_TYPES = {
     temperature: {
         name: 'Temperature',
@@ -85,45 +135,116 @@ export const SENSOR_TYPES = {
     }
 };
 
-// Default sensor types that are commonly used
-export const DEFAULT_SENSOR_TYPES = ['temperature', 'humidity', 'pressure', 'light'];
+// ============================================================================
+// Helper Functions
+// ============================================================================
 
-// Helper functions
+/**
+ * Get the configuration object for a sensor type.
+ * Returns a default configuration for unknown sensor types.
+ * 
+ * @param {string} sensorType - The sensor type identifier (e.g., 'temperature', 'humidity')
+ * @returns {SensorConfig} The sensor configuration object
+ * 
+ * @example
+ * const config = getSensorConfig('temperature');
+ * // Returns: { name: 'Temperature', unit: '°C', icon: Thermometer, ... }
+ */
 export const getSensorConfig = (sensorType) => {
-    return SENSOR_TYPES[sensorType] || {
-        name: sensorType.charAt(0).toUpperCase() + sensorType.slice(1),
-        unit: '',
-        icon: Gauge,
-        color: '#6b7280', // gray
-        description: `Unknown sensor type: ${sensorType}`,
-        min: 0,
-        max: 100,
-        precision: 1
+    if (!sensorType || typeof sensorType !== 'string') {
+        return {
+            name: 'Unknown',
+            ...DEFAULT_SENSOR_CONFIG,
+            description: 'Invalid sensor type'
+        };
+    }
+    
+    const config = SENSOR_TYPES[sensorType];
+    if (config) {
+        return config;
+    }
+    
+    // Return default config for unknown sensor types
+    return {
+        name: sensorType.charAt(0).toUpperCase() + sensorType.slice(1).replace(/_/g, ' '),
+        ...DEFAULT_SENSOR_CONFIG,
+        description: `Unknown sensor type: ${sensorType}`
     };
 };
 
+/**
+ * Get the icon component for a sensor type.
+ * @param {string} sensorType - The sensor type identifier
+ * @returns {Component} Lucide React icon component
+ */
 export const getSensorIcon = (sensorType) => {
     return getSensorConfig(sensorType).icon;
 };
 
+/**
+ * Get the unit of measurement for a sensor type.
+ * @param {string} sensorType - The sensor type identifier
+ * @returns {string} Unit string (e.g., '°C', '%', 'V')
+ */
 export const getSensorUnit = (sensorType) => {
     return getSensorConfig(sensorType).unit;
 };
 
+/**
+ * Get the color code for a sensor type (used in charts/UI).
+ * @param {string} sensorType - The sensor type identifier
+ * @returns {string} Hex color code
+ */
 export const getSensorColor = (sensorType) => {
     return getSensorConfig(sensorType).color;
 };
 
+/**
+ * Get the display name for a sensor type.
+ * @param {string} sensorType - The sensor type identifier
+ * @returns {string} Display name (e.g., 'Temperature', 'Humidity')
+ */
 export const getSensorName = (sensorType) => {
     return getSensorConfig(sensorType).name;
 };
 
+/**
+ * Format a sensor value according to its type's precision settings.
+ * Handles null, undefined, and invalid values gracefully.
+ * 
+ * @param {number|string|null|undefined} value - The sensor value to format
+ * @param {string} sensorType - The sensor type identifier
+ * @returns {string} Formatted value string (e.g., '23.5', 'N/A')
+ * 
+ * @example
+ * formatSensorValue(23.456, 'temperature') // Returns '23.5'
+ * formatSensorValue(null, 'humidity') // Returns 'N/A'
+ */
 export const formatSensorValue = (value, sensorType) => {
+    // Handle null or undefined values
+    if (value == null) {
+        return 'N/A';
+    }
+    
     const config = getSensorConfig(sensorType);
-    return value.toFixed(config.precision);
+    const numValue = Number(value);
+    
+    // Check if conversion was successful (NaN indicates invalid number)
+    if (isNaN(numValue)) {
+        return 'N/A';
+    }
+    
+    return numValue.toFixed(config.precision);
 };
 
-// Chart configuration
+// ============================================================================
+// Chart Configuration
+// ============================================================================
+
+/**
+ * Chart configuration constants.
+ * Colors are automatically derived from SENSOR_TYPES for consistency.
+ */
 export const CHART_CONFIG = {
     defaultHeight: 250,
     multiSensorHeight: 300,
@@ -136,7 +257,18 @@ export const CHART_CONFIG = {
     activeDotRadius: 5
 };
 
-// Time range presets
+// ============================================================================
+// Time Range Presets
+// ============================================================================
+
+/**
+ * Time range presets for data fetching.
+ * Available for UI components (time range selectors, etc.).
+ * 
+ * @example
+ * // Get the value for '24h' range
+ * const range = TIME_RANGES['24h'].value; // Returns '-24h'
+ */
 export const TIME_RANGES = {
     '5m': { label: 'Last 5 minutes', value: '-5m' },
     '15m': { label: 'Last 15 minutes', value: '-15m' },
@@ -147,10 +279,24 @@ export const TIME_RANGES = {
     '30d': { label: 'Last 30 days', value: '-30d' }
 };
 
-// Default time range
+/**
+ * Default time range key.
+ * Use TIME_RANGES[DEFAULT_TIME_RANGE].value to get the actual value ('-24h').
+ * Available for potential future UI components.
+ */
 export const DEFAULT_TIME_RANGE = '24h';
 
-// Data limits for different use cases
+// ============================================================================
+// Data Limits
+// ============================================================================
+
+/**
+ * Data limits for different use cases.
+ * Available for consistent data fetching limits across the application.
+ * 
+ * @example
+ * const limit = DATA_LIMITS.realtime; // Returns 100
+ */
 export const DATA_LIMITS = {
     realtime: 100,      // For real-time monitoring
     overview: 500,      // For overview charts

@@ -1,9 +1,21 @@
-import axios from 'axios';
+/**
+ * Sensors API service
+ * 
+ * Provides functions for interacting with the sensors API backend.
+ * Handles data fetching, filtering, and helper operations.
+ */
 
-// Hardcoded Sensors API base URL
+import axios from 'axios';
+import { DEFAULT_TIME_RANGE_VALUE, DEFAULT_DATA_LIMIT } from '../config/sensorConfig';
+
+// ============================================================================
+// Configuration
+// ============================================================================
+
+/** Sensors API base URL */
 const SENSORS_API_BASE_URL = 'https://localhost:8081/api';
 
-// Create axios instance
+/** Create axios instance with default configuration */
 const api = axios.create({
     baseURL: SENSORS_API_BASE_URL,
     withCredentials: true, // Important for session cookies
@@ -12,92 +24,189 @@ const api = axios.create({
     },
 });
 
-// Sensors API calls
+// ============================================================================
+// Helper Functions
+// ============================================================================
+
+/**
+ * Build query parameters object from filters.
+ * @private
+ * @param {Object} params - Filter parameters
+ * @param {string} [params.sensor_box] - Filter by sensor box
+ * @param {string} [params.sensor_type] - Filter by sensor type
+ * @param {string} [params.start_time] - Start time filter
+ * @param {string} [params.end_time] - End time filter
+ * @param {number} [params.limit] - Limit results
+ * @returns {URLSearchParams} Query parameters
+ */
+const buildQueryParams = (params) => {
+    const queryParams = new URLSearchParams();
+    
+    if (params.sensor_box) queryParams.append('sensor_box', params.sensor_box);
+    if (params.sensor_type) queryParams.append('sensor_type', params.sensor_type);
+    if (params.start_time) queryParams.append('start_time', params.start_time);
+    if (params.end_time) queryParams.append('end_time', params.end_time);
+    if (params.limit) queryParams.append('limit', params.limit);
+    
+    return queryParams;
+};
+
+/**
+ * Build API URL with query parameters.
+ * @private
+ * @param {string} endpoint - API endpoint
+ * @param {URLSearchParams} queryParams - Query parameters
+ * @returns {string} Complete API URL
+ */
+const buildApiUrl = (endpoint, queryParams) => {
+    const queryString = queryParams.toString();
+    return `${endpoint}${queryString ? `?${queryString}` : ''}`;
+};
+
+// ============================================================================
+// API Functions
+// ============================================================================
+
+/**
+ * Sensors API client functions.
+ */
 export const sensorsAPI = {
-    // Get all sensor data with optional filtering
+    /**
+     * Get all sensor data with optional filtering.
+     * 
+     * @param {Object} [params={}] - Query parameters
+     * @param {string} [params.sensor_box] - Filter by sensor box ID
+     * @param {string} [params.sensor_type] - Filter by sensor type
+     * @param {string} [params.start_time='-24h'] - Start time filter (relative or absolute)
+     * @param {string} [params.end_time='now()'] - End time filter
+     * @param {number} [params.limit=500] - Maximum number of records
+     * @returns {Promise<Array>} Array of sensor readings
+     */
     getSensorData: async (params = {}) => {
-        const { 
-            sensor_box, 
-            sensor_type, 
-            start_time = '-24h', 
-            end_time = 'now()', 
-            limit = 500 
+        const {
+            sensor_box,
+            sensor_type,
+            start_time = DEFAULT_TIME_RANGE_VALUE,
+            end_time = 'now()',
+            limit = DEFAULT_DATA_LIMIT
         } = params;
         
-        const queryParams = new URLSearchParams();
-        if (sensor_box) queryParams.append('sensor_box', sensor_box);
-        if (sensor_type) queryParams.append('sensor_type', sensor_type);
-        if (start_time) queryParams.append('start_time', start_time);
-        if (end_time) queryParams.append('end_time', end_time);
-        if (limit) queryParams.append('limit', limit);
+        const queryParams = buildQueryParams({
+            sensor_box,
+            sensor_type,
+            start_time,
+            end_time,
+            limit
+        });
         
-        const queryString = queryParams.toString();
-        const url = `/sensors/data${queryString ? `?${queryString}` : ''}`;
-        
+        const url = buildApiUrl('/sensors/data', queryParams);
         const response = await api.get(url);
         return response.data;
     },
 
-    // Get data by sensor box
+    /**
+     * Get sensor data filtered by sensor box.
+     * 
+     * @param {string} sensor_box - Sensor box ID
+     * @param {Object} [params={}] - Additional query parameters
+     * @param {string} [params.sensor_type] - Filter by sensor type
+     * @param {string} [params.start_time='-24h'] - Start time filter
+     * @param {string} [params.end_time='now()'] - End time filter
+     * @param {number} [params.limit=500] - Maximum number of records
+     * @returns {Promise<Array>} Array of sensor readings
+     */
     getSensorDataByBox: async (sensor_box, params = {}) => {
-        const { 
-            sensor_type, 
-            start_time = '-24h', 
-            end_time = 'now()', 
-            limit = 500 
+        const {
+            sensor_type,
+            start_time = DEFAULT_TIME_RANGE_VALUE,
+            end_time = 'now()',
+            limit = DEFAULT_DATA_LIMIT
         } = params;
         
-        const queryParams = new URLSearchParams();
-        if (sensor_type) queryParams.append('sensor_type', sensor_type);
-        if (start_time) queryParams.append('start_time', start_time);
-        if (end_time) queryParams.append('end_time', end_time);
-        if (limit) queryParams.append('limit', limit);
+        const queryParams = buildQueryParams({
+            sensor_type,
+            start_time,
+            end_time,
+            limit
+        });
         
-        const queryString = queryParams.toString();
-        const url = `/sensors/data/box/${encodeURIComponent(sensor_box)}${queryString ? `?${queryString}` : ''}`;
+        const endpoint = `/sensors/data/box/${encodeURIComponent(sensor_box)}`;
+        const url = buildApiUrl(endpoint, queryParams);
         
         const response = await api.get(url);
         return response.data;
     },
 
-    // Get data by sensor type
+    /**
+     * Get sensor data filtered by sensor type.
+     * 
+     * @param {string} sensor_type - Sensor type identifier
+     * @param {Object} [params={}] - Additional query parameters
+     * @param {string} [params.sensor_box] - Filter by sensor box ID
+     * @param {string} [params.start_time='-24h'] - Start time filter
+     * @param {string} [params.end_time='now()'] - End time filter
+     * @param {number} [params.limit=500] - Maximum number of records
+     * @returns {Promise<Array>} Array of sensor readings
+     */
     getSensorDataByType: async (sensor_type, params = {}) => {
-        const { 
-            sensor_box, 
-            start_time = '-24h', 
-            end_time = 'now()', 
-            limit = 500 
+        const {
+            sensor_box,
+            start_time = DEFAULT_TIME_RANGE_VALUE,
+            end_time = 'now()',
+            limit = DEFAULT_DATA_LIMIT
         } = params;
         
-        const queryParams = new URLSearchParams();
-        if (sensor_box) queryParams.append('sensor_box', sensor_box);
-        if (start_time) queryParams.append('start_time', start_time);
-        if (end_time) queryParams.append('end_time', end_time);
-        if (limit) queryParams.append('limit', limit);
+        const queryParams = buildQueryParams({
+            sensor_box,
+            start_time,
+            end_time,
+            limit
+        });
         
-        const queryString = queryParams.toString();
-        const url = `/sensors/data/type/${encodeURIComponent(sensor_type)}${queryString ? `?${queryString}` : ''}`;
+        const endpoint = `/sensors/data/type/${encodeURIComponent(sensor_type)}`;
+        const url = buildApiUrl(endpoint, queryParams);
         
         const response = await api.get(url);
         return response.data;
     },
 
-    // Get unique sensor boxes
+    /**
+     * Get list of unique sensor boxes.
+     * @returns {Promise<Array>} Array of sensor box IDs
+     */
     getSensorBoxes: async () => {
         const response = await api.get('/sensors/boxes');
         return response.data;
     },
 
-    // Get unique sensor types
+    /**
+     * Get list of unique sensor types.
+     * @returns {Promise<Array>} Array of sensor type identifiers
+     */
     getSensorTypes: async () => {
         const response = await api.get('/sensors/types');
         return response.data;
     }
 };
 
-// Helper functions for data processing
+// ============================================================================
+// Data Processing Helpers
+// ============================================================================
+
+/**
+ * Helper functions for processing sensor data.
+ */
 export const sensorHelpers = {
-    // Group data by sensor box
+    /**
+     * Group sensor readings by sensor box ID.
+     * 
+     * @param {Array} data - Array of sensor readings
+     * @returns {Object} Object with box IDs as keys and arrays of readings as values
+     * 
+     * @example
+     * const grouped = sensorHelpers.groupByBox(readings);
+     * // Returns: { 'box1': [...readings], 'box2': [...readings] }
+     */
     groupByBox: (data) => {
         return data.reduce((acc, reading) => {
             const boxId = reading.sensor_box;
@@ -109,7 +218,16 @@ export const sensorHelpers = {
         }, {});
     },
 
-    // Group data by sensor type
+    /**
+     * Group sensor readings by sensor type.
+     * 
+     * @param {Array} data - Array of sensor readings
+     * @returns {Object} Object with sensor types as keys and arrays of readings as values
+     * 
+     * @example
+     * const grouped = sensorHelpers.groupByType(readings);
+     * // Returns: { 'temperature': [...readings], 'humidity': [...readings] }
+     */
     groupByType: (data) => {
         return data.reduce((acc, reading) => {
             const type = reading.sensor_type;
@@ -121,7 +239,16 @@ export const sensorHelpers = {
         }, {});
     },
 
-    // Get latest readings for each sensor
+    /**
+     * Get the latest reading for each sensor (unique combination of box and type).
+     * 
+     * @param {Array} data - Array of sensor readings
+     * @returns {Array} Array of latest readings (one per sensor)
+     * 
+     * @example
+     * const latest = sensorHelpers.getLatestReadings(readings);
+     * // Returns latest reading for each unique sensor_box + sensor_type combination
+     */
     getLatestReadings: (data) => {
         const latest = {};
         data.forEach(reading => {
@@ -133,12 +260,25 @@ export const sensorHelpers = {
         return Object.values(latest);
     },
 
-    // Calculate statistics
+    /**
+     * Calculate statistics (min, max, avg, count) for sensor readings.
+     * 
+     * @param {Array} data - Array of sensor readings with 'value' property
+     * @returns {Object} Statistics object with min, max, avg, and count
+     * 
+     * @example
+     * const stats = sensorHelpers.calculateStats(readings);
+     * // Returns: { min: 20, max: 25, avg: 22.5, count: 10 }
+     */
     calculateStats: (data) => {
-        if (data.length === 0) return { min: 0, max: 0, avg: 0, count: 0 };
+        if (data.length === 0) {
+            return { min: 0, max: 0, avg: 0, count: 0 };
+        }
         
         const values = data.map(d => d.value).filter(v => !isNaN(v));
-        if (values.length === 0) return { min: 0, max: 0, avg: 0, count: 0 };
+        if (values.length === 0) {
+            return { min: 0, max: 0, avg: 0, count: 0 };
+        }
         
         return {
             min: Math.min(...values),
@@ -146,5 +286,14 @@ export const sensorHelpers = {
             avg: values.reduce((sum, val) => sum + val, 0) / values.length,
             count: values.length
         };
+    },
+
+    /**
+     * Clear cache (placeholder for future caching implementation).
+     * Currently a no-op as there's no cache implementation.
+     */
+    clearCache: () => {
+        // Cache clearing logic can be added here if needed
+        // Currently a no-op as there's no cache implementation
     }
 };

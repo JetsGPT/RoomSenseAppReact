@@ -26,13 +26,15 @@ export function BoxDetail({ boxId, sensorData }) {
         return getSensorUnit(sensorType);
     };
 
-    // Get latest reading for each sensor type
+    // Get latest reading for each sensor type in this box
+    // Note: This is similar to sensorHelpers.getLatestReadings() but works on already-filtered boxData
     const latestReadings = useMemo(() => {
         const latestByType = {};
         boxData.forEach(reading => {
-            if (!latestByType[reading.sensor_type] || 
-                new Date(reading.timestamp) > new Date(latestByType[reading.sensor_type].timestamp)) {
-                latestByType[reading.sensor_type] = reading;
+            const sensorType = reading.sensor_type;
+            if (!latestByType[sensorType] || 
+                new Date(reading.timestamp) > new Date(latestByType[sensorType].timestamp)) {
+                latestByType[sensorType] = reading;
             }
         });
         return Object.values(latestByType);
