@@ -29,6 +29,8 @@ export const useSensorData = (options = {}) => {
         sensor_box,
         sensor_type,
         timeRange = DEFAULT_TIME_RANGE_VALUE,
+        startTime,
+        endTime,
         limit = DEFAULT_DATA_LIMIT,
         autoRefresh = true,
         refreshInterval = DEFAULT_REFRESH_INTERVAL,
@@ -51,8 +53,8 @@ export const useSensorData = (options = {}) => {
             const params = {
                 sensor_box,
                 sensor_type,
-                start_time: timeRange,
-                end_time: 'now()',
+                start_time: startTime || timeRange,
+                end_time: endTime || 'now()',
                 limit
             };
 
@@ -65,7 +67,7 @@ export const useSensorData = (options = {}) => {
         } finally {
             setLoading(false);
         }
-    }, [sensor_box, sensor_type, timeRange, limit, enabled]);
+    }, [sensor_box, sensor_type, timeRange, startTime, endTime, limit, enabled]);
 
     // Initial fetch
     useEffect(() => {

@@ -4,12 +4,12 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, AreaChart, Area } from 'r
 import { Card, CardContent, CardHeader, CardTitle } from './card';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from './chart';
 import { Button } from './button';
-import { 
-    getSensorName, 
-    getSensorUnit, 
+import {
+    getSensorName,
+    getSensorUnit,
     getSensorColor,
     formatSensorValue,
-    CHART_CONFIG 
+    CHART_CONFIG
 } from '../../config/sensorConfig';
 import { 
     filterDataByRange,
@@ -17,6 +17,57 @@ import {
     DEFAULT_CHART_RANGE,
     ensureRangeKey
 } from '../../lib/timeRange';
+
+const MS_IN_HOUR = 60 * 60 * 1000;
+const MS_IN_DAY = 24 * MS_IN_HOUR;
+
+const createTimeFormatter = (data) => {
+    if (!Array.isArray(data) || data.length === 0) {
+        return null;
+    }
+
+    const timestamps = data
+        .map((item) => {
+            const value = item?.timestamp ?? item?.time ?? item?.date;
+            const parsed = new Date(value);
+            return Number.isNaN(parsed.getTime()) ? null : parsed.getTime();
+        })
+        .filter((time) => typeof time === 'number');
+
+    if (timestamps.length === 0) {
+        return null;
+    }
+
+    const minTime = Math.min(...timestamps);
+    const maxTime = Math.max(...timestamps);
+    const span = Math.max(maxTime - minTime, 0);
+
+    let options;
+
+    if (span <= 6 * MS_IN_HOUR) {
+        options = { hour: '2-digit', minute: '2-digit' };
+    } else if (span <= 2 * MS_IN_DAY) {
+        options = { weekday: 'short', hour: '2-digit', minute: '2-digit' };
+    } else if (span <= 14 * MS_IN_DAY) {
+        options = { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' };
+    } else if (span <= 90 * MS_IN_DAY) {
+        options = { month: 'short', day: 'numeric' };
+    } else if (span <= 365 * MS_IN_DAY) {
+        options = { year: 'numeric', month: 'short', day: 'numeric' };
+    } else {
+        options = { year: 'numeric', month: 'short' };
+    }
+
+    const formatter = new Intl.DateTimeFormat(undefined, options);
+
+    return (value) => {
+        const dateValue = typeof value === 'number' ? value : new Date(value).getTime();
+        if (!value || Number.isNaN(dateValue)) {
+            return '';
+        }
+        return formatter.format(new Date(dateValue));
+    };
+};
 
 const RangeSelector = ({ options, selected, onSelect }) => {
     if (!options || options.length === 0) {
@@ -70,13 +121,24 @@ const useRangeState = (rangeOptions, initialRange) => {
 
 const MotionDiv = motion.div;
 
-export function SensorLineChart({ data, sensorType, color, unit, rangeOptions, initialRange, onRangeChange }) {
+export function SensorLineChart({
+    data,
+    sensorType,
+    color,
+    unit,
+    rangeOptions,
+    initialRange,
+    onRangeChange,
+    showRangeSelector = true
+}) {
     // Use centralized config if not provided
     const sensorColor = color || getSensorColor(sensorType);
     const sensorUnit = unit || getSensorUnit(sensorType);
     const sensorName = getSensorName(sensorType);
 
     const { options, selectedRange, handleSelect } = useRangeState(rangeOptions, initialRange || DEFAULT_CHART_RANGE);
+
+    const shouldFilterByRange = showRangeSelector && (options?.length ?? 0) > 0;
 
     const handleRangeChange = useCallback((rangeKey) => {
         const resolvedRange = handleSelect(rangeKey);
@@ -85,19 +147,38 @@ export function SensorLineChart({ data, sensorType, color, unit, rangeOptions, i
         }
     }, [handleSelect, onRangeChange]);
 
-    const filteredData = useMemo(() => filterDataByRange(data || [], selectedRange), [data, selectedRange]);
+    const filteredData = useMemo(() => {
+        if (!shouldFilterByRange) {
+            return Array.isArray(data) ? data : [];
+        }
+        return filterDataByRange(data || [], selectedRange);
+    }, [data, selectedRange, shouldFilterByRange]);
 
-    const formatXAxis = (tickItem) => {
-        return new Date(tickItem).toLocaleTimeString('en-US', { 
-            hour: '2-digit', 
-            minute: '2-digit' 
-        });
-    };
+    const timeFormatter = useMemo(() => createTimeFormatter(filteredData), [filteredData]);
+
+    const formatXAxis = useCallback((tickItem) => {
+        if (timeFormatter) {
+            return timeFormatter(tickItem);
+        }
+        const date = new Date(tickItem);
+        return Number.isNaN(date.getTime())
+            ? ''
+            : date.toLocaleString(undefined, { hour: '2-digit', minute: '2-digit' });
+    }, [timeFormatter]);
 
     const formatTooltip = (value) => {
         const formattedValue = formatSensorValue(value, sensorType);
         return [`${formattedValue}${sensorUnit}`, sensorName];
     };
+
+    const tooltipLabelFormatter = useCallback((label, payload) => {
+        const timestamp = payload?.[0]?.payload?.timestamp || label;
+        if (timeFormatter) {
+            return timeFormatter(timestamp);
+        }
+        const date = new Date(timestamp);
+        return Number.isNaN(date.getTime()) ? '' : date.toLocaleString();
+    }, [timeFormatter]);
 
     const chartConfig = {
         value: {
@@ -119,7 +200,9 @@ export function SensorLineChart({ data, sensorType, color, unit, rangeOptions, i
                     <CardTitle className="text-lg font-semibold text-foreground">
                         {sensorName} Over Time
                     </CardTitle>
-                        <RangeSelector options={options} selected={selectedRange} onSelect={handleRangeChange} />
+                        {showRangeSelector && (
+                            <RangeSelector options={options} selected={selectedRange} onSelect={handleRangeChange} />
+                        )}
                     </div>
                 </CardHeader>
                 <CardContent className="pt-0">
@@ -134,6 +217,7 @@ export function SensorLineChart({ data, sensorType, color, unit, rangeOptions, i
                             />
                             <YAxis fontSize={10} tick={{ fill: 'currentColor', opacity: 0.7 }} />
                             <ChartTooltip 
+                                labelFormatter={tooltipLabelFormatter}
                                 content={<ChartTooltipContent formatter={formatTooltip} />}
                                 wrapperClassName="rounded-xl"
                             />
@@ -153,13 +237,24 @@ export function SensorLineChart({ data, sensorType, color, unit, rangeOptions, i
     );
 }
 
-export function SensorAreaChart({ data, sensorType, color, unit, rangeOptions, initialRange, onRangeChange }) {
+export function SensorAreaChart({
+    data,
+    sensorType,
+    color,
+    unit,
+    rangeOptions,
+    initialRange,
+    onRangeChange,
+    showRangeSelector = true
+}) {
     // Use centralized config if not provided
     const sensorColor = color || getSensorColor(sensorType);
     const sensorUnit = unit || getSensorUnit(sensorType);
     const sensorName = getSensorName(sensorType);
 
     const { options, selectedRange, handleSelect } = useRangeState(rangeOptions, initialRange || DEFAULT_CHART_RANGE);
+
+    const shouldFilterByRange = showRangeSelector && (options?.length ?? 0) > 0;
 
     const handleRangeChange = useCallback((rangeKey) => {
         const resolvedRange = handleSelect(rangeKey);
@@ -168,19 +263,38 @@ export function SensorAreaChart({ data, sensorType, color, unit, rangeOptions, i
         }
     }, [handleSelect, onRangeChange]);
 
-    const filteredData = useMemo(() => filterDataByRange(data || [], selectedRange), [data, selectedRange]);
+    const filteredData = useMemo(() => {
+        if (!shouldFilterByRange) {
+            return Array.isArray(data) ? data : [];
+        }
+        return filterDataByRange(data || [], selectedRange);
+    }, [data, selectedRange, shouldFilterByRange]);
 
-    const formatXAxis = (tickItem) => {
-        return new Date(tickItem).toLocaleTimeString('en-US', { 
-            hour: '2-digit', 
-            minute: '2-digit' 
-        });
-    };
+    const timeFormatter = useMemo(() => createTimeFormatter(filteredData), [filteredData]);
+
+    const formatXAxis = useCallback((tickItem) => {
+        if (timeFormatter) {
+            return timeFormatter(tickItem);
+        }
+        const date = new Date(tickItem);
+        return Number.isNaN(date.getTime())
+            ? ''
+            : date.toLocaleString(undefined, { hour: '2-digit', minute: '2-digit' });
+    }, [timeFormatter]);
 
     const formatTooltip = (value) => {
         const formattedValue = formatSensorValue(value, sensorType);
         return [`${formattedValue}${sensorUnit}`, sensorName];
     };
+
+    const tooltipLabelFormatter = useCallback((label, payload) => {
+        const timestamp = payload?.[0]?.payload?.timestamp || label;
+        if (timeFormatter) {
+            return timeFormatter(timestamp);
+        }
+        const date = new Date(timestamp);
+        return Number.isNaN(date.getTime()) ? '' : date.toLocaleString();
+    }, [timeFormatter]);
 
     const chartConfig = {
         value: {
@@ -202,7 +316,9 @@ export function SensorAreaChart({ data, sensorType, color, unit, rangeOptions, i
                     <CardTitle className="text-lg font-medium">
                         {sensorName} Trend
                     </CardTitle>
-                        <RangeSelector options={options} selected={selectedRange} onSelect={handleRangeChange} />
+                        {showRangeSelector && (
+                            <RangeSelector options={options} selected={selectedRange} onSelect={handleRangeChange} />
+                        )}
                     </div>
                 </CardHeader>
                 <CardContent>
@@ -216,6 +332,7 @@ export function SensorAreaChart({ data, sensorType, color, unit, rangeOptions, i
                             />
                             <YAxis fontSize={10} />
                             <ChartTooltip 
+                                labelFormatter={tooltipLabelFormatter}
                                 content={<ChartTooltipContent formatter={formatTooltip} />}
                             />
                             <Area 
@@ -246,18 +363,32 @@ export function MultiSensorChart({ data, title, colors, rangeOptions, initialRan
 
     const filteredData = useMemo(() => filterDataByRange(data || [], selectedRange), [data, selectedRange]);
 
-    const formatXAxis = (tickItem) => {
-        return new Date(tickItem).toLocaleTimeString('en-US', { 
-            hour: '2-digit', 
-            minute: '2-digit' 
-        });
-    };
+    const timeFormatter = useMemo(() => createTimeFormatter(filteredData), [filteredData]);
+
+    const formatXAxis = useCallback((tickItem) => {
+        if (timeFormatter) {
+            return timeFormatter(tickItem);
+        }
+        const date = new Date(tickItem);
+        return Number.isNaN(date.getTime())
+            ? ''
+            : date.toLocaleString(undefined, { hour: '2-digit', minute: '2-digit' });
+    }, [timeFormatter]);
 
     const formatTooltip = (value, name) => {
         const unit = getSensorUnit(name);
         const formattedValue = formatSensorValue(value, name);
         return [`${formattedValue}${unit}`, getSensorName(name)];
     };
+
+    const tooltipLabelFormatter = useCallback((label, payload) => {
+        const timestamp = payload?.[0]?.payload?.timestamp || label;
+        if (timeFormatter) {
+            return timeFormatter(timestamp);
+        }
+        const date = new Date(timestamp);
+        return Number.isNaN(date.getTime()) ? '' : date.toLocaleString();
+    }, [timeFormatter]);
 
     // Use centralized colors if not provided
     const chartColors = colors || CHART_CONFIG.colors;
@@ -297,6 +428,7 @@ export function MultiSensorChart({ data, title, colors, rangeOptions, initialRan
                             />
                             <YAxis fontSize={10} />
                             <ChartTooltip 
+                                labelFormatter={tooltipLabelFormatter}
                                 content={<ChartTooltipContent formatter={formatTooltip} />}
                             />
                             {Object.entries(chartColors).map(([sensorType, color]) => (
