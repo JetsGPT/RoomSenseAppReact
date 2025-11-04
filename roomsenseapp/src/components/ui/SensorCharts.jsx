@@ -17,6 +17,7 @@ import {
     DEFAULT_CHART_RANGE,
     ensureRangeKey
 } from '../../lib/timeRange';
+import { useSettings } from '../../contexts/SettingsContext';
 
 const MS_IN_HOUR = 60 * 60 * 1000;
 const MS_IN_DAY = 24 * MS_IN_HOUR;
@@ -135,6 +136,8 @@ export function SensorLineChart({
     const sensorColor = color || getSensorColor(sensorType);
     const sensorUnit = unit || getSensorUnit(sensorType);
     const sensorName = getSensorName(sensorType);
+    const { settings } = useSettings();
+    const showChartDots = settings?.showChartDots ?? true;
 
     const { options, selectedRange, handleSelect } = useRangeState(rangeOptions, initialRange || DEFAULT_CHART_RANGE);
 
@@ -226,8 +229,8 @@ export function SensorLineChart({
                                 dataKey="value" 
                                 stroke={sensorColor} 
                                 strokeWidth={CHART_CONFIG.strokeWidth + 1}
-                                dot={{ fill: sensorColor, strokeWidth: CHART_CONFIG.strokeWidth, r: CHART_CONFIG.dotRadius + 1 }}
-                                activeDot={{ r: CHART_CONFIG.activeDotRadius + 2, stroke: sensorColor, strokeWidth: CHART_CONFIG.strokeWidth + 1 }}
+                                dot={showChartDots ? { fill: sensorColor, strokeWidth: CHART_CONFIG.strokeWidth, r: CHART_CONFIG.dotRadius + 1 } : false}
+                                activeDot={showChartDots ? { r: CHART_CONFIG.activeDotRadius + 2, stroke: sensorColor, strokeWidth: CHART_CONFIG.strokeWidth + 1 } : false}
                             />
                         </LineChart>
                     </ChartContainer>
@@ -352,6 +355,8 @@ export function SensorAreaChart({
 }
 
 export function MultiSensorChart({ data, title, colors, rangeOptions, initialRange, onRangeChange }) {
+    const { settings } = useSettings();
+    const showChartDots = settings?.showChartDots ?? true;
     const { options, selectedRange, handleSelect } = useRangeState(rangeOptions, initialRange || DEFAULT_CHART_RANGE);
 
     const handleRangeChange = useCallback((rangeKey) => {
@@ -438,8 +443,8 @@ export function MultiSensorChart({ data, title, colors, rangeOptions, initialRan
                                     dataKey={sensorType} 
                                     stroke={color} 
                                     strokeWidth={CHART_CONFIG.strokeWidth}
-                                    dot={{ fill: color, strokeWidth: CHART_CONFIG.strokeWidth, r: CHART_CONFIG.dotRadius }}
-                                    activeDot={{ r: CHART_CONFIG.activeDotRadius, stroke: color, strokeWidth: CHART_CONFIG.strokeWidth }}
+                                    dot={showChartDots ? { fill: color, strokeWidth: CHART_CONFIG.strokeWidth, r: CHART_CONFIG.dotRadius } : false}
+                                    activeDot={showChartDots ? { r: CHART_CONFIG.activeDotRadius, stroke: color, strokeWidth: CHART_CONFIG.strokeWidth } : false}
                                 />
                             ))}
                         </LineChart>

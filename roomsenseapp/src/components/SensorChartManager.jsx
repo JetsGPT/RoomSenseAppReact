@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { SlidersHorizontal } from 'lucide-react';
+import NumberFlow from '@number-flow/react';
 import { Button } from './ui/button';
 import { getSensorName, getSensorColor } from '../config/sensorConfig';
 import { cn } from '../lib/utils';
@@ -57,7 +58,7 @@ export function SensorChartManager({
                     <div>
                         <p className="text-sm font-medium text-foreground">Chart selection</p>
                         <p className="text-xs text-muted-foreground">
-                            {selectedList.length}/{sensors.length} sensors selected
+                            <NumberFlow value={selectedList.length} />/<NumberFlow value={sensors.length} /> sensors selected
                         </p>
                     </div>
                 </div>

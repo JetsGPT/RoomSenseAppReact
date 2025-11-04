@@ -11,7 +11,8 @@ const DEFAULT_SETTINGS = {
     refreshInterval: 30000, // 30 seconds
     chartHeight: 300,
     defaultTimeRange: '-24h',
-    defaultLimit: 500
+    defaultLimit: 500,
+    showChartDots: true // Show data points on charts (old version)
 };
 
 export function SettingsProvider({ children }) {

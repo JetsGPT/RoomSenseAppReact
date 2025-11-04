@@ -694,7 +694,7 @@ export function BoxDetail({ boxId }) {
                                                     </span>
                                                 </TableCell>
                                                 <TableCell className="text-right text-sm font-semibold text-foreground">
-                                                    {formatSensorValue(reading.value, reading.sensor_type)}
+                                                    <NumberFlow value={formatSensorValue(reading.value, reading.sensor_type)} />
                                                     {getSensorUnit(reading.sensor_type)}
                                                 </TableCell>
                                             </TableRow>
@@ -759,7 +759,7 @@ export function BoxDetail({ boxId }) {
                                 </div>
                             )}
                             <span className="self-end text-xs text-muted-foreground sm:ml-auto sm:self-auto sm:text-sm">
-                                Total: {sortedTableRows.length}
+                                Total: <NumberFlow value={sortedTableRows.length} />
                             </span>
                         </div>
                     )}
