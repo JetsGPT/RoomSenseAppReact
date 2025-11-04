@@ -758,8 +758,8 @@ export function BoxDetail({ boxId }) {
                                     </Pagination>
                                 </div>
                             )}
-                            <span className="text-xs text-muted-foreground sm:text-sm self-end sm:self-auto sm:ml-auto">
-                                Gesamt: {sortedTableRows.length}
+                            <span className="self-end text-xs text-muted-foreground sm:ml-auto sm:self-auto sm:text-sm">
+                                Total: {sortedTableRows.length}
                             </span>
                         </div>
                     )}
