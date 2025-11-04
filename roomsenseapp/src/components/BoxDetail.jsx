@@ -268,8 +268,6 @@ export function BoxDetail({ boxId }) {
         () => sortedTableRows.slice(pageStartIndex, pageStartIndex + ROWS_PER_PAGE),
         [sortedTableRows, pageStartIndex]
     );
-    const pageRangeStart = sortedTableRows.length === 0 ? 0 : pageStartIndex + 1;
-    const pageRangeEnd = Math.min(sortedTableRows.length, pageStartIndex + paginatedRows.length);
     const canGoPrev = currentPage > 1;
     const canGoNext = currentPage < totalPages;
 
@@ -707,10 +705,7 @@ export function BoxDetail({ boxId }) {
                         </Table>
                     </div>
                     {sortedTableRows.length > 0 && (
-                        <div className="flex flex-col gap-2 border-t border-border bg-card/40 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-                            <p className="text-xs text-muted-foreground sm:text-sm">
-                                Showing {pageRangeStart}-{pageRangeEnd} of {sortedTableRows.length} entries
-                            </p>
+                        <div className="flex flex-col items-center gap-2 border-t border-border bg-card/40 px-4 py-3 sm:flex-row sm:items-center sm:gap-4">
                             {totalPages > 1 && (
                                 <div className="flex w-full justify-center sm:flex-1">
                                     <Pagination className="justify-center">
@@ -763,6 +758,9 @@ export function BoxDetail({ boxId }) {
                                     </Pagination>
                                 </div>
                             )}
+                            <span className="text-xs text-muted-foreground sm:text-sm self-end sm:self-auto sm:ml-auto">
+                                Gesamt: {sortedTableRows.length}
+                            </span>
                         </div>
                     )}
                 </div>
