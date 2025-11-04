@@ -1,7 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion as Motion } from 'framer-motion';
-import { useAuth } from '../contexts/AuthContext';
-import { useNavigate } from 'react-router-dom';
 import { useSidebar } from '../shared/contexts/SidebarContext';
 import { useSensorData } from '../hooks/useSensorData';
 import { InfoBlock, InfoItem } from '../components/ui/InfoBlock';
@@ -10,16 +8,6 @@ import { Overview } from '../components/Overview';
 import { BoxDetail } from '../components/BoxDetail';
 import { Options } from '../components/Options';
 import { StaggeredContainer, StaggeredItem, FadeIn, SlideIn } from '../components/ui/PageTransition';
-import { Button } from '../components/ui/button';
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuLabel,
-    DropdownMenuSeparator,
-    DropdownMenuTrigger,
-} from '../components/ui/dropdown-menu';
-import { Settings, RefreshCw, LogOut, SlidersHorizontal } from 'lucide-react';
 import { 
     getSensorUnit, 
     getSensorColor, 
@@ -32,8 +20,7 @@ import {
 
 
 const Dashboard = () => {
-    const { activeView, setActiveView } = useSidebar();
-    const { logout, user } = useAuth();
+    const { activeView } = useSidebar();
     const [fetchDelay, setFetchDelay] = useState(() => {
         // Get from localStorage or default to DEFAULT_REFRESH_INTERVAL / 1000 seconds
         const saved = localStorage.getItem('sensorFetchDelay');
@@ -55,8 +42,6 @@ const Dashboard = () => {
         refreshInterval: fetchDelay * 1000
     });
 
-    const navigate = useNavigate();
-
     // Save fetch delay to localStorage
     useEffect(() => {
         localStorage.setItem('sensorFetchDelay', fetchDelay.toString());
@@ -69,31 +54,6 @@ const Dashboard = () => {
     const handleRefreshData = () => {
         refreshData();
     };
-
-    const handleNavigateToOptions = () => {
-        setActiveView('options');
-    };
-
-    const handleLogout = async () => {
-        await logout();
-        navigate('/login');
-    };
-
-    const pageTitle = useMemo(() => {
-        if (activeView === 'overview') return 'Übersicht';
-        if (activeView?.startsWith('box-')) return `Sensor Box ${activeView.replace('box-', '')}`;
-        if (activeView === 'analytics') return 'Analytics';
-        if (activeView === 'options') return 'Optionen';
-        return 'Dashboard';
-    }, [activeView]);
-
-    const pageSubtitle = useMemo(() => {
-        if (activeView === 'overview') return 'Aktuelle Kennzahlen und Sensorstatus im Überblick';
-        if (activeView?.startsWith('box-')) return 'Verwalte Messwerte und Einstellungen für diese Box';
-        if (activeView === 'analytics') return 'Sensortrends und Tiefenanalyse der Messdaten';
-        if (activeView === 'options') return 'Erweiterte Steuerung für Aktualisierung und Datenabrufe';
-        return 'Verwalte deine RoomSense Umgebung';
-    }, [activeView]);
 
     // Get chart colors from centralized config
     // Note: This duplicates CHART_CONFIG.colors logic but allows for dynamic sensor types
@@ -111,6 +71,7 @@ const Dashboard = () => {
                 <Overview 
                     sensorData={sensorData}
                     groupedData={groupedData}
+                    onRefreshData={handleRefreshData}
                 />
             );
         } else if (activeView.startsWith('box-')) {
@@ -203,49 +164,6 @@ const Dashboard = () => {
         >
             {/* Main Content */}
             <div className="container mx-auto px-3 sm:px-6 py-4 sm:py-8">
-                <Motion.div
-                    className="mb-6 flex flex-col gap-4 rounded-3xl border border-border/60 bg-background/80 p-4 shadow-sm backdrop-blur"
-                    initial={{ opacity: 0, y: -12 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.3 }}
-                >
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                        <div>
-                            <h1 className="text-xl font-semibold text-foreground sm:text-2xl">{pageTitle}</h1>
-                            <p className="text-sm text-muted-foreground sm:text-base">{pageSubtitle}</p>
-                        </div>
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button
-                                    variant="outline"
-                                    className="flex items-center gap-2 rounded-xl border-border/80 bg-background/90 px-4 py-2 text-sm font-medium shadow-sm transition hover:bg-accent/60 hover:text-accent-foreground"
-                                >
-                                    <Settings className="h-4 w-4" />
-                                    Page Settings
-                                </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-56 rounded-2xl border-border/60">
-                                <DropdownMenuLabel className="text-xs text-muted-foreground/80">
-                                    Angemeldet als {user?.username || 'Unbekannt'}
-                                </DropdownMenuLabel>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem onSelect={(event) => { event.preventDefault(); handleRefreshData(); }}>
-                                    <RefreshCw className="mr-2 h-4 w-4" />
-                                    Daten aktualisieren
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onSelect={(event) => { event.preventDefault(); handleNavigateToOptions(); }}>
-                                    <SlidersHorizontal className="mr-2 h-4 w-4" />
-                                    Optionen öffnen
-                                </DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem onSelect={(event) => { event.preventDefault(); handleLogout(); }} className="text-destructive">
-                                    <LogOut className="mr-2 h-4 w-4" />
-                                    Logout
-                                </DropdownMenuItem>
-                            </DropdownMenuContent>
-                        </DropdownMenu>
-                    </div>
-                </Motion.div>
                 {loading && (
                     <Motion.div 
                         className="fixed top-4 right-4 z-50"

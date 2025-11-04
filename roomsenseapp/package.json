@@ -16,7 +16,7 @@
     "@capacitor/core": "^7.4.4",
     "@capacitor/ios": "^7.4.4",
     "@number-flow/react": "^0.5.10",
-    "@radix-ui/react-slot": "^1.2.3",
+    "@radix-ui/react-slot": "^1.2.4",
     "@tailwindcss/vite": "^4.1.15",
     "axios": "^1.12.2",
     "class-variance-authority": "^0.7.1",

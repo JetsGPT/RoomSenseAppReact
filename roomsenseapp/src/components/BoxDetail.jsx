@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Activity, Loader2, PencilLine } from 'lucide-react';
+import { Activity, Loader2, PencilLine, RefreshCw } from 'lucide-react';
 import NumberFlow from '@number-flow/react';
 import { Button } from './ui/button';
 import { InfoBlock } from './ui/InfoBlock';
@@ -7,6 +7,15 @@ import { SensorLineChart, SensorAreaChart } from './ui/SensorCharts';
 import { SensorChartManager } from './SensorChartManager';
 import { DatePicker } from './ui/date-picker';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
+import {
+    Pagination,
+    PaginationContent,
+    PaginationItem,
+    PaginationLink,
+    PaginationPrevious,
+    PaginationNext,
+    PaginationEllipsis,
+} from './ui/pagination';
 import { useSensorSelection } from '../hooks/useSensorSelection';
 import { useSensorData } from '../hooks/useSensorData';
 import {
@@ -24,6 +33,7 @@ import {
 const DEFAULT_RANGE_KEY = DEFAULT_TIME_RANGE || '24h';
 const STORAGE_PREFIX = 'roomsense.box';
 const isBrowser = typeof window !== 'undefined';
+const ROWS_PER_PAGE = 20;
 
 const getRangeStorageKey = (boxId) => `${STORAGE_PREFIX}.${boxId}.range`;
 const getCustomStorageKey = (boxId) => `${STORAGE_PREFIX}.${boxId}.customRange`;
@@ -103,6 +113,7 @@ export function BoxDetail({ boxId }) {
     });
     const [showChartManager, setShowChartManager] = useState(false);
     const [sortConfig, setSortConfig] = useState({ column: 'timestamp', direction: 'desc' });
+    const [currentPage, setCurrentPage] = useState(1);
 
     useEffect(() => {
         setRangeKey(readStoredRange(boxId));
@@ -142,7 +153,8 @@ export function BoxDetail({ boxId }) {
         data: fetchedData = [],
         loading,
         error,
-        lastFetch
+        lastFetch,
+        refresh
     } = useSensorData({
         sensor_box: boxId,
         timeRange: timeRangeValue,
@@ -250,6 +262,63 @@ export function BoxDetail({ boxId }) {
         return rows;
     }, [sortedBoxData, sortConfig]);
 
+    const totalPages = Math.max(1, Math.ceil(sortedTableRows.length / ROWS_PER_PAGE));
+    const pageStartIndex = (currentPage - 1) * ROWS_PER_PAGE;
+    const paginatedRows = useMemo(
+        () => sortedTableRows.slice(pageStartIndex, pageStartIndex + ROWS_PER_PAGE),
+        [sortedTableRows, pageStartIndex]
+    );
+    const pageRangeStart = sortedTableRows.length === 0 ? 0 : pageStartIndex + 1;
+    const pageRangeEnd = Math.min(sortedTableRows.length, pageStartIndex + paginatedRows.length);
+    const canGoPrev = currentPage > 1;
+    const canGoNext = currentPage < totalPages;
+
+    const paginationItems = useMemo(() => {
+        if (totalPages <= 5) {
+            return Array.from({ length: totalPages }, (_, index) => index + 1);
+        }
+
+        const pages = [1];
+        const startPage = Math.max(2, currentPage - 1);
+        const endPage = Math.min(totalPages - 1, currentPage + 1);
+
+        if (startPage > 2) {
+            pages.push('ellipsis-start');
+        }
+
+        for (let page = startPage; page <= endPage; page += 1) {
+            pages.push(page);
+        }
+
+        if (endPage < totalPages - 1) {
+            pages.push('ellipsis-end');
+        }
+
+        pages.push(totalPages);
+
+        return pages;
+    }, [totalPages, currentPage]);
+
+    const handlePageChange = useCallback(
+        (page) => {
+            setCurrentPage((prev) => {
+                const nextPage = Math.min(Math.max(page, 1), totalPages);
+                return nextPage === prev ? prev : nextPage;
+            });
+        },
+        [totalPages]
+    );
+
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [boxId, rangeKey, customRange?.start, customRange?.end]);
+
+    useEffect(() => {
+        if (currentPage > totalPages) {
+            setCurrentPage(totalPages);
+        }
+    }, [currentPage, totalPages]);
+
     const lastUpdatedLabel = useMemo(
         () => (lastFetch ? lastFetch.toLocaleString() : null),
         [lastFetch]
@@ -348,6 +417,10 @@ export function BoxDetail({ boxId }) {
         });
     }, []);
 
+    const handleRefresh = useCallback(() => {
+        refresh();
+    }, [refresh]);
+
     return (
         <div className="space-y-4 sm:space-y-6">
             <div className="space-y-3">
@@ -371,6 +444,17 @@ export function BoxDetail({ boxId }) {
                             >
                                 <PencilLine className="h-4 w-4" />
                                 <span className="sr-only">Configure sensor charts</span>
+                            </Button>
+                            <Button
+                                type="button"
+                                size="icon-sm"
+                                variant="ghost"
+                                onClick={handleRefresh}
+                                disabled={loading}
+                                className="shrink-0"
+                            >
+                                <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+                                <span className="sr-only">Refresh box data</span>
                             </Button>
                             <div className="text-left text-sm text-muted-foreground sm:text-right">
                                 Last updated: {loading ? 'loading…' : lastUpdatedLabel || 'n/a'}
@@ -589,34 +673,98 @@ export function BoxDetail({ boxId }) {
                                         </TableCell>
                                     </TableRow>
                                 ) : (
-                                    sortedTableRows.map((reading, index) => (
-                                        <TableRow
-                                            key={`${reading.sensor_type}-${reading.timestamp}-${index}`}
-                                            className={index % 2 === 0 ? 'bg-card/40' : 'bg-card/20'}
-                                        >
-                                            <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
-                                                {new Date(reading.timestamp).toLocaleString()}
-                                            </TableCell>
-                                            <TableCell className="text-sm">
-                                                <span className="inline-flex items-center gap-2 font-medium text-foreground">
-                                                    <span
-                                                        className="h-2.5 w-2.5 rounded-full"
-                                                        style={{ backgroundColor: getSensorColor(reading.sensor_type) || '#6b7280' }}
-                                                        aria-hidden="true"
-                                                    />
-                                                    {getSensorName(reading.sensor_type)}
-                                                </span>
-                                            </TableCell>
-                                            <TableCell className="text-right text-sm font-semibold text-foreground">
-                                                {formatSensorValue(reading.value, reading.sensor_type)}
-                                                {getSensorUnit(reading.sensor_type)}
-                                            </TableCell>
-                                        </TableRow>
-                                    ))
+                                    paginatedRows.map((reading, index) => {
+                                        const globalIndex = pageStartIndex + index;
+                                        const isEvenRow = globalIndex % 2 === 0;
+
+                                        return (
+                                            <TableRow
+                                                key={`${reading.sensor_type}-${reading.timestamp}-${globalIndex}`}
+                                                className={isEvenRow ? 'bg-card/40' : 'bg-card/20'}
+                                            >
+                                                <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
+                                                    {new Date(reading.timestamp).toLocaleString()}
+                                                </TableCell>
+                                                <TableCell className="text-sm">
+                                                    <span className="inline-flex items-center gap-2 font-medium text-foreground">
+                                                        <span
+                                                            className="h-2.5 w-2.5 rounded-full"
+                                                            style={{ backgroundColor: getSensorColor(reading.sensor_type) || '#6b7280' }}
+                                                            aria-hidden="true"
+                                                        />
+                                                        {getSensorName(reading.sensor_type)}
+                                                    </span>
+                                                </TableCell>
+                                                <TableCell className="text-right text-sm font-semibold text-foreground">
+                                                    {formatSensorValue(reading.value, reading.sensor_type)}
+                                                    {getSensorUnit(reading.sensor_type)}
+                                                </TableCell>
+                                            </TableRow>
+                                        );
+                                    })
                                 )}
                             </TableBody>
                         </Table>
                     </div>
+                    {sortedTableRows.length > 0 && (
+                        <div className="flex flex-col gap-2 border-t border-border bg-card/40 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                            <p className="text-xs text-muted-foreground sm:text-sm">
+                                Showing {pageRangeStart}-{pageRangeEnd} of {sortedTableRows.length} entries
+                            </p>
+                            {totalPages > 1 && (
+                                <div className="flex w-full justify-center sm:flex-1">
+                                    <Pagination className="justify-center">
+                                        <PaginationContent>
+                                        <PaginationItem>
+                                            <PaginationPrevious
+                                                href="#"
+                                                onClick={(event) => {
+                                                    event.preventDefault();
+                                                    if (canGoPrev) {
+                                                        handlePageChange(currentPage - 1);
+                                                    }
+                                                }}
+                                                aria-disabled={!canGoPrev}
+                                                className={!canGoPrev ? 'pointer-events-none opacity-40' : undefined}
+                                            />
+                                        </PaginationItem>
+                                        {paginationItems.map((item) => (
+                                            <PaginationItem key={`page-${item}`}>
+                                                {typeof item === 'number' ? (
+                                                    <PaginationLink
+                                                        href="#"
+                                                        onClick={(event) => {
+                                                            event.preventDefault();
+                                                            handlePageChange(item);
+                                                        }}
+                                                        isActive={item === currentPage}
+                                                    >
+                                                        {item}
+                                                    </PaginationLink>
+                                                ) : (
+                                                    <PaginationEllipsis />
+                                                )}
+                                            </PaginationItem>
+                                        ))}
+                                        <PaginationItem>
+                                            <PaginationNext
+                                                href="#"
+                                                onClick={(event) => {
+                                                    event.preventDefault();
+                                                    if (canGoNext) {
+                                                        handlePageChange(currentPage + 1);
+                                                    }
+                                                }}
+                                                aria-disabled={!canGoNext}
+                                                className={!canGoNext ? 'pointer-events-none opacity-40' : undefined}
+                                            />
+                                        </PaginationItem>
+                                        </PaginationContent>
+                                    </Pagination>
+                                </div>
+                            )}
+                        </div>
+                    )}
                 </div>
             </div>
         </div>
