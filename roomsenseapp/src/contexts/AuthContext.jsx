@@ -76,10 +76,10 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
-    const register = async (username, password) => {
+    const register = async (username, password, role = 'user') => {
         try {
             setError(null);
-            await authAPI.register(username, password);
+            await authAPI.register(username, password, role);
             // After registration, log the user in
             return await login(username, password);
         } catch (err) {
