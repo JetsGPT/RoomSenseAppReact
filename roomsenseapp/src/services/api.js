@@ -19,8 +19,13 @@ export const authAPI = {
         return response.data;
     },
 
-    register: async (user, password, role = 'user') => {
-        const response = await api.post('/users/register', { user, password, role });
+    register: async (user, password) => {
+        const response = await api.post('/users/register', { user, password });
+        return response.data;
+    },
+
+    updateUserRole: async (userId, role) => {
+        const response = await api.put(`/users/${userId}/role`, { role });
         return response.data;
     },
 
@@ -36,6 +41,35 @@ export const authAPI = {
 
     getAllUsers: async () => {
         const response = await api.get('/users/all');
+        return response.data;
+    },
+
+    // Roles and Permissions Management
+    getAllRoles: async () => {
+        const response = await api.get('/users/roles');
+        return response.data;
+    },
+
+    getRolePermissions: async (role) => {
+        const response = await api.get(`/users/roles/${encodeURIComponent(role)}/permissions`);
+        return response.data;
+    },
+
+    updateRolePermissions: async (role, permissions) => {
+        const response = await api.put(`/users/roles/${encodeURIComponent(role)}/permissions`, {
+            permissions
+        });
+        return response.data;
+    },
+
+    createRole: async (name) => {
+        const response = await api.post('/users/roles', { name });
+        return response.data;
+    },
+
+    deleteRole: async (role, reassignTo = null) => {
+        const config = reassignTo ? { params: { reassignTo } } : {};
+        const response = await api.delete(`/users/roles/${encodeURIComponent(role)}`, config);
         return response.data;
     },
 };

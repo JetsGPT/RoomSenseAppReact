@@ -11,7 +11,6 @@ const Login = () => {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [isRegistering, setIsRegistering] = useState(false);
-    const [role, setRole] = useState('user');
     const [localError, setLocalError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
@@ -36,7 +35,7 @@ const Login = () => {
         try {
             let result;
             if (isRegistering) {
-                result = await register(username, password, role);
+                result = await register(username, password);
             } else {
                 result = await login(username, password);
             }
@@ -170,33 +169,6 @@ const Login = () => {
                                     </Button>
                                 </div>
                             </div>
-
-                            <AnimatePresence mode="wait">
-                                {isRegistering && (
-                                    <Motion.div
-                                        key="role-field"
-                                        initial={{ opacity: 0, y: -8 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        exit={{ opacity: 0, y: -6 }}
-                                        transition={{ duration: 0.2, ease: 'easeOut' }}
-                                        className="space-y-2"
-                                    >
-                                        <label htmlFor="role" className="text-sm font-medium text-foreground">
-                                            Role
-                                        </label>
-                                        <select
-                                            id="role"
-                                            value={role}
-                                            onChange={(e) => setRole(e.target.value)}
-                                            disabled={isLoading}
-                                            className="w-full rounded-xl border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                                        >
-                                            <option value="user">User</option>
-                                            <option value="admin">Admin</option>
-                                        </select>
-                                    </Motion.div>
-                                )}
-                            </AnimatePresence>
                         </div>
 
                         <div className="space-y-3">
