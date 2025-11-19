@@ -24,6 +24,7 @@ import { useSidebar } from "@/shared/contexts/SidebarContext"
 // Navigation links array to be used in both desktop and mobile menus
 const navigationLinks = [
   { href: "/dashboard", label: "Dashboard", icon: HouseIcon },
+  { href: "/boxes", label: "My Boxes", icon: Box },
   { href: "/about-me", label: "About", icon: InboxIcon },
   { href: "/admin", label: "Admin", icon: Shield },
   { href: "#", label: "Help", icon: ZapIcon },

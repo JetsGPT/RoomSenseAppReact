@@ -74,6 +74,34 @@ export const authAPI = {
     },
 };
 
+// BLE Device Management API
+export const bleAPI = {
+    scanDevices: async () => {
+        const response = await api.get('/devices/scan');
+        return response.data;
+    },
+
+    connectDevice: async (address, name = null) => {
+        const response = await api.post(`/devices/connect/${address}`, { name });
+        return response.data;
+    },
+
+    disconnectDevice: async (address) => {
+        const response = await api.post(`/devices/disconnect/${address}`);
+        return response.data;
+    },
+
+    getActiveConnections: async () => {
+        const response = await api.get('/devices/connections');
+        return response.data;
+    },
+
+    getHealth: async () => {
+        const response = await api.get('/devices/health');
+        return response.data;
+    },
+};
+
 // Import sensors API
 export { sensorsAPI, sensorHelpers } from './sensorsAPI.js';
 

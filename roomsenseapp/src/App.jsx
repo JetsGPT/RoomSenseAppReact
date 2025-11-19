@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
+import { lazy, Suspense } from 'react';
 import { AuthProvider } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { SettingsProvider } from './contexts/SettingsContext';
@@ -8,14 +9,25 @@ import { RequireAuth, RequireRole, PublicOnly } from './components/ProtectedRout
 import Navigation from './components/ui/Navigation';
 import { AppSidebar } from './shared/components/AppSidebar';
 import { PageTransition } from './components/ui/PageTransition';
-import Login from './pages/Login';
-import AboutMe from './pages/AboutMe';
-import Unauthorized from './pages/Unauthorized';
-import Admin from './pages/Admin';
+import { Loader2 } from 'lucide-react';
 import './App.css';
-import Dashboard from './pages/Dashboard';
 import { useSensorData } from './hooks/useSensorData';
 import { DEFAULT_TIME_RANGE_VALUE, DATA_LIMITS, DEFAULT_REFRESH_INTERVAL } from './config/sensorConfig';
+
+// Lazy load pages
+const Login = lazy(() => import('./pages/Login'));
+const AboutMe = lazy(() => import('./pages/AboutMe'));
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const Admin = lazy(() => import('./pages/Admin'));
+const BoxManagement = lazy(() => import('./pages/BoxManagement'));
+const Unauthorized = lazy(() => import('./pages/Unauthorized'));
+
+// Loading fallback component
+const LoadingFallback = () => (
+    <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+    </div>
+);
 
 function DashboardWrapper() {
     // Fetch sensor data at the app level to make it available to sidebar
@@ -57,9 +69,11 @@ function AppContent() {
                                 path="/login"
                                 element={
                                     <PublicOnly>
-                                        <PageTransition>
-                                            <Login />
-                                        </PageTransition>
+                                        <Suspense fallback={<LoadingFallback />}>
+                                            <PageTransition>
+                                                <Login />
+                                            </PageTransition>
+                                        </Suspense>
                                     </PublicOnly>
                                 }
                             />
@@ -69,9 +83,11 @@ function AppContent() {
                                 path="/about-me"
                                 element={
                                     <RequireAuth>
-                                        <PageTransition>
-                                            <AboutMe />
-                                        </PageTransition>
+                                        <Suspense fallback={<LoadingFallback />}>
+                                            <PageTransition>
+                                                <AboutMe />
+                                            </PageTransition>
+                                        </Suspense>
                                     </RequireAuth>
                                 }
                             />
@@ -79,9 +95,11 @@ function AppContent() {
                                 path="/dashboard"
                                 element={
                                     <RequireAuth>
-                                        <PageTransition>
-                                            <Dashboard />
-                                        </PageTransition>
+                                        <Suspense fallback={<LoadingFallback />}>
+                                            <PageTransition>
+                                                <Dashboard />
+                                            </PageTransition>
+                                        </Suspense>
                                     </RequireAuth>
                                 }
                             />
@@ -90,46 +108,37 @@ function AppContent() {
                                 element={
                                     <RequireAuth>
                                         <RequireRole roles={['admin']}>
-                                            <PageTransition>
-                                                <Admin />
-                                            </PageTransition>
+                                            <Suspense fallback={<LoadingFallback />}>
+                                                <PageTransition>
+                                                    <Admin />
+                                                </PageTransition>
+                                            </Suspense>
                                         </RequireRole>
                                     </RequireAuth>
                                 }
                             />
-
-                            {/* Example: Admin-only route */}
-                            {/* Uncomment when you have an admin page */}
-                            {/*
                             <Route
-                                path="/admin"
+                                path="/boxes"
                                 element={
-                                    <RequireRole roles={['admin']}>
-                                        <AdminPanel />
-                                    </RequireRole>
+                                    <RequireAuth>
+                                        <Suspense fallback={<LoadingFallback />}>
+                                            <PageTransition>
+                                                <BoxManagement />
+                                            </PageTransition>
+                                        </Suspense>
+                                    </RequireAuth>
                                 }
                             />
-                            */}
-
-                            {/* Example: Multi-role route */}
-                            {/*
-                            <Route
-                                path="/sensors"
-                                element={
-                                    <RequireRole roles={['admin', 'user']}>
-                                        <SensorsPage />
-                                    </RequireRole>
-                                }
-                            />
-                            */}
 
                             {/* Unauthorized page */}
                             <Route 
                                 path="/unauthorized" 
                                 element={
-                                    <PageTransition>
-                                        <Unauthorized />
-                                    </PageTransition>
+                                    <Suspense fallback={<LoadingFallback />}>
+                                        <PageTransition>
+                                            <Unauthorized />
+                                        </PageTransition>
+                                    </Suspense>
                                 } 
                             />
 
