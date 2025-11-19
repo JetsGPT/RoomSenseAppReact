@@ -105,6 +105,54 @@ nav, .nav {
    RESPONSIVE ENHANCEMENTS
    ============================================ */
 
+/* iOS Safe Area Support */
+@supports (padding: max(0px)) {
+  body {
+    padding-left: max(0px, env(safe-area-inset-left));
+    padding-right: max(0px, env(safe-area-inset-right));
+    padding-bottom: max(0px, env(safe-area-inset-bottom));
+  }
+}
+
+/* Touch Optimization */
+@media (hover: none) and (pointer: coarse) {
+  /* Increase touch target sizes for mobile */
+  button, .btn, a {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  /* Remove hover effects on touch devices */
+  button:hover, .btn:hover, a:hover {
+    transform: none;
+  }
+  
+  /* Add active states for touch feedback */
+  button:active, .btn:active {
+    transform: scale(0.98);
+    opacity: 0.8;
+  }
+}
+
+/* Prevent text selection on buttons for better mobile UX */
+button, .btn {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Smooth scrolling on iOS */
+html {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Fix iOS input zoom */
+@media screen and (max-width: 768px) {
+  input, select, textarea {
+    font-size: 16px !important;
+  }
+}
+
 @media (max-width: 640px) {
   /* Mobile-specific rounded adjustments */
   .card-enhanced {

@@ -115,22 +115,22 @@ const BoxManagement = () => {
     };
 
     return (
-        <div className="min-h-screen bg-background p-6">
+        <div className="min-h-screen bg-background p-4 sm:p-6">
             <FadeIn>
-                <div className="max-w-7xl mx-auto space-y-8">
+                <div className="max-w-7xl mx-auto space-y-6 sm:space-y-8">
                     {/* Header */}
                     <motion.div
                         initial={{ opacity: 0, y: -20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.5 }}
                     >
-                        <h1 className="text-4xl font-bold mb-2">My Boxes</h1>
-                        <p className="text-muted-foreground">
+                        <h1 className="text-3xl sm:text-4xl font-bold mb-2">My Boxes</h1>
+                        <p className="text-sm sm:text-base text-muted-foreground">
                             Manage your RoomSense slave boxes and BLE connections
                         </p>
                     </motion.div>
 
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
                         {/* Active Connections Card */}
                         <Card>
                             <CardHeader>
@@ -172,21 +172,21 @@ const BoxManagement = () => {
                                         {activeConnections.map((device, index) => (
                                             <StaggeredItem key={device.address} index={index}>
                                                 <motion.div
-                                                    className="flex items-center justify-between p-4 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
+                                                    className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 sm:p-4 rounded-lg border bg-card hover:bg-accent/50 transition-colors gap-3 sm:gap-0"
                                                     whileHover={{ scale: 1.02 }}
                                                     whileTap={{ scale: 0.98 }}
                                                 >
-                                                    <div className="flex items-center gap-3">
-                                                        <div className="p-2 rounded-full bg-green-500/10">
+                                                    <div className="flex items-center gap-3 w-full sm:w-auto">
+                                                        <div className="p-2 rounded-full bg-green-500/10 flex-shrink-0">
                                                             <Box className="h-5 w-5 text-green-500" />
                                                         </div>
-                                                        <div>
-                                                            <p className="font-medium">{device.name || 'Unknown Device'}</p>
-                                                            <p className="text-sm text-muted-foreground">{device.address}</p>
+                                                        <div className="min-w-0 flex-1">
+                                                            <p className="font-medium truncate">{device.name || 'Unknown Device'}</p>
+                                                            <p className="text-xs sm:text-sm text-muted-foreground truncate">{device.address}</p>
                                                         </div>
                                                     </div>
-                                                    <div className="flex items-center gap-2">
-                                                        <Badge variant="success" className="bg-green-500/10 text-green-700 dark:text-green-400">
+                                                    <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                                                        <Badge variant="success" className="bg-green-500/10 text-green-700 dark:text-green-400 whitespace-nowrap">
                                                             Connected
                                                         </Badge>
                                                         <Button
@@ -194,6 +194,7 @@ const BoxManagement = () => {
                                                             size="icon"
                                                             onClick={() => handleDisconnect(device.address, device.name)}
                                                             disabled={disconnectingDevices.has(device.address)}
+                                                            className="flex-shrink-0"
                                                         >
                                                             {disconnectingDevices.has(device.address) ? (
                                                                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -251,27 +252,28 @@ const BoxManagement = () => {
                                                 return (
                                                     <StaggeredItem key={device.address} index={index}>
                                                         <motion.div
-                                                            className="flex items-center justify-between p-4 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
+                                                            className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 sm:p-4 rounded-lg border bg-card hover:bg-accent/50 transition-colors gap-3 sm:gap-0"
                                                             whileHover={{ scale: 1.02 }}
                                                             whileTap={{ scale: 0.98 }}
                                                         >
-                                                            <div className="flex items-center gap-3">
-                                                                <div className="p-2 rounded-full bg-blue-500/10">
+                                                            <div className="flex items-center gap-3 w-full sm:w-auto">
+                                                                <div className="p-2 rounded-full bg-blue-500/10 flex-shrink-0">
                                                                     <Box className="h-5 w-5 text-blue-500" />
                                                                 </div>
-                                                                <div>
-                                                                    <p className="font-medium">{device.name || 'Unknown Device'}</p>
-                                                                    <p className="text-sm text-muted-foreground">{device.address}</p>
+                                                                <div className="min-w-0 flex-1">
+                                                                    <p className="font-medium truncate">{device.name || 'Unknown Device'}</p>
+                                                                    <p className="text-xs sm:text-sm text-muted-foreground truncate">{device.address}</p>
                                                                 </div>
                                                             </div>
                                                             {isAlreadyConnected ? (
-                                                                <Badge variant="secondary">Already Connected</Badge>
+                                                                <Badge variant="secondary" className="whitespace-nowrap">Already Connected</Badge>
                                                             ) : (
                                                                 <Button
                                                                     variant="default"
                                                                     size="sm"
                                                                     onClick={() => handleConnect(device.address, device.name)}
                                                                     disabled={connectingDevices.has(device.address)}
+                                                                    className="w-full sm:w-auto flex-shrink-0"
                                                                 >
                                                                     {connectingDevices.has(device.address) ? (
                                                                         <>

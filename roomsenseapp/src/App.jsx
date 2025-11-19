@@ -1,7 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
 import { lazy, Suspense } from 'react';
-import { AuthProvider } from './contexts/AuthContext';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { SettingsProvider } from './contexts/SettingsContext';
 import { SidebarProvider } from './shared/contexts/SidebarContext';
@@ -30,12 +30,15 @@ const LoadingFallback = () => (
 );
 
 function DashboardWrapper() {
-    // Fetch sensor data at the app level to make it available to sidebar
+    const { user } = useAuth();
+    
+    // Only fetch sensor data if user is logged in
     const { sensorBoxes } = useSensorData({
         timeRange: DEFAULT_TIME_RANGE_VALUE,
         limit: DATA_LIMITS.realtime, // Smaller limit for sidebar data
         autoRefresh: true,
-        refreshInterval: DEFAULT_REFRESH_INTERVAL
+        refreshInterval: DEFAULT_REFRESH_INTERVAL,
+        enabled: !!user // Only fetch when user is authenticated
     });
 
     return (
