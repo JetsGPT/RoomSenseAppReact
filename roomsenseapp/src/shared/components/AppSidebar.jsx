@@ -14,7 +14,7 @@ import { useSidebar } from '../contexts/SidebarContext';
 export function AppSidebar() {
     const { activeView, setActiveView, sensorBoxes } = useSidebar();
     const [isMobileOpen, setIsMobileOpen] = useState(false);
-    
+
     // Dashboard views only
     const sidebarItems = [
         {
@@ -28,13 +28,7 @@ export function AppSidebar() {
             label: `Box ${boxId}`,
             icon: Box,
             description: `Detailed view for ${boxId}`
-        })),
-        {
-            id: 'analytics',
-            label: 'Analytics',
-            icon: BarChart3,
-            description: 'Advanced data analysis'
-        }
+        }))
     ];
 
     const handleItemClick = (itemId) => {
@@ -48,14 +42,14 @@ export function AppSidebar() {
                 {sidebarItems.map((item, index) => {
                     const Icon = item.icon;
                     const isActive = activeView === item.id;
-                    
+
                     return (
                         <motion.div
                             key={item.id}
                             initial={{ opacity: 0, x: -20 }}
                             animate={{ opacity: 1, x: 0 }}
-                            transition={{ 
-                                duration: 0.3, 
+                            transition={{
+                                duration: 0.3,
                                 delay: index * 0.1,
                                 ease: "easeOut"
                             }}
@@ -64,11 +58,10 @@ export function AppSidebar() {
                         >
                             <Button
                                 variant={isActive ? "default" : "ghost"}
-                                className={`w-full justify-start h-auto p-4 rounded-xl transition-all duration-200 ${
-                                    isActive 
-                                        ? 'bg-primary text-primary-foreground shadow-lg' 
+                                className={`w-full justify-start h-auto p-4 rounded-xl transition-all duration-200 ${isActive
+                                        ? 'bg-primary text-primary-foreground shadow-lg'
                                         : 'hover:bg-accent/50 hover:text-accent-foreground'
-                                }`}
+                                    }`}
                                 onClick={() => handleItemClick(item.id)}
                             >
                                 <div className="flex items-center gap-3 w-full">
@@ -85,8 +78,8 @@ export function AppSidebar() {
             </nav>
 
             <Separator />
-            
-            <motion.div 
+
+            <motion.div
                 className="p-4"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -96,14 +89,13 @@ export function AppSidebar() {
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                 >
-                    <Button 
-                        variant={activeView === 'options' ? "default" : "ghost"} 
-                        size="sm" 
-                        className={`w-full justify-start text-sm rounded-xl transition-all duration-200 ${
-                            activeView === 'options' 
-                                ? 'bg-primary text-primary-foreground shadow-lg' 
+                    <Button
+                        variant={activeView === 'options' ? "default" : "ghost"}
+                        size="sm"
+                        className={`w-full justify-start text-sm rounded-xl transition-all duration-200 ${activeView === 'options'
+                                ? 'bg-primary text-primary-foreground shadow-lg'
                                 : 'hover:bg-accent/50 hover:text-accent-foreground'
-                        }`}
+                            }`}
                         onClick={() => handleItemClick('options')}
                     >
                         <Settings size={16} className="mr-2" />

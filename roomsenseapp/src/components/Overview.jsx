@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { InfoBlock, InfoItem } from './ui/InfoBlock';
-import { SensorLineChart } from './ui/SensorCharts';
+import { SensorLineChart, MultiBoxChart } from './ui/SensorCharts';
 import { Thermometer, Droplets, Gauge, Sun, Activity, PencilLine } from 'lucide-react';
 import NumberFlow from "@number-flow/react"
 import { Button } from './ui/button';
@@ -44,7 +44,7 @@ export function Overview({ sensorData, groupedData }) {
     const getLatestReadings = (readings) => {
         const latestByType = {};
         readings.forEach(reading => {
-            if (!latestByType[reading.sensor_type] || 
+            if (!latestByType[reading.sensor_type] ||
                 new Date(reading.timestamp) > new Date(latestByType[reading.sensor_type].timestamp)) {
                 latestByType[reading.sensor_type] = reading;
             }
@@ -81,16 +81,42 @@ export function Overview({ sensorData, groupedData }) {
     });
 
     const quickTrendCharts = quickTrendSensorTypes.map((sensorType) => {
-        const chartData = getChartDataForSensorType(sensorType);
-        if (chartData.length === 0) {
+        // 1. Filter data for this sensor type
+        const typeData = sensorData
+            .filter(reading => reading.sensor_type === sensorType)
+            .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+
+        if (typeData.length === 0) {
             return null;
         }
 
+        // 2. Pivot data: Group by timestamp
+        const pivotedData = [];
+        const timeMap = new Map();
+
+        typeData.forEach(reading => {
+            const time = reading.timestamp;
+            if (!timeMap.has(time)) {
+                timeMap.set(time, { timestamp: time });
+                pivotedData.push(timeMap.get(time));
+            }
+            const entry = timeMap.get(time);
+            entry[reading.sensor_box] = reading.value;
+        });
+
+        // 3. Generate colors for boxes
+        const uniqueBoxes = [...new Set(typeData.map(r => r.sensor_box))];
+        const boxColors = uniqueBoxes.reduce((acc, boxId, index) => {
+            acc[boxId] = `hsl(${(index * 137.5) % 360}, 70%, 50%)`;
+            return acc;
+        }, {});
+
         return (
-            <SensorLineChart
+            <MultiBoxChart
                 key={sensorType}
-                data={chartData}
+                data={pivotedData}
                 sensorType={sensorType}
+                boxColors={boxColors}
             />
         );
     }).filter(Boolean);
@@ -103,28 +129,28 @@ export function Overview({ sensorData, groupedData }) {
                     <div className="flex items-center justify-center">
                         <Activity className="w-6 h-6 sm:w-8 sm:h-8 text-primary" />
                         <NumberFlow className="ml-1 sm:ml-2 text-lg sm:text-2xl font-bold" value={Object.keys(groupedData).length} />
-                        
+
                     </div>
                 </InfoBlock>
-                
+
                 <InfoBlock title="Sensor Types" className="text-center">
                     <div className="flex items-center justify-center">
                         <Thermometer className="w-6 h-6 sm:w-8 sm:h-8 text-primary" />
                         <NumberFlow className="ml-1 sm:ml-2 text-lg sm:text-2xl font-bold" value={[...new Set(sensorData.map(r => r.sensor_type))].length} />
                     </div>
                 </InfoBlock>
-                
+
                 <InfoBlock title="Total Readings" className="text-center">
                     <div className="flex items-center justify-center">
                         <Gauge className="w-6 h-6 sm:w-8 sm:h-8 text-primary" />
                         <NumberFlow className="ml-1 sm:ml-2 text-lg sm:text-2xl font-bold" value={sensorData.length} />
                     </div>
                 </InfoBlock>
-                
+
                 <InfoBlock title="Last Update" className="text-center">
                     <div className="text-xs sm:text-sm text-muted-foreground">
-                        {sensorData.length > 0 ? 
-                            new Date(Math.max(...sensorData.map(r => new Date(r.timestamp)))).toLocaleString() 
+                        {sensorData.length > 0 ?
+                            new Date(Math.max(...sensorData.map(r => new Date(r.timestamp)))).toLocaleString()
                             : 'No data'
                         }
                     </div>

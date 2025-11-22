@@ -11,7 +11,7 @@ import {
     formatSensorValue,
     CHART_CONFIG
 } from '../../config/sensorConfig';
-import { 
+import {
     filterDataByRange,
     CHART_RANGE_OPTIONS,
     DEFAULT_CHART_RANGE,
@@ -27,20 +27,49 @@ const createTimeFormatter = (data) => {
         return null;
     }
 
-    const timestamps = data
-        .map((item) => {
-            const value = item?.timestamp ?? item?.time ?? item?.date;
-            const parsed = new Date(value);
-            return Number.isNaN(parsed.getTime()) ? null : parsed.getTime();
-        })
-        .filter((time) => typeof time === 'number');
+    // Optimization: Sample min/max from start/end instead of mapping all
+    // This assumes data is roughly sorted or we just need a heuristic for the range
+    let minTime, maxTime;
 
-    if (timestamps.length === 0) {
+    if (data.length > 0) {
+        const getTimestamp = (item) => {
+            const val = item?.timestamp ?? item?.time ?? item?.date;
+            return new Date(val).getTime();
+        };
+
+        // Optimization: If data is likely sorted (common case), check ends first
+        // But for robustness, if array is small (< 1000), just scan all.
+        // If large, we can assume sorted or sample.
+        if (data.length < 1000) {
+            const timestamps = data
+                .map((item) => getTimestamp(item))
+                .filter((time) => !isNaN(time));
+
+            if (timestamps.length === 0) return null;
+            minTime = Math.min(...timestamps);
+            maxTime = Math.max(...timestamps);
+        } else {
+            // For large datasets, assume roughly sorted or just take ends to avoid O(N) scan on every render
+            const t1 = getTimestamp(data[0]);
+            const t2 = getTimestamp(data[data.length - 1]);
+
+            if (!isNaN(t1) && !isNaN(t2)) {
+                minTime = Math.min(t1, t2);
+                maxTime = Math.max(t1, t2);
+            } else {
+                // Fallback to scanning if ends are bad
+                const timestamps = data
+                    .map((item) => getTimestamp(item))
+                    .filter((time) => !isNaN(time));
+                if (timestamps.length === 0) return null;
+                minTime = Math.min(...timestamps);
+                maxTime = Math.max(...timestamps);
+            }
+        }
+    } else {
         return null;
     }
 
-    const minTime = Math.min(...timestamps);
-    const maxTime = Math.max(...timestamps);
     const span = Math.max(maxTime - minTime, 0);
 
     let options;
@@ -200,9 +229,9 @@ export function SensorLineChart({
             <Card className="w-full rounded-3xl overflow-hidden shadow-lg">
                 <CardHeader className="pb-4">
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <CardTitle className="text-lg font-semibold text-foreground">
-                        {sensorName} Over Time
-                    </CardTitle>
+                        <CardTitle className="text-lg font-semibold text-foreground">
+                            {sensorName} Over Time
+                        </CardTitle>
                         {showRangeSelector && (
                             <RangeSelector options={options} selected={selectedRange} onSelect={handleRangeChange} />
                         )}
@@ -212,22 +241,22 @@ export function SensorLineChart({
                     <ChartContainer config={chartConfig} className={`h-[${CHART_CONFIG.defaultHeight}px] rounded-2xl`}>
                         <LineChart data={filteredData} margin={CHART_CONFIG.margins}>
                             <CartesianGrid strokeDasharray="3 3" stroke="currentColor" opacity={0.1} />
-                            <XAxis 
-                                dataKey="timestamp" 
+                            <XAxis
+                                dataKey="timestamp"
                                 tickFormatter={formatXAxis}
                                 fontSize={10}
                                 tick={{ fill: 'currentColor', opacity: 0.7 }}
                             />
                             <YAxis fontSize={10} tick={{ fill: 'currentColor', opacity: 0.7 }} />
-                            <ChartTooltip 
+                            <ChartTooltip
                                 labelFormatter={tooltipLabelFormatter}
                                 content={<ChartTooltipContent formatter={formatTooltip} />}
                                 wrapperClassName="rounded-xl"
                             />
-                            <Line 
-                                type="monotone" 
-                                dataKey="value" 
-                                stroke={sensorColor} 
+                            <Line
+                                type="monotone"
+                                dataKey="value"
+                                stroke={sensorColor}
                                 strokeWidth={CHART_CONFIG.strokeWidth + 1}
                                 dot={showChartDots ? { fill: sensorColor, strokeWidth: CHART_CONFIG.strokeWidth, r: CHART_CONFIG.dotRadius + 1 } : false}
                                 activeDot={showChartDots ? { r: CHART_CONFIG.activeDotRadius + 2, stroke: sensorColor, strokeWidth: CHART_CONFIG.strokeWidth + 1 } : false}
@@ -316,9 +345,9 @@ export function SensorAreaChart({
             <Card className="w-full">
                 <CardHeader>
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <CardTitle className="text-lg font-medium">
-                        {sensorName} Trend
-                    </CardTitle>
+                        <CardTitle className="text-lg font-medium">
+                            {sensorName} Trend
+                        </CardTitle>
                         {showRangeSelector && (
                             <RangeSelector options={options} selected={selectedRange} onSelect={handleRangeChange} />
                         )}
@@ -328,20 +357,20 @@ export function SensorAreaChart({
                     <ChartContainer config={chartConfig} className={`h-[${CHART_CONFIG.defaultHeight}px]`}>
                         <AreaChart data={filteredData} margin={CHART_CONFIG.margins}>
                             <CartesianGrid strokeDasharray="3 3" />
-                            <XAxis 
-                                dataKey="timestamp" 
+                            <XAxis
+                                dataKey="timestamp"
                                 tickFormatter={formatXAxis}
                                 fontSize={10}
                             />
                             <YAxis fontSize={10} />
-                            <ChartTooltip 
+                            <ChartTooltip
                                 labelFormatter={tooltipLabelFormatter}
                                 content={<ChartTooltipContent formatter={formatTooltip} />}
                             />
-                            <Area 
-                                type="monotone" 
-                                dataKey="value" 
-                                stroke={sensorColor} 
+                            <Area
+                                type="monotone"
+                                dataKey="value"
+                                stroke={sensorColor}
                                 fill={sensorColor}
                                 fillOpacity={0.2}
                                 strokeWidth={CHART_CONFIG.strokeWidth}
@@ -397,7 +426,7 @@ export function MultiSensorChart({ data, title, colors, rangeOptions, initialRan
 
     // Use centralized colors if not provided
     const chartColors = colors || CHART_CONFIG.colors;
-    
+
     const chartConfig = Object.entries(chartColors).reduce((config, [sensorType, color]) => {
         config[sensorType] = {
             label: getSensorName(sensorType),
@@ -416,9 +445,9 @@ export function MultiSensorChart({ data, title, colors, rangeOptions, initialRan
             <Card className="w-full">
                 <CardHeader>
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <CardTitle className="text-lg font-medium">
-                        {title}
-                    </CardTitle>
+                        <CardTitle className="text-lg font-medium">
+                            {title}
+                        </CardTitle>
                         <RangeSelector options={options} selected={selectedRange} onSelect={handleRangeChange} />
                     </div>
                 </CardHeader>
@@ -426,27 +455,139 @@ export function MultiSensorChart({ data, title, colors, rangeOptions, initialRan
                     <ChartContainer config={chartConfig} className={`h-[${CHART_CONFIG.multiSensorHeight}px]`}>
                         <LineChart data={filteredData} margin={CHART_CONFIG.margins}>
                             <CartesianGrid strokeDasharray="3 3" />
-                            <XAxis 
-                                dataKey="timestamp" 
+                            <XAxis
+                                dataKey="timestamp"
                                 tickFormatter={formatXAxis}
                                 fontSize={10}
                             />
                             <YAxis fontSize={10} />
-                            <ChartTooltip 
+                            <ChartTooltip
                                 labelFormatter={tooltipLabelFormatter}
                                 content={<ChartTooltipContent formatter={formatTooltip} />}
                             />
                             {Object.entries(chartColors).map(([sensorType, color]) => (
-                                <Line 
+                                <Line
                                     key={sensorType}
-                                    type="monotone" 
-                                    dataKey={sensorType} 
-                                    stroke={color} 
+                                    type="monotone"
+                                    dataKey={sensorType}
+                                    stroke={color}
                                     strokeWidth={CHART_CONFIG.strokeWidth}
                                     dot={showChartDots ? { fill: color, strokeWidth: CHART_CONFIG.strokeWidth, r: CHART_CONFIG.dotRadius } : false}
                                     activeDot={showChartDots ? { r: CHART_CONFIG.activeDotRadius, stroke: color, strokeWidth: CHART_CONFIG.strokeWidth } : false}
                                 />
                             ))}
+                        </LineChart>
+                    </ChartContainer>
+                </CardContent>
+            </Card>
+        </MotionDiv>
+    );
+}
+
+export function MultiBoxChart({ data, sensorType, boxColors, rangeOptions, initialRange, onRangeChange }) {
+    const { settings } = useSettings();
+    const showChartDots = settings?.showChartDots ?? true;
+    const { options, selectedRange, handleSelect } = useRangeState(rangeOptions, initialRange || DEFAULT_CHART_RANGE);
+
+    const handleRangeChange = useCallback((rangeKey) => {
+        const resolvedRange = handleSelect(rangeKey);
+        if (onRangeChange) {
+            onRangeChange(resolvedRange);
+        }
+    }, [handleSelect, onRangeChange]);
+
+    const filteredData = useMemo(() => filterDataByRange(data || [], selectedRange), [data, selectedRange]);
+    const timeFormatter = useMemo(() => createTimeFormatter(filteredData), [filteredData]);
+
+    const formatXAxis = useCallback((tickItem) => {
+        if (timeFormatter) {
+            return timeFormatter(tickItem);
+        }
+        const date = new Date(tickItem);
+        return Number.isNaN(date.getTime())
+            ? ''
+            : date.toLocaleString(undefined, { hour: '2-digit', minute: '2-digit' });
+    }, [timeFormatter]);
+
+    const sensorUnit = getSensorUnit(sensorType);
+    const sensorName = getSensorName(sensorType);
+
+    const formatTooltip = (value, name) => {
+        const formattedValue = formatSensorValue(value, sensorType);
+        return [`${formattedValue}${sensorUnit}`, name];
+    };
+
+    const tooltipLabelFormatter = useCallback((label, payload) => {
+        const timestamp = payload?.[0]?.payload?.timestamp || label;
+        if (timeFormatter) {
+            return timeFormatter(timestamp);
+        }
+        const date = new Date(timestamp);
+        return Number.isNaN(date.getTime()) ? '' : date.toLocaleString();
+    }, [timeFormatter]);
+
+    // Generate chart config dynamically based on box IDs in data
+    // We assume data keys (except timestamp) are box IDs
+    const boxIds = useMemo(() => {
+        if (!filteredData.length) return [];
+        const keys = Object.keys(filteredData[0]);
+        return keys.filter(k => k !== 'timestamp');
+    }, [filteredData]);
+
+    const chartConfig = useMemo(() => {
+        return boxIds.reduce((config, boxId) => {
+            config[boxId] = {
+                label: boxId,
+                color: boxColors?.[boxId] || '#000000', // Fallback color
+            };
+            return config;
+        }, {});
+    }, [boxIds, boxColors]);
+
+    return (
+        <MotionDiv
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, ease: "easeOut" }}
+            whileHover={{ y: -2 }}
+        >
+            <Card className="w-full">
+                <CardHeader>
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                        <CardTitle className="text-lg font-medium">
+                            {sensorName} Comparison
+                        </CardTitle>
+                        <RangeSelector options={options} selected={selectedRange} onSelect={handleRangeChange} />
+                    </div>
+                </CardHeader>
+                <CardContent>
+                    <ChartContainer config={chartConfig} className={`h-[${CHART_CONFIG.multiSensorHeight}px]`}>
+                        <LineChart data={filteredData} margin={CHART_CONFIG.margins}>
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis
+                                dataKey="timestamp"
+                                tickFormatter={formatXAxis}
+                                fontSize={10}
+                            />
+                            <YAxis fontSize={10} />
+                            <ChartTooltip
+                                labelFormatter={tooltipLabelFormatter}
+                                content={<ChartTooltipContent formatter={formatTooltip} />}
+                            />
+                            {boxIds.map((boxId, index) => {
+                                const color = boxColors?.[boxId] || `hsl(${index * 60}, 70%, 50%)`;
+                                return (
+                                    <Line
+                                        key={boxId}
+                                        type="monotone"
+                                        dataKey={boxId}
+                                        stroke={color}
+                                        strokeWidth={CHART_CONFIG.strokeWidth}
+                                        dot={showChartDots ? { fill: color, strokeWidth: CHART_CONFIG.strokeWidth, r: CHART_CONFIG.dotRadius } : false}
+                                        activeDot={showChartDots ? { r: CHART_CONFIG.activeDotRadius, stroke: color, strokeWidth: CHART_CONFIG.strokeWidth } : false}
+                                    />
+                                );
+                            })}
                         </LineChart>
                     </ChartContainer>
                 </CardContent>

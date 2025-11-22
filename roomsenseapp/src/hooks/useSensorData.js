@@ -1,88 +1,64 @@
 /**
- * Custom hooks for sensor data fetching with caching and memoization.
+ * Custom hooks for sensor data fetching - Compatibility Layer
+ * 
+ * This file now wraps the new React Query hooks to maintain backward compatibility
+ * with existing components while leveraging the new architecture.
  */
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
-import { sensorsAPI, sensorHelpers } from '../services/sensorsAPI';
-import { 
-    DEFAULT_TIME_RANGE_VALUE, 
-    DEFAULT_DATA_LIMIT, 
-    DEFAULT_REFRESH_INTERVAL,
-    DATA_LIMITS 
-} from '../config/sensorConfig';
+import { useSensorDataQuery, useDashboardData, useSensorTypes } from './useSensorQueries';
+import { sensorHelpers } from '../services/sensorsAPI';
+import { useConnections } from '../contexts/ConnectionsContext';
+import { useMemo } from 'react';
+import { DATA_LIMITS } from '../config/sensorConfig';
 
 /**
- * Custom hook for sensor data fetching with automatic refresh and memoization.
- * 
- * @param {Object} options - Configuration options
- * @param {string} [options.sensor_box] - Filter by sensor box ID
- * @param {string} [options.sensor_type] - Filter by sensor type
- * @param {string} [options.timeRange='-24h'] - Time range for data fetching (e.g., '-24h', '-7d')
- * @param {number} [options.limit=500] - Maximum number of records to fetch
- * @param {boolean} [options.autoRefresh=true] - Enable automatic refresh
- * @param {number} [options.refreshInterval=30000] - Refresh interval in milliseconds
- * @param {boolean} [options.enabled=true] - Enable/disable data fetching
- * @returns {Object} Sensor data, loading state, error, and helper functions
+ * Legacy hook wrapper for sensor data fetching.
+ * Delegates to useSensorDataQuery or useDashboardData based on arguments.
  */
 export const useSensorData = (options = {}) => {
     const {
         sensor_box,
         sensor_type,
-        timeRange = DEFAULT_TIME_RANGE_VALUE,
+        timeRange,
         startTime,
         endTime,
-        limit = DEFAULT_DATA_LIMIT,
+        limit,
         autoRefresh = true,
-        refreshInterval = DEFAULT_REFRESH_INTERVAL,
-        enabled = true
+        refreshInterval = 30000,
+        enabled = true,
+        sort = 'desc'
     } = options;
 
-    const [data, setData] = useState([]);
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState(null);
-    const [lastFetch, setLastFetch] = useState(null);
+    const { activeConnections } = useConnections();
 
-    // Memoized fetch function
-    const fetchData = useCallback(async () => {
-        if (!enabled) return;
-
-        setLoading(true);
-        setError(null);
-
-        try {
-            const params = {
-                sensor_box,
-                sensor_type,
-                start_time: startTime || timeRange,
-                end_time: endTime || 'now()',
-                limit
-            };
-
-            const result = await sensorsAPI.getSensorData(params);
-            setData(result);
-            setLastFetch(new Date());
-        } catch (err) {
-            setError(err);
-            console.error('Failed to fetch sensor data:', err);
-        } finally {
-            setLoading(false);
+    // Case 1: Specific box requested
+    const singleBoxQuery = useSensorDataQuery(
+        sensor_box,
+        { sensor_type, timeRange, startTime, endTime, limit, sort },
+        {
+            enabled: !!sensor_box && enabled,
+            refetchInterval: autoRefresh ? refreshInterval : false
         }
-    }, [sensor_box, sensor_type, timeRange, startTime, endTime, limit, enabled]);
+    );
 
-    // Initial fetch
-    useEffect(() => {
-        fetchData();
-    }, [fetchData]);
+    // Case 2: Dashboard mode (all active connections)
+    const dashboardQuery = useDashboardData(
+        activeConnections,
+        {
+            enabled: !sensor_box && enabled,
+            refreshInterval: autoRefresh ? refreshInterval : false
+        }
+    );
 
-    // Auto-refresh
-    useEffect(() => {
-        if (!autoRefresh || !enabled) return;
+    // Determine which result to return
+    const activeResult = sensor_box ? singleBoxQuery : dashboardQuery;
 
-        const interval = setInterval(fetchData, refreshInterval);
-        return () => clearInterval(interval);
-    }, [autoRefresh, refreshInterval, fetchData, enabled]);
+    const data = activeResult.data || [];
+    const loading = activeResult.isLoading;
+    const error = activeResult.error;
+    const lastFetch = activeResult.dataUpdatedAt ? new Date(activeResult.dataUpdatedAt) : null;
 
-    // Memoized computed values - using helper function to avoid duplication
+    // Memoized computed values (same as before)
     const groupedData = useMemo(() => {
         return sensorHelpers.groupByBox(data);
     }, [data]);
@@ -95,55 +71,37 @@ export const useSensorData = (options = {}) => {
         return [...new Set(data.map(r => r.sensor_type))];
     }, [data]);
 
-    // Get latest readings - one per sensor type (aggregates across all boxes)
-    // Note: This groups by sensor_type only, not by box+type.
-    // For latest readings per box+type combination, use sensorHelpers.getLatestReadings(data)
     const latestReadings = useMemo(() => {
-        const latestByType = {};
-        data.forEach(reading => {
-            const sensorType = reading.sensor_type;
-            if (!latestByType[sensorType] || 
-                new Date(reading.timestamp) > new Date(latestByType[sensorType].timestamp)) {
-                latestByType[sensorType] = reading;
-            }
-        });
-        return Object.values(latestByType);
+        return sensorHelpers.getLatestReadings(data);
     }, [data]);
 
-    // Helper functions
-    const getDataForBox = useCallback((boxId) => {
-        return groupedData[boxId] || [];
-    }, [groupedData]);
+    // Helper functions (same as before)
+    const getDataForBox = (boxId) => groupedData[boxId] || [];
 
-    const getDataForSensorType = useCallback((sensorType) => {
-        return data
-            .filter(reading => reading.sensor_type === sensorType)
+    const getDataForSensorType = (sensorType) =>
+        data.filter(reading => reading.sensor_type === sensorType)
             .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
-    }, [data]);
 
-    const getChartDataForSensorType = useCallback((sensorType) => {
-        return getDataForSensorType(sensorType).map(reading => ({
+    const getChartDataForSensorType = (sensorType) =>
+        getDataForSensorType(sensorType).map(reading => ({
             timestamp: reading.timestamp,
             value: reading.value,
             sensor_box: reading.sensor_box
         }));
-    }, [getDataForSensorType]);
 
-    const getMultiSensorChartData = useCallback((boxId) => {
+    const getMultiSensorChartData = (boxId) => {
         const boxReadings = getDataForBox(boxId);
         const timePoints = [...new Set(boxReadings.map(r => r.timestamp))].sort();
-        
+
         return timePoints.map(timestamp => {
             const readingsAtTime = boxReadings.filter(r => r.timestamp === timestamp);
             const dataPoint = { timestamp };
-            
             readingsAtTime.forEach(reading => {
                 dataPoint[reading.sensor_type] = reading.value;
             });
-            
             return dataPoint;
         });
-    }, [getDataForBox]);
+    };
 
     return {
         data,
@@ -154,43 +112,63 @@ export const useSensorData = (options = {}) => {
         loading,
         error,
         lastFetch,
-        fetchData,
+        fetchData: activeResult.refetch, // Map refetch to fetchData
         getDataForBox,
         getDataForSensorType,
         getChartDataForSensorType,
         getMultiSensorChartData,
-        // Clear cache and refetch
-        refresh: () => {
-            sensorHelpers.clearCache();
-            fetchData();
-        }
+        refresh: activeResult.refetch,
+        isFetching: activeResult.isFetching
     };
 };
 
 /**
  * Hook for real-time sensor data with optimized settings.
- * @param {Object} options - Same options as useSensorData
- * @returns {Object} Same return object as useSensorData
  */
 export const useRealTimeSensorData = (options = {}) => {
     return useSensorData({
         ...options,
         timeRange: '-5m',
         limit: DATA_LIMITS.realtime,
-        refreshInterval: 10000, // 10 seconds for real-time
+        refreshInterval: 10000,
     });
 };
 
 /**
- * Hook for analytics sensor data with optimized settings for historical analysis.
- * @param {Object} options - Same options as useSensorData
- * @returns {Object} Same return object as useSensorData
+ * Hook for analytics sensor data with optimized settings.
  */
 export const useAnalyticsSensorData = (options = {}) => {
     return useSensorData({
         ...options,
         timeRange: '-7d',
         limit: DATA_LIMITS.analytics,
-        refreshInterval: 60000, // 1 minute for analytics
+        refreshInterval: 60000,
     });
+};
+
+/**
+ * Optimized hook for Dashboard Overview.
+ */
+export const useDashboardSensorData = (options = {}) => {
+    const { activeConnections } = useConnections();
+    const {
+        data,
+        groupedData,
+        isLoading,
+        isFetching,
+        error,
+        results
+    } = useDashboardData(activeConnections, options);
+
+    const sensorTypesQuery = useSensorTypes();
+
+    return {
+        data,
+        groupedData,
+        sensorTypes: sensorTypesQuery.data || [],
+        loading: isLoading,
+        isFetching,
+        error,
+        refresh: () => results.forEach(r => r.refetch())
+    };
 };

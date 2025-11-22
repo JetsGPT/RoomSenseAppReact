@@ -1,14 +1,16 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useMemo } from 'react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { SettingsProvider } from './contexts/SettingsContext';
+import { ConnectionsProvider, useConnections } from './contexts/ConnectionsContext';
 import { SidebarProvider } from './shared/contexts/SidebarContext';
 import { RequireAuth, RequireRole, PublicOnly } from './components/ProtectedRoute';
 import Navigation from './components/ui/Navigation';
 import { AppSidebar } from './shared/components/AppSidebar';
 import { PageTransition } from './components/ui/PageTransition';
+import { ErrorBoundary } from './shared/components/ErrorBoundary';
 import { Loader2 } from 'lucide-react';
 import './App.css';
 import { useSensorData } from './hooks/useSensorData';
@@ -30,31 +32,29 @@ const LoadingFallback = () => (
 );
 
 function DashboardWrapper() {
-    const { user } = useAuth();
-    
-    // Only fetch sensor data if user is logged in
-    const { sensorBoxes } = useSensorData({
-        timeRange: DEFAULT_TIME_RANGE_VALUE,
-        limit: DATA_LIMITS.realtime, // Smaller limit for sidebar data
-        autoRefresh: true,
-        refreshInterval: DEFAULT_REFRESH_INTERVAL,
-        enabled: !!user // Only fetch when user is authenticated
-    });
+    const { activeConnections } = useConnections();
+
+    // Map active connections to the format expected by SidebarProvider (array of IDs/names)
+    // Memoize to prevent unnecessary re-renders of SidebarProvider
+    const sensorBoxes = useMemo(() => activeConnections.map(conn => conn.name || conn.address), [activeConnections]);
+
 
     return (
         <SidebarProvider sensorBoxes={sensorBoxes}>
-            <AppContent />
+            <ErrorBoundary className="m-4">
+                <AppContent />
+            </ErrorBoundary>
         </SidebarProvider>
     );
 }
 
 function AppContent() {
     const location = useLocation();
-    
+
     // Define routes where Navigation should NOT be shown
-    const hideNavigationRoutes = ['/login','/unauthorized'];
+    const hideNavigationRoutes = ['/login', '/unauthorized'];
     const shouldShowNavigation = !hideNavigationRoutes.includes(location.pathname);
-    
+
     // Define routes where Sidebar should be shown (dashboard-related pages)
     const showSidebarRoutes = ['/dashboard'];
     const shouldShowSidebar = showSidebarRoutes.includes(location.pathname);
@@ -134,15 +134,15 @@ function AppContent() {
                             />
 
                             {/* Unauthorized page */}
-                            <Route 
-                                path="/unauthorized" 
+                            <Route
+                                path="/unauthorized"
                                 element={
                                     <Suspense fallback={<LoadingFallback />}>
                                         <PageTransition>
                                             <Unauthorized />
                                         </PageTransition>
                                     </Suspense>
-                                } 
+                                }
                             />
 
                             {/* Default redirect */}
@@ -164,7 +164,9 @@ function App() {
             <ThemeProvider>
                 <SettingsProvider>
                     <AuthProvider>
-                        <DashboardWrapper />
+                        <ConnectionsProvider>
+                            <DashboardWrapper />
+                        </ConnectionsProvider>
                     </AuthProvider>
                 </SettingsProvider>
             </ThemeProvider>

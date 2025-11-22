@@ -13,7 +13,8 @@ import { DEFAULT_TIME_RANGE_VALUE, DEFAULT_DATA_LIMIT } from '../config/sensorCo
 // ============================================================================
 
 /** Sensors API base URL */
-const SENSORS_API_BASE_URL = 'https://localhost:8081/api';
+const SENSORS_API_BASE_URL = import.meta.env.VITE_API_URL;
+
 
 /** Create axios instance with default configuration */
 const api = axios.create({
@@ -37,17 +38,19 @@ const api = axios.create({
  * @param {string} [params.start_time] - Start time filter
  * @param {string} [params.end_time] - End time filter
  * @param {number} [params.limit] - Limit results
+ * @param {string} [params.sort] - Sort order
  * @returns {URLSearchParams} Query parameters
  */
 const buildQueryParams = (params) => {
     const queryParams = new URLSearchParams();
-    
+
     if (params.sensor_box) queryParams.append('sensor_box', params.sensor_box);
     if (params.sensor_type) queryParams.append('sensor_type', params.sensor_type);
     if (params.start_time) queryParams.append('start_time', params.start_time);
     if (params.end_time) queryParams.append('end_time', params.end_time);
     if (params.limit) queryParams.append('limit', params.limit);
-    
+    if (params.sort) queryParams.append('sort', params.sort);
+
     return queryParams;
 };
 
@@ -72,47 +75,14 @@ const buildApiUrl = (endpoint, queryParams) => {
  */
 export const sensorsAPI = {
     /**
-     * Get all sensor data with optional filtering.
-     * 
-     * @param {Object} [params={}] - Query parameters
-     * @param {string} [params.sensor_box] - Filter by sensor box ID
-     * @param {string} [params.sensor_type] - Filter by sensor type
-     * @param {string} [params.start_time='-24h'] - Start time filter (relative or absolute)
-     * @param {string} [params.end_time='now()'] - End time filter
-     * @param {number} [params.limit=500] - Maximum number of records
-     * @returns {Promise<Array>} Array of sensor readings
-     */
-    getSensorData: async (params = {}) => {
-        const {
-            sensor_box,
-            sensor_type,
-            start_time = DEFAULT_TIME_RANGE_VALUE,
-            end_time = 'now()',
-            limit = DEFAULT_DATA_LIMIT
-        } = params;
-        
-        const queryParams = buildQueryParams({
-            sensor_box,
-            sensor_type,
-            start_time,
-            end_time,
-            limit
-        });
-        
-        const url = buildApiUrl('/sensors/data', queryParams);
-        const response = await api.get(url);
-        return response.data;
-    },
-
-    /**
-     * Get sensor data filtered by sensor box.
-     * 
-     * @param {string} sensor_box - Sensor box ID
+     * Get sensor data for a specific box
+     * @param {string} sensor_box - The ID of the sensor box
      * @param {Object} [params={}] - Additional query parameters
      * @param {string} [params.sensor_type] - Filter by sensor type
      * @param {string} [params.start_time='-24h'] - Start time filter
      * @param {string} [params.end_time='now()'] - End time filter
      * @param {number} [params.limit=500] - Maximum number of records
+     * @param {string} [params.sort] - Sort order
      * @returns {Promise<Array>} Array of sensor readings
      */
     getSensorDataByBox: async (sensor_box, params = {}) => {
@@ -120,62 +90,21 @@ export const sensorsAPI = {
             sensor_type,
             start_time = DEFAULT_TIME_RANGE_VALUE,
             end_time = 'now()',
-            limit = DEFAULT_DATA_LIMIT
+            limit = DEFAULT_DATA_LIMIT,
+            sort
         } = params;
-        
+
         const queryParams = buildQueryParams({
             sensor_type,
             start_time,
             end_time,
-            limit
+            limit,
+            sort
         });
-        
+
         const endpoint = `/sensors/data/box/${encodeURIComponent(sensor_box)}`;
         const url = buildApiUrl(endpoint, queryParams);
-        
         const response = await api.get(url);
-        return response.data;
-    },
-
-    /**
-     * Get sensor data filtered by sensor type.
-     * 
-     * @param {string} sensor_type - Sensor type identifier
-     * @param {Object} [params={}] - Additional query parameters
-     * @param {string} [params.sensor_box] - Filter by sensor box ID
-     * @param {string} [params.start_time='-24h'] - Start time filter
-     * @param {string} [params.end_time='now()'] - End time filter
-     * @param {number} [params.limit=500] - Maximum number of records
-     * @returns {Promise<Array>} Array of sensor readings
-     */
-    getSensorDataByType: async (sensor_type, params = {}) => {
-        const {
-            sensor_box,
-            start_time = DEFAULT_TIME_RANGE_VALUE,
-            end_time = 'now()',
-            limit = DEFAULT_DATA_LIMIT
-        } = params;
-        
-        const queryParams = buildQueryParams({
-            sensor_box,
-            start_time,
-            end_time,
-            limit
-        });
-        
-        const endpoint = `/sensors/data/type/${encodeURIComponent(sensor_type)}`;
-        const url = buildApiUrl(endpoint, queryParams);
-        
-        const response = await api.get(url);
-        return response.data;
-    },
-
-    /**
-     * Get list of unique sensor boxes.
-     * @returns {Promise<Array>} Array of sensor box IDs
-     */
-    getSensorBoxes: async () => {
-        const response = await api.get('/sensors/boxes');
         return response.data;
     },
 
@@ -271,20 +200,34 @@ export const sensorHelpers = {
      * // Returns: { min: 20, max: 25, avg: 22.5, count: 10 }
      */
     calculateStats: (data) => {
-        if (data.length === 0) {
+        if (!data || data.length === 0) {
             return { min: 0, max: 0, avg: 0, count: 0 };
         }
-        
-        const values = data.map(d => d.value).filter(v => !isNaN(v));
-        if (values.length === 0) {
+
+        let min = Infinity;
+        let max = -Infinity;
+        let sum = 0;
+        let count = 0;
+
+        for (let i = 0; i < data.length; i++) {
+            const val = parseFloat(data[i].value);
+            if (!isNaN(val)) {
+                if (val < min) min = val;
+                if (val > max) max = val;
+                sum += val;
+                count++;
+            }
+        }
+
+        if (count === 0) {
             return { min: 0, max: 0, avg: 0, count: 0 };
         }
-        
+
         return {
-            min: Math.min(...values),
-            max: Math.max(...values),
-            avg: values.reduce((sum, val) => sum + val, 0) / values.length,
-            count: values.length
+            min,
+            max,
+            avg: sum / count,
+            count
         };
     },
 

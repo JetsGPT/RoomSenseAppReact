@@ -7,6 +7,8 @@ import { SensorLineChart, SensorAreaChart } from './ui/SensorCharts';
 import { SensorChartManager } from './SensorChartManager';
 import { DatePicker } from './ui/date-picker';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
+import { RangeControls } from './box-detail/RangeControls';
+
 import {
     Pagination,
     PaginationContent,
@@ -18,6 +20,7 @@ import {
 } from './ui/pagination';
 import { useSensorSelection } from '../hooks/useSensorSelection';
 import { useSensorData } from '../hooks/useSensorData';
+import { useSettings } from '../contexts/SettingsContext';
 import {
     getSensorIcon,
     getSensorUnit,
@@ -102,6 +105,8 @@ const readStoredCustomRange = (boxId) => {
 };
 
 export function BoxDetail({ boxId }) {
+    const { settings } = useSettings();
+    const refreshInterval = settings?.refreshInterval || 30000;
     const [rangeKey, setRangeKey] = useState(() => readStoredRange(boxId));
     const [customRange, setCustomRange] = useState(() => readStoredCustomRange(boxId));
     const [customDraft, setCustomDraft] = useState(() => {
@@ -152,6 +157,7 @@ export function BoxDetail({ boxId }) {
     const {
         data: fetchedData = [],
         loading,
+        isFetching,
         error,
         lastFetch,
         refresh
@@ -162,17 +168,29 @@ export function BoxDetail({ boxId }) {
         endTime: endTimeIso,
         autoRefresh: !isCustomRange,
         enabled: Boolean(boxId && (!isCustomRange || (startTimeIso && endTimeIso))),
-        limit: DATA_LIMITS.export
+        limit: DATA_LIMITS.analytics,
+        refreshInterval,
+        sort: sortConfig.direction
     });
 
+    // Memoize sorted data - if backend sorting matches current sort config, use fetchedData directly
+    // Otherwise, fallback to client-side sort (e.g. for 'sensor' or 'value' columns which backend might not support yet)
     const sortedBoxData = useMemo(() => {
         if (!Array.isArray(fetchedData)) {
             return [];
         }
+
+        // If sorting by timestamp, trust the backend result if direction matches
+        if (sortConfig.column === 'timestamp') {
+            // Backend default is usually timestamp, so if we requested the right direction, it's already sorted
+            return fetchedData;
+        }
+
+        const directionFactor = sortConfig.direction === 'asc' ? 1 : -1;
         return fetchedData
             .slice()
-            .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
-    }, [fetchedData]);
+            .sort((a, b) => directionFactor * (new Date(a.timestamp) - new Date(b.timestamp)));
+    }, [fetchedData, sortConfig]);
 
     const latestReadings = useMemo(() => {
         const latestByType = {};
@@ -448,14 +466,14 @@ export function BoxDetail({ boxId }) {
                                 size="icon-sm"
                                 variant="ghost"
                                 onClick={handleRefresh}
-                                disabled={loading}
+                                disabled={isFetching}
                                 className="shrink-0"
                             >
-                                <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+                                <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
                                 <span className="sr-only">Refresh box data</span>
                             </Button>
                             <div className="text-left text-sm text-muted-foreground sm:text-right">
-                                Last updated: {loading ? 'loading…' : lastUpdatedLabel || 'n/a'}
+                                Last updated: {isFetching ? 'updating…' : lastUpdatedLabel || 'n/a'}
                             </div>
                         </div>
                     </div>
@@ -710,50 +728,50 @@ export function BoxDetail({ boxId }) {
                                 <div className="flex w-full justify-center sm:flex-1">
                                     <Pagination className="justify-center">
                                         <PaginationContent>
-                                        <PaginationItem>
-                                            <PaginationPrevious
-                                                href="#"
-                                                onClick={(event) => {
-                                                    event.preventDefault();
-                                                    if (canGoPrev) {
-                                                        handlePageChange(currentPage - 1);
-                                                    }
-                                                }}
-                                                aria-disabled={!canGoPrev}
-                                                className={!canGoPrev ? 'pointer-events-none opacity-40' : undefined}
-                                            />
-                                        </PaginationItem>
-                                        {paginationItems.map((item) => (
-                                            <PaginationItem key={`page-${item}`}>
-                                                {typeof item === 'number' ? (
-                                                    <PaginationLink
-                                                        href="#"
-                                                        onClick={(event) => {
-                                                            event.preventDefault();
-                                                            handlePageChange(item);
-                                                        }}
-                                                        isActive={item === currentPage}
-                                                    >
-                                                        {item}
-                                                    </PaginationLink>
-                                                ) : (
-                                                    <PaginationEllipsis />
-                                                )}
+                                            <PaginationItem>
+                                                <PaginationPrevious
+                                                    href="#"
+                                                    onClick={(event) => {
+                                                        event.preventDefault();
+                                                        if (canGoPrev) {
+                                                            handlePageChange(currentPage - 1);
+                                                        }
+                                                    }}
+                                                    aria-disabled={!canGoPrev}
+                                                    className={!canGoPrev ? 'pointer-events-none opacity-40' : undefined}
+                                                />
                                             </PaginationItem>
-                                        ))}
-                                        <PaginationItem>
-                                            <PaginationNext
-                                                href="#"
-                                                onClick={(event) => {
-                                                    event.preventDefault();
-                                                    if (canGoNext) {
-                                                        handlePageChange(currentPage + 1);
-                                                    }
-                                                }}
-                                                aria-disabled={!canGoNext}
-                                                className={!canGoNext ? 'pointer-events-none opacity-40' : undefined}
-                                            />
-                                        </PaginationItem>
+                                            {paginationItems.map((item) => (
+                                                <PaginationItem key={`page-${item}`}>
+                                                    {typeof item === 'number' ? (
+                                                        <PaginationLink
+                                                            href="#"
+                                                            onClick={(event) => {
+                                                                event.preventDefault();
+                                                                handlePageChange(item);
+                                                            }}
+                                                            isActive={item === currentPage}
+                                                        >
+                                                            {item}
+                                                        </PaginationLink>
+                                                    ) : (
+                                                        <PaginationEllipsis />
+                                                    )}
+                                                </PaginationItem>
+                                            ))}
+                                            <PaginationItem>
+                                                <PaginationNext
+                                                    href="#"
+                                                    onClick={(event) => {
+                                                        event.preventDefault();
+                                                        if (canGoNext) {
+                                                            handlePageChange(currentPage + 1);
+                                                        }
+                                                    }}
+                                                    aria-disabled={!canGoNext}
+                                                    className={!canGoNext ? 'pointer-events-none opacity-40' : undefined}
+                                                />
+                                            </PaginationItem>
                                         </PaginationContent>
                                     </Pagination>
                                 </div>
@@ -765,91 +783,8 @@ export function BoxDetail({ boxId }) {
                     )}
                 </div>
             </div>
-        </div>
-    );
-}
 
-function RangeControls({
-    boxId,
-    rangeKey,
-    onSelectRange,
-    timeRangeOptions,
-    customDraft,
-    onDraftChange,
-    onApply,
-    onReset,
-    isCustomRange,
-    isApplyDisabled,
-    draftError,
-    lastUpdatedLabel,
-    isLoading
-}) {
-    const selectId = `box-${boxId}-range`;
 
-    return (
-        <div className="space-y-4 rounded-2xl border border-border bg-card/70 p-4">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-3">
-                    <label className="text-sm font-medium text-foreground" htmlFor={selectId}>
-                        Time range
-                    </label>
-                    <select
-                        id={selectId}
-                        value={rangeKey}
-                        onChange={(event) => onSelectRange(event.target.value)}
-                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:w-56"
-                    >
-                        {timeRangeOptions.map(({ key, label }) => (
-                            <option key={key} value={key}>
-                                {label}
-                            </option>
-                        ))}
-                        <option value="custom">Custom range</option>
-                    </select>
-                </div>
-                <div className="text-xs text-muted-foreground sm:text-sm">
-                    {isLoading ? 'Loading data…' : `Last updated: ${lastUpdatedLabel || 'n/a'}`}
-                </div>
-            </div>
-            {isCustomRange && (
-                <div className="space-y-3">
-                    <div className="grid gap-3 sm:grid-cols-2">
-                        <div>
-                            <label className="mb-1 block text-xs font-medium text-muted-foreground" htmlFor={`${selectId}-start`}>
-                                Start
-                            </label>
-                            <DatePicker
-                                id={`${selectId}-start`}
-                                value={customDraft.start}
-                                onChange={(event) => onDraftChange('start', event.target.value)}
-                                max={customDraft.end || undefined}
-                            />
-                        </div>
-                        <div>
-                            <label className="mb-1 block text-xs font-medium text-muted-foreground" htmlFor={`${selectId}-end`}>
-                                End
-                            </label>
-                            <DatePicker
-                                id={`${selectId}-end`}
-                                value={customDraft.end}
-                                onChange={(event) => onDraftChange('end', event.target.value)}
-                                min={customDraft.start || undefined}
-                            />
-                        </div>
-                    </div>
-                    {draftError && (
-                        <p className="text-xs text-destructive">The end date must be after the start date.</p>
-                    )}
-                    <div className="flex items-center justify-end gap-2">
-                        <Button type="button" variant="outline" onClick={onReset}>
-                            Reset
-                        </Button>
-                        <Button type="button" onClick={onApply} disabled={isApplyDisabled}>
-                            Apply
-                        </Button>
-                    </div>
-                </div>
-            )}
-        </div>
+        </div >
     );
 }

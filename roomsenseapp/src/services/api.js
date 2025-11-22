@@ -1,7 +1,9 @@
 import axios from 'axios';
 
 // Hardcoded API base URL
-const API_BASE_URL = 'https://localhost:8081/api';
+// API base URL from environment variables
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://localhost:8081/api';
+
 
 // Create axios instance
 const api = axios.create({

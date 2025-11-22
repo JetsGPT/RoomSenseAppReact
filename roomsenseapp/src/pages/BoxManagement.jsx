@@ -5,39 +5,24 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Loader2, Wifi, WifiOff, Search, Plus, Trash2, Box, RefreshCw } from 'lucide-react';
 import { bleAPI } from '@/services/api';
-import { StaggeredContainer, StaggeredItem, FadeIn } from '@/components/ui/PageTransition';
 import { useToast } from '@/hooks/use-toast';
+import { useConnections } from '@/contexts/ConnectionsContext';
+import { StaggeredContainer, StaggeredItem, FadeIn } from '@/components/ui/PageTransition';
 
 const BoxManagement = () => {
-    const [activeConnections, setActiveConnections] = useState([]);
+    const { activeConnections, loading: isLoadingConnections, refreshConnections } = useConnections();
     const [scannedDevices, setScannedDevices] = useState([]);
     const [isScanning, setIsScanning] = useState(false);
-    const [isLoadingConnections, setIsLoadingConnections] = useState(true);
     const [connectingDevices, setConnectingDevices] = useState(new Set());
     const [disconnectingDevices, setDisconnectingDevices] = useState(new Set());
     const { toast } = useToast();
 
-    // Fetch active connections on mount
+    // Fetch active connections on mount is handled by context, but we can refresh to be sure
     useEffect(() => {
-        fetchActiveConnections();
-    }, []);
+        refreshConnections(true);
+    }, [refreshConnections]);
 
-    const fetchActiveConnections = async () => {
-        setIsLoadingConnections(true);
-        try {
-            const connections = await bleAPI.getActiveConnections();
-            setActiveConnections(connections);
-        } catch (error) {
-            console.error('Failed to fetch active connections:', error);
-            toast({
-                title: "Error",
-                description: "Failed to load active connections",
-                variant: "destructive",
-            });
-        } finally {
-            setIsLoadingConnections(false);
-        }
-    };
+    const fetchActiveConnections = () => refreshConnections();
 
     const handleScan = async () => {
         setIsScanning(true);
@@ -70,7 +55,7 @@ const BoxManagement = () => {
                 description: `Successfully connected to ${name || address}`,
             });
             // Refresh connections and remove from scanned list
-            await fetchActiveConnections();
+            await refreshConnections();
             setScannedDevices(prev => prev.filter(d => d.address !== address));
         } catch (error) {
             console.error('Connection failed:', error);
@@ -97,7 +82,7 @@ const BoxManagement = () => {
                 description: `Disconnected from ${name || address}`,
             });
             // Refresh connections
-            await fetchActiveConnections();
+            await refreshConnections();
         } catch (error) {
             console.error('Disconnect failed:', error);
             toast({
