@@ -193,8 +193,11 @@ export function BoxDetail({ boxId }) {
     }, [fetchedData, sortConfig]);
 
     const latestReadings = useMemo(() => {
+        if (!Array.isArray(sortedBoxData)) return [];
+
         const latestByType = {};
         sortedBoxData.forEach((reading) => {
+            if (!reading || !reading.sensor_type) return;
             const sensorType = reading.sensor_type;
             if (
                 !latestByType[sensorType] ||
@@ -212,16 +215,25 @@ export function BoxDetail({ boxId }) {
     );
 
     const dataBySensorType = useMemo(() => {
-        return sortedBoxData.reduce((acc, reading) => {
-            if (!acc[reading.sensor_type]) {
-                acc[reading.sensor_type] = [];
-            }
-            acc[reading.sensor_type].push({
-                timestamp: reading.timestamp,
-                value: reading.value
-            });
-            return acc;
-        }, {});
+        if (!Array.isArray(sortedBoxData)) return {};
+
+        try {
+            return sortedBoxData.reduce((acc, reading) => {
+                if (!reading || !reading.sensor_type) return acc;
+
+                if (!acc[reading.sensor_type]) {
+                    acc[reading.sensor_type] = [];
+                }
+                acc[reading.sensor_type].push({
+                    timestamp: reading.timestamp,
+                    value: reading.value
+                });
+                return acc;
+            }, {});
+        } catch (err) {
+            console.error('Error processing sensor data:', err);
+            return {};
+        }
     }, [sortedBoxData]);
 
     const getChartDataForSensorType = useCallback(

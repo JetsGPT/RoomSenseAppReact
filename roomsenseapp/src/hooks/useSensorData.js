@@ -53,7 +53,12 @@ export const useSensorData = (options = {}) => {
     // Determine which result to return
     const activeResult = sensor_box ? singleBoxQuery : dashboardQuery;
 
-    const data = activeResult.data || [];
+    if (activeResult.data) {
+        console.log('useSensorData raw data:', activeResult.data);
+        console.log('Is array?', Array.isArray(activeResult.data));
+    }
+
+    const data = Array.isArray(activeResult.data) ? activeResult.data : [];
     const loading = activeResult.isLoading;
     const error = activeResult.error;
     const lastFetch = activeResult.dataUpdatedAt ? new Date(activeResult.dataUpdatedAt) : null;
@@ -163,9 +168,9 @@ export const useDashboardSensorData = (options = {}) => {
     const sensorTypesQuery = useSensorTypes();
 
     return {
-        data,
+        data: Array.isArray(data) ? data : [],
         groupedData,
-        sensorTypes: sensorTypesQuery.data || [],
+        sensorTypes: Array.isArray(sensorTypesQuery.data) ? sensorTypesQuery.data : [],
         loading: isLoading,
         isFetching,
         error,

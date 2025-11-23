@@ -183,7 +183,7 @@ export function SensorLineChart({
         if (!shouldFilterByRange) {
             return Array.isArray(data) ? data : [];
         }
-        return filterDataByRange(data || [], selectedRange);
+        return filterDataByRange(Array.isArray(data) ? data : [], selectedRange);
     }, [data, selectedRange, shouldFilterByRange]);
 
     const timeFormatter = useMemo(() => createTimeFormatter(filteredData), [filteredData]);
@@ -299,7 +299,7 @@ export function SensorAreaChart({
         if (!shouldFilterByRange) {
             return Array.isArray(data) ? data : [];
         }
-        return filterDataByRange(data || [], selectedRange);
+        return filterDataByRange(Array.isArray(data) ? data : [], selectedRange);
     }, [data, selectedRange, shouldFilterByRange]);
 
     const timeFormatter = useMemo(() => createTimeFormatter(filteredData), [filteredData]);
@@ -395,7 +395,7 @@ export function MultiSensorChart({ data, title, colors, rangeOptions, initialRan
         }
     }, [handleSelect, onRangeChange]);
 
-    const filteredData = useMemo(() => filterDataByRange(data || [], selectedRange), [data, selectedRange]);
+    const filteredData = useMemo(() => filterDataByRange(Array.isArray(data) ? data : [], selectedRange), [data, selectedRange]);
 
     const timeFormatter = useMemo(() => createTimeFormatter(filteredData), [filteredData]);
 
@@ -496,7 +496,7 @@ export function MultiBoxChart({ data, sensorType, boxColors, rangeOptions, initi
         }
     }, [handleSelect, onRangeChange]);
 
-    const filteredData = useMemo(() => filterDataByRange(data || [], selectedRange), [data, selectedRange]);
+    const filteredData = useMemo(() => filterDataByRange(Array.isArray(data) ? data : [], selectedRange), [data, selectedRange]);
     const timeFormatter = useMemo(() => createTimeFormatter(filteredData), [filteredData]);
 
     const formatXAxis = useCallback((tickItem) => {

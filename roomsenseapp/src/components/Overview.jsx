@@ -44,6 +44,7 @@ export function Overview({ sensorData, groupedData }) {
     const getLatestReadings = (readings) => {
         const latestByType = {};
         readings.forEach(reading => {
+            if (!reading || !reading.sensor_type) return;
             if (!latestByType[reading.sensor_type] ||
                 new Date(reading.timestamp) > new Date(latestByType[reading.sensor_type].timestamp)) {
                 latestByType[reading.sensor_type] = reading;
@@ -67,6 +68,7 @@ export function Overview({ sensorData, groupedData }) {
     const [showQuickTrendManager, setShowQuickTrendManager] = useState(false);
 
     const availableSensorTypes = useMemo(() => {
+        if (!Array.isArray(sensorData)) return [];
         return Array.from(new Set(sensorData.map((reading) => reading.sensor_type))).filter(Boolean);
     }, [sensorData]);
 
@@ -82,9 +84,9 @@ export function Overview({ sensorData, groupedData }) {
 
     const quickTrendCharts = quickTrendSensorTypes.map((sensorType) => {
         // 1. Filter data for this sensor type
-        const typeData = sensorData
+        const typeData = Array.isArray(sensorData) ? sensorData
             .filter(reading => reading.sensor_type === sensorType)
-            .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+            .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp)) : [];
 
         if (typeData.length === 0) {
             return null;
@@ -165,12 +167,14 @@ export function Overview({ sensorData, groupedData }) {
                         <InfoBlock key={boxId} title={`Box ${boxId}`} className="hover:shadow-md transition-shadow">
                             <div className="space-y-2 sm:space-y-3">
                                 {latestReadings.map((reading, index) => {
-                                    const Icon = getSensorIcon(reading.sensor_type);
+                                    const sensorType = reading.sensor_type || 'unknown';
+                                    const Icon = getSensorIcon(sensorType);
+                                    const value = typeof reading.value === 'number' ? reading.value : parseFloat(reading.value);
                                     return (
                                         <InfoItem
-                                            key={`${reading.sensor_type}-${index}`}
-                                            label={reading.sensor_type.charAt(0).toUpperCase() + reading.sensor_type.slice(1)}
-                                            value={<><NumberFlow value={reading.value.toFixed(1)} />{getUnit(reading.sensor_type)}</>}
+                                            key={`${sensorType}-${index}`}
+                                            label={sensorType.charAt(0).toUpperCase() + sensorType.slice(1)}
+                                            value={<><NumberFlow value={!isNaN(value) ? value.toFixed(1) : '0.0'} />{getUnit(sensorType)}</>}
                                             icon={Icon}
                                         />
                                     );
