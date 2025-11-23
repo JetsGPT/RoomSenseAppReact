@@ -2,10 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { InfoBlock, InfoItem } from './ui/InfoBlock';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
-import { Clock, RefreshCw, Save, RotateCcw } from 'lucide-react';
+import { Switch } from './ui/nightmode/switch';
+import { Clock, RefreshCw, Save, RotateCcw, BarChart3 } from 'lucide-react';
+import { useSettings } from '../contexts/SettingsContext';
 
 export function Options({ fetchDelay, onFetchDelayChange, onRefreshData }) {
+    const { settings, updateSettings } = useSettings();
     const [localDelay, setLocalDelay] = useState(fetchDelay);
+    const [localShowChartDots, setLocalShowChartDots] = useState(settings?.showChartDots ?? true);
     const [isSaving, setIsSaving] = useState(false);
 
     // Update local state when prop changes
@@ -13,10 +17,16 @@ export function Options({ fetchDelay, onFetchDelayChange, onRefreshData }) {
         setLocalDelay(fetchDelay);
     }, [fetchDelay]);
 
+    // Update local state when settings change
+    useEffect(() => {
+        setLocalShowChartDots(settings?.showChartDots ?? true);
+    }, [settings?.showChartDots]);
+
     const handleSave = async () => {
         setIsSaving(true);
         try {
             await onFetchDelayChange(localDelay);
+            updateSettings({ showChartDots: localShowChartDots });
             // Simulate save delay for better UX
             setTimeout(() => {
                 setIsSaving(false);
@@ -29,6 +39,7 @@ export function Options({ fetchDelay, onFetchDelayChange, onRefreshData }) {
 
     const handleReset = () => {
         setLocalDelay(30);
+        setLocalShowChartDots(true);
     };
 
     const delayOptions = [
@@ -147,8 +158,34 @@ export function Options({ fetchDelay, onFetchDelayChange, onRefreshData }) {
                 </CardContent>
             </Card>
 
+            {/* Chart Display Settings */}
+            <Card>
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                        <BarChart3 className="w-5 h-5" />
+                        Chart Display Settings
+                    </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                    <div className="flex items-center justify-between p-4 border border-border rounded-md">
+                        <div className="flex-1">
+                            <h3 className="text-base font-medium text-foreground mb-1">
+                                Show Chart Data Points
+                            </h3>
+                            <p className="text-sm text-muted-foreground">
+                                Display data points on chart lines (old version) or show only lines (new version)
+                            </p>
+                        </div>
+                        <Switch
+                            checked={localShowChartDots}
+                            onCheckedChange={setLocalShowChartDots}
+                        />
+                    </div>
+                </CardContent>
+            </Card>
+
             {/* Status Messages */}
-            {localDelay !== fetchDelay && (
+            {(localDelay !== fetchDelay || localShowChartDots !== (settings?.showChartDots ?? true)) && (
                 <div className="p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-md">
                     <p className="text-sm text-yellow-800 dark:text-yellow-200">
                         You have unsaved changes. Click "Save" to apply the new settings.
@@ -168,7 +205,7 @@ export function Options({ fetchDelay, onFetchDelayChange, onRefreshData }) {
                 </Button>
                 <Button
                     onClick={handleSave}
-                    disabled={isSaving || localDelay === fetchDelay}
+                    disabled={isSaving || (localDelay === fetchDelay && localShowChartDots === (settings?.showChartDots ?? true))}
                     className="px-8"
                 >
                     {isSaving ? (

@@ -1,5 +1,5 @@
 import { useId } from "react"
-import { useLocation } from "react-router-dom"
+import { useLocation, useNavigate, Link } from "react-router-dom"
 import { motion } from "framer-motion"
 import { HouseIcon, InboxIcon, SearchIcon, ZapIcon, Shield, Box, BarChart3 } from "lucide-react"
 import Time from "@/components/ui/Time"
@@ -24,6 +24,7 @@ import { useSidebar } from "@/shared/contexts/SidebarContext"
 // Navigation links array to be used in both desktop and mobile menus
 const navigationLinks = [
   { href: "/dashboard", label: "Dashboard", icon: HouseIcon },
+  { href: "/boxes", label: "My Boxes", icon: Box },
   { href: "/about-me", label: "About", icon: InboxIcon },
   { href: "/admin", label: "Admin", icon: Shield },
   { href: "#", label: "Help", icon: ZapIcon },
@@ -32,12 +33,13 @@ const navigationLinks = [
 export default function Component() {
   const id = useId()
   const location = useLocation()
+  const navigate = useNavigate()
   const { activeView, setActiveView, sensorBoxes } = useSidebar()
 
   return (
     <header className="border-b px-4 md:px-6">
       <div className="flex h-16 items-center justify-between gap-4">
-        
+
         {/* Left side */}
         <div className="flex items-center gap-2">
           {/* Mobile menu trigger */}
@@ -76,7 +78,7 @@ export default function Component() {
                 </svg>
               </Button>
             </PopoverTrigger>
-            
+
             <PopoverContent align="start" className="w-72 p-3 md:hidden">
               <div className="space-y-4">
                 {/* Navigation Section */}
@@ -98,7 +100,7 @@ export default function Component() {
                           <Button
                             variant={isActive ? "default" : "ghost"}
                             className="w-full justify-start py-2.5 px-3 h-auto"
-                            onClick={() => window.location.href = link.href}
+                            onClick={() => navigate(link.href)}
                           >
                             <Icon
                               size={18}
@@ -178,76 +180,78 @@ export default function Component() {
           </Popover>
           {/* Logo */}
           <div className="flex items-center gap-2">
-            <a href="/dashboard" className="text-primary hover:text-primary/90">
+            <Link to="/dashboard" className="text-primary hover:text-primary/90">
               <p className="font-semibold">RoomSense</p>
-            </a>
+            </Link>
             <span className="hidden sm:inline text-xs text-muted-foreground">By JetsGPT</span>
           </div>
         </div>
-        
-            {/* Middle area */}
-            <NavigationMenu className="max-md:hidden">
-                <NavigationMenuList className="gap-2">
-                    {navigationLinks.map((link, index) => {
-                        const Icon = link.icon
-                        const isActive = location.pathname === link.href
-                        return (
-                            <NavigationMenuItem key={index}>
-                                <motion.div
-                                    initial={{ opacity: 0, y: -10 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    transition={{ duration: 0.3, delay: index * 0.1 }}
-                                    whileHover={{ scale: 1.05 }}
-                                    whileTap={{ scale: 0.95 }}
-                                >
-                                    <NavigationMenuLink
-                                        active={isActive}
-                                        href={link.href}
-                                        className="flex-row items-center gap-2 py-1.5 font-medium text-foreground hover:text-accent-foreground hover:bg-accent/45 data-[active]:bg-accent/60 data-[active]:text-accent-foreground"
-                                    >
-                                        <Icon
-                                            size={16}
-                                            className={isActive ? "text-accent-foreground" : "text-muted-foreground/80"}
-                                            aria-hidden="true"
-                                        />
-                                        <span>{link.label}</span>
-                                    </NavigationMenuLink>
-                                </motion.div>
-                            </NavigationMenuItem>
-                        )
-                    })}
-                </NavigationMenuList>
-            </NavigationMenu>
+
+        {/* Middle area */}
+        <NavigationMenu className="max-md:hidden">
+          <NavigationMenuList className="gap-2">
+            {navigationLinks.map((link, index) => {
+              const Icon = link.icon
+              const isActive = location.pathname === link.href
+              return (
+                <NavigationMenuItem key={index}>
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.3, delay: index * 0.1 }}
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                  >
+                    <NavigationMenuLink
+                      asChild
+                      active={isActive}
+                      className="flex-row items-center gap-2 py-1.5 font-medium text-foreground hover:text-accent-foreground hover:bg-accent/45 data-[active]:bg-accent/60 data-[active]:text-accent-foreground"
+                    >
+                      <Link to={link.href}>
+                        <Icon
+                          size={16}
+                          className={isActive ? "text-accent-foreground" : "text-muted-foreground/80"}
+                          aria-hidden="true"
+                        />
+                        <span>{link.label}</span>
+                      </Link>
+                    </NavigationMenuLink>
+                  </motion.div>
+                </NavigationMenuItem>
+              )
+            })}
+          </NavigationMenuList>
+        </NavigationMenu>
         {/* Right side */}
-        <motion.div 
-            className="flex items-center justify-end gap-2"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.3, delay: 0.2 }}
+        <motion.div
+          className="flex items-center justify-end gap-2"
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.3, delay: 0.2 }}
         >
           <div className="flex items-center gap-3 relative ">
             <motion.div
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
             >
-                <ThemeSwitch />
+              <ThemeSwitch />
             </motion.div>
             <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ duration: 0.3, delay: 0.4 }}
-                className="hidden md:block"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.3, delay: 0.4 }}
+              className="hidden md:block"
             >
-                <Time showSeconds={true}  / >
+              <Time showSeconds={true} />
             </motion.div>
             <motion.div
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
             >
-                <UserMenu />
+              <UserMenu />
             </motion.div>
           </div>
-        </motion.div>                                          
+        </motion.div>
       </div>
     </header>
   )

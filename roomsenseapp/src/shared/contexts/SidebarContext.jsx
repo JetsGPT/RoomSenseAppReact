@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 
 /**
  * Context for managing sidebar state across the application
@@ -24,7 +25,11 @@ export const useSidebar = () => {
  * @param {Array} props.sensorBoxes - Available sensor boxes
  */
 export function SidebarProvider({ children, sensorBoxes = [] }) {
-    const [activeView, setActiveView] = useState('overview');
+    const [searchParams, setSearchParams] = useSearchParams();
+
+    // Initialize activeView from URL or default to 'overview'
+    const activeView = searchParams.get('view') || 'overview';
+
     const [isCollapsed, setIsCollapsed] = useState(false);
 
     /**
@@ -32,8 +37,12 @@ export function SidebarProvider({ children, sensorBoxes = [] }) {
      * @param {string} viewId - New view identifier
      */
     const handleViewChange = useCallback((viewId) => {
-        setActiveView(viewId);
-    }, []);
+        setSearchParams(prev => {
+            const newParams = new URLSearchParams(prev);
+            newParams.set('view', viewId);
+            return newParams;
+        });
+    }, [setSearchParams]);
 
     /**
      * Toggle sidebar collapsed state
@@ -60,14 +69,15 @@ export function SidebarProvider({ children, sensorBoxes = [] }) {
         return { type: 'unknown', id: activeView };
     }, [activeView]);
 
-    const value = {
+    const value = React.useMemo(() => ({
         activeView,
         setActiveView: handleViewChange,
         isCollapsed,
         toggleCollapsed,
         getCurrentView,
         sensorBoxes
-    };
+    }), [activeView, handleViewChange, isCollapsed, toggleCollapsed, getCurrentView, sensorBoxes]);
+
 
     return (
         <SidebarContext.Provider value={value}>
