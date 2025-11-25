@@ -40,7 +40,8 @@ export const ConnectionsProvider = ({ children }) => {
 
                 const isEqual = sortedPrev.every((p, i) =>
                     p.address === sortedNew[i].address &&
-                    p.name === sortedNew[i].name
+                    p.name === sortedNew[i].name &&
+                    p.original_name === sortedNew[i].original_name
                 );
 
                 return isEqual ? prev : connections;
@@ -58,7 +59,7 @@ export const ConnectionsProvider = ({ children }) => {
                 }
             }
         } finally {
-            if (requestId === lastRequestId.current && !silent) {
+            if (requestId === lastRequestId.current) {
                 setLoading(false);
             }
         }

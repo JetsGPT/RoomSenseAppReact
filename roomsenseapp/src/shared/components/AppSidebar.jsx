@@ -1,18 +1,17 @@
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '../../components/ui/sheet';
+import { motion } from 'framer-motion';
 import { Button } from '../../components/ui/button';
 import { Separator } from '../../components/ui/separator';
 import { Card } from '../../components/ui/card';
-import { Home, Box, BarChart3, Settings, Menu } from 'lucide-react';
+import { Home, Box, Settings } from 'lucide-react';
 import { useSidebar } from '../contexts/SidebarContext';
 
 /**
  * Single responsive sidebar component
- * Uses Sheet for mobile, Card for desktop
+ * Uses Card for desktop
  */
 export function AppSidebar() {
-    const { activeView, setActiveView, sensorBoxes } = useSidebar();
+    const { activeView, setActiveView, sensorBoxes, connections } = useSidebar();
     const [isMobileOpen, setIsMobileOpen] = useState(false);
 
     // Dashboard views only
@@ -23,12 +22,19 @@ export function AppSidebar() {
             icon: Home,
             description: 'All sensor boxes at a glance'
         },
-        ...sensorBoxes.map(boxId => ({
-            id: `box-${boxId}`,
-            label: `Box ${boxId}`,
-            icon: Box,
-            description: `Detailed view for ${boxId}`
-        }))
+        ...sensorBoxes.map((boxId, index) => {
+            // Find the connection for this box to get the display name
+            const connection = connections[index];
+            const displayName = connection?.name || boxId;
+            const technicalId = connection?.original_name;
+
+            return {
+                id: `box-${boxId}`,
+                label: displayName,
+                icon: Box,
+                description: technicalId ? `ID: ${technicalId}` : `Detailed view for ${displayName}`
+            };
+        })
     ];
 
     const handleItemClick = (itemId) => {
@@ -59,8 +65,8 @@ export function AppSidebar() {
                             <Button
                                 variant={isActive ? "default" : "ghost"}
                                 className={`w-full justify-start h-auto p-4 rounded-xl transition-all duration-200 ${isActive
-                                        ? 'bg-primary text-primary-foreground shadow-lg'
-                                        : 'hover:bg-accent/50 hover:text-accent-foreground'
+                                    ? 'bg-primary text-primary-foreground shadow-lg'
+                                    : 'hover:bg-accent/50 hover:text-accent-foreground'
                                     }`}
                                 onClick={() => handleItemClick(item.id)}
                             >
@@ -74,8 +80,7 @@ export function AppSidebar() {
                             </Button>
                         </motion.div>
                     );
-                })}
-            </nav>
+                })}</nav>
 
             <Separator />
 
@@ -93,8 +98,8 @@ export function AppSidebar() {
                         variant={activeView === 'options' ? "default" : "ghost"}
                         size="sm"
                         className={`w-full justify-start text-sm rounded-xl transition-all duration-200 ${activeView === 'options'
-                                ? 'bg-primary text-primary-foreground shadow-lg'
-                                : 'hover:bg-accent/50 hover:text-accent-foreground'
+                            ? 'bg-primary text-primary-foreground shadow-lg'
+                            : 'hover:bg-accent/50 hover:text-accent-foreground'
                             }`}
                         onClick={() => handleItemClick('options')}
                     >

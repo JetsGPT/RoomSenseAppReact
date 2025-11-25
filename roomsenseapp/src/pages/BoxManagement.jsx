@@ -3,11 +3,12 @@ import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Wifi, WifiOff, Search, Plus, Trash2, Box, RefreshCw } from 'lucide-react';
+import { Loader2, Wifi, WifiOff, Search, Plus, Trash2, Box, RefreshCw, Pencil } from 'lucide-react';
 import { bleAPI } from '@/services/api';
 import { useToast } from '@/hooks/use-toast';
 import { useConnections } from '@/contexts/ConnectionsContext';
 import { StaggeredContainer, StaggeredItem, FadeIn } from '@/components/ui/PageTransition';
+import { RenameDeviceDialog } from '@/components/RenameDeviceDialog';
 
 const BoxManagement = () => {
     const { activeConnections, loading: isLoadingConnections, refreshConnections } = useConnections();
@@ -15,6 +16,8 @@ const BoxManagement = () => {
     const [isScanning, setIsScanning] = useState(false);
     const [connectingDevices, setConnectingDevices] = useState(new Set());
     const [disconnectingDevices, setDisconnectingDevices] = useState(new Set());
+    const [renameDialogOpen, setRenameDialogOpen] = useState(false);
+    const [deviceToRename, setDeviceToRename] = useState(null);
     const { toast } = useToast();
 
     // Fetch active connections on mount is handled by context, but we can refresh to be sure
@@ -99,6 +102,26 @@ const BoxManagement = () => {
         }
     };
 
+    const handleRenameClick = (device) => {
+        setDeviceToRename(device);
+        setRenameDialogOpen(true);
+    };
+
+    const handleRename = async (address, display_name) => {
+        try {
+            await bleAPI.renameDevice(address, display_name);
+            toast({
+                title: "Renamed",
+                description: `Device renamed to "${display_name}"`,
+            });
+            // Refresh connections to get updated name
+            await refreshConnections();
+        } catch (error) {
+            console.error('Rename failed:', error);
+            throw error; // Re-throw to be handled by dialog
+        }
+    };
+
     return (
         <div className="min-h-screen bg-background p-4 sm:p-6">
             <FadeIn>
@@ -167,13 +190,24 @@ const BoxManagement = () => {
                                                         </div>
                                                         <div className="min-w-0 flex-1">
                                                             <p className="font-medium truncate">{device.name || 'Unknown Device'}</p>
-                                                            <p className="text-xs sm:text-sm text-muted-foreground truncate">{device.address}</p>
+                                                            <p className="text-xs sm:text-sm text-muted-foreground truncate">
+                                                                {device.original_name ? `${device.address} • ID: ${device.original_name}` : device.address}
+                                                            </p>
                                                         </div>
                                                     </div>
                                                     <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
                                                         <Badge variant="success" className="bg-green-500/10 text-green-700 dark:text-green-400 whitespace-nowrap">
                                                             Connected
                                                         </Badge>
+                                                        <Button
+                                                            variant="outline"
+                                                            size="icon"
+                                                            onClick={() => handleRenameClick(device)}
+                                                            className="flex-shrink-0"
+                                                            title="Rename device"
+                                                        >
+                                                            <Pencil className="h-4 w-4" />
+                                                        </Button>
                                                         <Button
                                                             variant="destructive"
                                                             size="icon"
@@ -293,6 +327,13 @@ const BoxManagement = () => {
                     </div>
                 </div>
             </FadeIn>
+
+            <RenameDeviceDialog
+                device={deviceToRename}
+                open={renameDialogOpen}
+                onOpenChange={setRenameDialogOpen}
+                onRename={handleRename}
+            />
         </div>
     );
 };

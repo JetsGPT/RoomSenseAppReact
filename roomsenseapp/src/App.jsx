@@ -40,7 +40,7 @@ function DashboardWrapper() {
 
 
     return (
-        <SidebarProvider sensorBoxes={sensorBoxes}>
+        <SidebarProvider sensorBoxes={sensorBoxes} connections={activeConnections}>
             <ErrorBoundary className="m-4">
                 <AppContent />
             </ErrorBoundary>

@@ -102,6 +102,11 @@ export const bleAPI = {
         const response = await api.get('/devices/health');
         return response.data;
     },
+
+    renameDevice: async (address, display_name) => {
+        const response = await api.patch(`/devices/connect/${address}`, { display_name });
+        return response.data;
+    },
 };
 
 // Import sensors API

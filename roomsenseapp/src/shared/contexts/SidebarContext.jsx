@@ -22,9 +22,10 @@ export const useSidebar = () => {
  * Sidebar provider component
  * @param {Object} props - Component props
  * @param {React.ReactNode} props.children - Child components
- * @param {Array} props.sensorBoxes - Available sensor boxes
+ * @param {Array} props.sensorBoxes - Available sensor box IDs
+ * @param {Array} props.connections - Full connection objects with device names
  */
-export function SidebarProvider({ children, sensorBoxes = [] }) {
+export function SidebarProvider({ children, sensorBoxes = [], connections = [] }) {
     const [searchParams, setSearchParams] = useSearchParams();
 
     // Initialize activeView from URL or default to 'overview'
@@ -75,8 +76,9 @@ export function SidebarProvider({ children, sensorBoxes = [] }) {
         isCollapsed,
         toggleCollapsed,
         getCurrentView,
-        sensorBoxes
-    }), [activeView, handleViewChange, isCollapsed, toggleCollapsed, getCurrentView, sensorBoxes]);
+        sensorBoxes,
+        connections
+    }), [activeView, handleViewChange, isCollapsed, toggleCollapsed, getCurrentView, sensorBoxes, connections]);
 
 
     return (
