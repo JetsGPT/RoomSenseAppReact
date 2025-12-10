@@ -16,6 +16,21 @@ const api = axios.create({
 
 // Auth API calls
 export const authAPI = {
+    getCsrfToken: async () => {
+        try {
+            const response = await api.get('/csrf-token');
+            const token = response.data.csrfToken;
+            if (token) {
+                api.defaults.headers.common['X-CSRF-Token'] = token;
+                console.log('[API] CSRF Token set:', token);
+            }
+            return token;
+        } catch (error) {
+            console.error('[API] Failed to fetch CSRF token:', error);
+            throw error;
+        }
+    },
+
     login: async (user, password) => {
         const response = await api.post('/users/login', { user, password });
         return response.data;

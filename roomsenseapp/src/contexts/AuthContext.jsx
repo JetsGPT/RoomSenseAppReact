@@ -12,7 +12,18 @@ export const AuthProvider = ({ children }) => {
 
     // Check if user is already logged in on mount
     useEffect(() => {
-        checkAuth();
+        const initAuth = async () => {
+            try {
+                // Fetch CSRF token first
+                await authAPI.getCsrfToken();
+            } catch (err) {
+                console.warn('Failed to fetch CSRF token on init', err);
+            } finally {
+                // Then check auth status
+                checkAuth();
+            }
+        };
+        initAuth();
     }, []);
 
     // Re-validate session on every route change
@@ -51,10 +62,10 @@ export const AuthProvider = ({ children }) => {
             return { success: true };
         } catch (err) {
             console.error('[AuthContext] Login error:', err);
-            
+
             // Build detailed error message
             let errorMessage = 'Login failed';
-            
+
             if (err.response) {
                 // Server responded with error
                 errorMessage = `Server error (${err.response.status}): ${err.response.data?.error || err.response.data?.message || JSON.stringify(err.response.data)}`;
@@ -65,12 +76,12 @@ export const AuthProvider = ({ children }) => {
                 // Request setup error
                 errorMessage = `Request error: ${err.message || 'Unknown error'}`;
             }
-            
+
             // Add error code if available
             if (err.code) {
                 errorMessage += ` (Code: ${err.code})`;
             }
-            
+
             setError(errorMessage);
             return { success: false, error: errorMessage };
         }
@@ -84,10 +95,10 @@ export const AuthProvider = ({ children }) => {
             return await login(username, password);
         } catch (err) {
             console.error('[AuthContext] Registration error:', err);
-            
+
             // Build detailed error message
             let errorMessage = 'Registration failed';
-            
+
             if (err.response) {
                 // Server responded with error
                 errorMessage = `Server error (${err.response.status}): ${err.response.data?.error || err.response.data?.message || JSON.stringify(err.response.data)}`;
@@ -98,12 +109,12 @@ export const AuthProvider = ({ children }) => {
                 // Request setup error
                 errorMessage = `Request error: ${err.message || 'Unknown error'}`;
             }
-            
+
             // Add error code if available
             if (err.code) {
                 errorMessage += ` (Code: ${err.code})`;
             }
-            
+
             setError(errorMessage);
             return { success: false, error: errorMessage };
         }

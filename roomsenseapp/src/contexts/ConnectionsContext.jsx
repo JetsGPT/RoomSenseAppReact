@@ -26,6 +26,12 @@ export const ConnectionsProvider = ({ children }) => {
         try {
             const connections = await bleAPI.getActiveConnections();
 
+            // Validate that connections is an array
+            if (!Array.isArray(connections)) {
+                console.error('API returned non-array for active connections:', connections);
+                throw new Error('Invalid API response format');
+            }
+
             // Race condition check: if a newer request has started, ignore this result
             if (requestId !== lastRequestId.current) {
                 return;
