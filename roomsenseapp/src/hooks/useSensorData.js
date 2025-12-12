@@ -58,7 +58,9 @@ export const useSensorData = (options = {}) => {
         console.log('Is array?', Array.isArray(activeResult.data));
     }
 
-    const data = Array.isArray(activeResult.data) ? activeResult.data : [];
+    const data = useMemo(() => {
+        return Array.isArray(activeResult.data) ? activeResult.data : [];
+    }, [activeResult.data]);
     const loading = activeResult.isLoading;
     const error = activeResult.error;
     const lastFetch = activeResult.dataUpdatedAt ? new Date(activeResult.dataUpdatedAt) : null;
@@ -162,6 +164,8 @@ export const useDashboardSensorData = (options = {}) => {
         isLoading,
         isFetching,
         error,
+        errors,
+        forbiddenBoxes,
         results
     } = useDashboardData(activeConnections, options);
 
@@ -174,6 +178,8 @@ export const useDashboardSensorData = (options = {}) => {
         loading: isLoading,
         isFetching,
         error,
+        partialErrors: Array.isArray(errors) ? errors : [],
+        forbiddenBoxes: Array.isArray(forbiddenBoxes) ? forbiddenBoxes : [],
         refresh: () => results.forEach(r => r.refetch())
     };
 };

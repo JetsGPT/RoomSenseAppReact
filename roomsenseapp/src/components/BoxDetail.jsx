@@ -1,11 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Activity, Loader2, PencilLine, RefreshCw } from 'lucide-react';
+import { Loader2, PencilLine, RefreshCw, ShieldAlert } from 'lucide-react';
 import NumberFlow from '@number-flow/react';
 import { Button } from './ui/button';
 import { InfoBlock } from './ui/InfoBlock';
 import { SensorLineChart, SensorAreaChart } from './ui/SensorCharts';
 import { SensorChartManager } from './SensorChartManager';
-import { DatePicker } from './ui/date-picker';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import { RangeControls } from './box-detail/RangeControls';
 
@@ -172,6 +171,10 @@ export function BoxDetail({ boxId }) {
         refreshInterval,
         sort: sortConfig.direction
     });
+
+    const errorStatus = error?.response?.status;
+    const isForbidden = errorStatus === 403;
+    const forbiddenMessage = error?.response?.data?.error || 'You do not have permission to view this sensor box.';
 
     // Memoize sorted data - if backend sorting matches current sort config, use fetchedData directly
     // Otherwise, fallback to client-side sort (e.g. for 'sensor' or 'value' columns which backend might not support yet)
@@ -360,8 +363,10 @@ export function BoxDetail({ boxId }) {
     const hasTrendChartData = activeSensorTypes.slice(0, 2).some(
         (sensorType) => (dataBySensorType[sensorType] || []).length > 0
     );
-    const errorMessage = error?.message || 'Failed to load sensor data.';
-    const showErrorBanner = Boolean(error);
+    const errorMessage = isForbidden
+        ? forbiddenMessage
+        : error?.response?.data?.error || error?.message || 'Failed to load sensor data.';
+    const showErrorBanner = Boolean(error) && !isForbidden;
     const showNoDataBanner = !showErrorBanner && !loading && !hasAnyData;
     const isLoadingInitial = loading && !hasAnyData;
     const getAriaSortValue = (column) => {
@@ -448,6 +453,20 @@ export function BoxDetail({ boxId }) {
     const handleRefresh = useCallback(() => {
         refresh();
     }, [refresh]);
+
+    if (isForbidden) {
+        return (
+            <div className="rounded-2xl border border-yellow-200 bg-yellow-50 p-6 text-center text-sm text-yellow-800 dark:border-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-100">
+                <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-100">
+                    <ShieldAlert className="h-5 w-5" />
+                </div>
+                <p className="font-semibold">Access restricted</p>
+                <p className="mt-1">
+                    {forbiddenMessage}
+                </p>
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-4 sm:space-y-6">

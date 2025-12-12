@@ -76,6 +76,7 @@ export const useDashboardData = (activeConnections = [], options = {}) => {
             enabled: enabled,
             refetchInterval: refreshInterval,
             staleTime: 30000, // Match global staleTime to prevent refetches on view switches
+            meta: { boxId }
         };
     });
 
@@ -84,13 +85,35 @@ export const useDashboardData = (activeConnections = [], options = {}) => {
     // Combine and process results
     const isLoading = results.some(r => r.isLoading);
     const isFetching = results.some(r => r.isFetching);
-    const isError = results.some(r => r.isError);
-    const errors = results.filter(r => r.isError).map(r => r.error);
 
     // Flatten data and extract latest readings per type
-    const allData = results
-        .flatMap(r => r.data || [])
+    const resultEntries = results.map((result, index) => ({
+        boxId: result.meta?.boxId || activeConnections[index]?.name || activeConnections[index]?.address,
+        result
+    }));
+
+    const forbiddenEntries = resultEntries.filter(({ result }) => {
+        const status = result.error?.response?.status;
+        return result.isError && status === 403;
+    });
+
+    const fatalEntries = resultEntries.filter(({ result }) => {
+        const status = result.error?.response?.status;
+        return result.isError && status !== 403;
+    });
+
+    const forbiddenBoxes = forbiddenEntries
+        .map(entry => entry.boxId)
         .filter(Boolean);
+
+    const fatalErrors = fatalEntries.map(entry => ({
+        boxId: entry.boxId,
+        error: entry.result.error
+    }));
+
+    const allData = resultEntries
+        .filter(({ result }) => Array.isArray(result.data))
+        .flatMap(({ result }) => result.data);
 
     const latestReadings = sensorHelpers.getLatestReadings(allData);
 
@@ -103,8 +126,10 @@ export const useDashboardData = (activeConnections = [], options = {}) => {
         groupedData,
         isLoading,
         isFetching,
-        isError,
-        errors,
+        isError: fatalErrors.length > 0,
+        error: fatalErrors.length > 0 ? fatalErrors[0].error : null,
+        errors: fatalErrors.map(entry => entry.error),
+        forbiddenBoxes,
         results // Return raw results if needed for individual loading states
     };
 };
