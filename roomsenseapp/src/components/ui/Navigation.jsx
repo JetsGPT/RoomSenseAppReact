@@ -1,7 +1,7 @@
 import { useId } from "react"
 import { useLocation, useNavigate, Link } from "react-router-dom"
 import { motion } from "framer-motion"
-import { HouseIcon, InboxIcon, SearchIcon, ZapIcon, Shield, Box, BarChart3 } from "lucide-react"
+import { HouseIcon, InboxIcon, SearchIcon, ZapIcon, Shield, Box, BarChart3, Download } from "lucide-react"
 import Time from "@/components/ui/Time"
 import Logo from "@/components/logo"
 import { Button } from "@/components/ui/button"
@@ -25,6 +25,7 @@ import { useSidebar } from "@/shared/contexts/SidebarContext"
 const navigationLinks = [
   { href: "/dashboard", label: "Dashboard", icon: HouseIcon },
   { href: "/boxes", label: "My Boxes", icon: Box },
+  { href: "/download", label: "Download", icon: Download },
   { href: "/about-me", label: "About", icon: InboxIcon },
   { href: "/admin", label: "Admin", icon: Shield },
   { href: "#", label: "Help", icon: ZapIcon },

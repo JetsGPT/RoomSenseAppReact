@@ -115,6 +115,57 @@ export const sensorsAPI = {
     getSensorTypes: async () => {
         const response = await api.get('/sensors/types');
         return response.data;
+    },
+
+    /**
+     * Export sensor data as CSV file.
+     * Downloads a CSV file with sensor data based on the provided filters.
+     * @param {Object} [params={}] - Filter parameters
+     * @param {string} [params.sensor_box] - Filter by sensor box
+     * @param {string} [params.sensor_type] - Filter by sensor type
+     * @param {string} [params.start_time] - Start time filter (ISO string)
+     * @param {string} [params.end_time] - End time filter (ISO string)
+     * @param {number} [params.limit] - Maximum number of records
+     * @param {string} [params.sort] - Sort order ('asc' or 'desc')
+     * @returns {Promise<void>} Triggers file download
+     */
+    exportCSV: async (params = {}) => {
+        const queryParams = buildQueryParams(params);
+        const url = buildApiUrl('/sensors/data/export/csv', queryParams);
+        
+        try {
+            const response = await api.get(url, {
+                responseType: 'blob', // Important for file download
+            });
+
+            // Create a blob URL and trigger download
+            const blob = new Blob([response.data], { type: 'text/csv' });
+            const downloadUrl = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = downloadUrl;
+            
+            // Extract filename from Content-Disposition header or use default
+            const contentDisposition = response.headers['content-disposition'];
+            let filename = 'sensor-data-export.csv';
+            
+            if (contentDisposition) {
+                const filenameMatch = contentDisposition.match(/filename="?(.+)"?/i);
+                if (filenameMatch && filenameMatch[1]) {
+                    filename = filenameMatch[1];
+                }
+            }
+            
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            
+            // Cleanup
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(downloadUrl);
+        } catch (error) {
+            console.error('CSV export failed:', error);
+            throw new Error(error.response?.data?.message || 'Failed to export CSV file');
+        }
     }
 };
 

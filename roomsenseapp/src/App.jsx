@@ -22,6 +22,7 @@ const AboutMe = lazy(() => import('./pages/AboutMe'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Admin = lazy(() => import('./pages/Admin'));
 const BoxManagement = lazy(() => import('./pages/BoxManagement'));
+const Download = lazy(() => import('./pages/Download'));
 const Unauthorized = lazy(() => import('./pages/Unauthorized'));
 
 // Loading fallback component
@@ -127,6 +128,18 @@ function AppContent() {
                                         <Suspense fallback={<LoadingFallback />}>
                                             <PageTransition>
                                                 <BoxManagement />
+                                            </PageTransition>
+                                        </Suspense>
+                                    </RequireAuth>
+                                }
+                            />
+                            <Route
+                                path="/download"
+                                element={
+                                    <RequireAuth>
+                                        <Suspense fallback={<LoadingFallback />}>
+                                            <PageTransition>
+                                                <Download />
                                             </PageTransition>
                                         </Suspense>
                                     </RequireAuth>
