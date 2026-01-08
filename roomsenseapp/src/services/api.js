@@ -103,6 +103,11 @@ export const bleAPI = {
         return response.data;
     },
 
+    pairDevice: async (address, pin) => {
+        const response = await api.post(`/devices/pair/${address}`, { pin });
+        return response.data;
+    },
+
     disconnectDevice: async (address) => {
         const response = await api.post(`/devices/disconnect/${address}`);
         return response.data;

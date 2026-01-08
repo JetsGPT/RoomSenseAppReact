@@ -9,6 +9,10 @@ import { useToast } from '@/hooks/use-toast';
 import { useConnections } from '@/contexts/ConnectionsContext';
 import { StaggeredContainer, StaggeredItem, FadeIn } from '@/components/ui/PageTransition';
 import { RenameDeviceDialog } from '@/components/RenameDeviceDialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { AnimatePresence } from 'framer-motion';
 
 const BoxManagement = () => {
     const { activeConnections, loading: isLoadingConnections, refreshConnections } = useConnections();
@@ -18,6 +22,11 @@ const BoxManagement = () => {
     const [disconnectingDevices, setDisconnectingDevices] = useState(new Set());
     const [renameDialogOpen, setRenameDialogOpen] = useState(false);
     const [deviceToRename, setDeviceToRename] = useState(null);
+
+    // Pairing State
+    const [pinDialogOpen, setPinDialogOpen] = useState(false);
+    const [pairingDevice, setPairingDevice] = useState(null);
+    const [pinCode, setPinCode] = useState("");
     const { toast } = useToast();
 
     // Fetch active connections on mount is handled by context, but we can refresh to be sure
@@ -52,7 +61,16 @@ const BoxManagement = () => {
     const handleConnect = async (address, name) => {
         setConnectingDevices(prev => new Set(prev).add(address));
         try {
-            await bleAPI.connectDevice(address, name);
+            const response = await bleAPI.connectDevice(address, name);
+
+            // CHECK FOR PIN REQUIREMENT
+            if (response.status === 'pin_required') {
+                setPairingDevice({ address, name });
+                setPinDialogOpen(true);
+                // Don't remove from connectingDevices yet
+                return;
+            }
+
             toast({
                 title: "Connected",
                 description: `Successfully connected to ${name || address}`,
@@ -68,9 +86,52 @@ const BoxManagement = () => {
                 variant: "destructive",
             });
         } finally {
+            // Only stop loading if we aren't waiting for a PIN
+            if (!pinDialogOpen) { // Note: this check might race, but setPinDialogOpen is sync
+                setConnectingDevices(prev => {
+                    const newSet = new Set(prev);
+                    newSet.delete(address);
+                    return newSet;
+                });
+            }
+        }
+    };
+
+    const submitPin = async () => {
+        if (!pairingDevice || !pinCode) return;
+
+        try {
+            setPinDialogOpen(false);
+            // keep loading state active in UI
+            await bleAPI.pairDevice(pairingDevice.address, pinCode);
+
+            toast({
+                title: "Pairing Submitted",
+                description: "Verifying PIN code...",
+            });
+
+            // Poll for success or wait a bit then refresh
+            // Ideally we'd poll status endpoint, but a simple delay + refresh works for now
+            setTimeout(async () => {
+                await refreshConnections();
+                setConnectingDevices(prev => {
+                    const newSet = new Set(prev);
+                    newSet.delete(pairingDevice.address);
+                    return newSet;
+                });
+                setPinCode("");
+                setPairingDevice(null);
+            }, 3000);
+
+        } catch (error) {
+            toast({
+                title: "Pairing Failed",
+                description: error.message,
+                variant: "destructive"
+            });
             setConnectingDevices(prev => {
                 const newSet = new Set(prev);
-                newSet.delete(address);
+                newSet.delete(pairingDevice.address);
                 return newSet;
             });
         }
@@ -334,6 +395,71 @@ const BoxManagement = () => {
                 onOpenChange={setRenameDialogOpen}
                 onRename={handleRename}
             />
+
+            {/* PIN Entry Dialog */}
+            <Dialog open={pinDialogOpen} onOpenChange={(open) => {
+                if (!open) {
+                    setPinDialogOpen(false);
+                    // If closed without success, stop connecting spinner
+                    if (pairingDevice) {
+                        setConnectingDevices(prev => {
+                            const newSet = new Set(prev);
+                            newSet.delete(pairingDevice.address);
+                            return newSet;
+                        });
+                    }
+                } else {
+                    setPinDialogOpen(true);
+                }
+            }}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>Bluetooth Pairing Request</DialogTitle>
+                        <DialogDescription>
+                            Enter the 6-digit PIN code displayed on the RoomSense Box screen.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="py-6 flex flex-col items-center justify-center space-y-4">
+                        <div className="w-full relative">
+                            <Label htmlFor="pin" className="sr-only">PIN Code</Label>
+                            <Input
+                                id="pin"
+                                value={pinCode}
+                                onChange={(e) => {
+                                    // Only allow numbers
+                                    const val = e.target.value.replace(/\D/g, '');
+                                    if (val.length <= 6) setPinCode(val);
+                                }}
+                                placeholder="000000"
+                                className="text-center text-3xl tracking-[0.5em] font-mono h-16"
+                                autoFocus
+                                autoComplete="off"
+                            />
+                        </div>
+
+                        {/* Expiration Animation */}
+                        <div className="w-full space-y-1">
+                            <div className="h-1.5 w-full bg-secondary overflow-hidden rounded-full">
+                                <motion.div
+                                    className="h-full bg-primary"
+                                    initial={{ width: "100%" }}
+                                    animate={{ width: "0%" }}
+                                    transition={{ duration: 30, ease: "linear" }}
+                                />
+                            </div>
+                            <p className="text-xs text-center text-muted-foreground">
+                                Code expires in 30 seconds
+                            </p>
+                        </div>
+                    </div>
+                    <DialogFooter className="sm:justify-between">
+                        <Button variant="ghost" onClick={() => setPinDialogOpen(false)}>Cancel</Button>
+                        <Button onClick={submitPin} disabled={pinCode.length < 6} className="w-full sm:w-auto">
+                            Pair Device
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 };
