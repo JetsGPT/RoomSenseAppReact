@@ -14,6 +14,13 @@ export default defineConfig({
   server: {
     https: true,
     host: true, // Allow external connections
+    proxy: {
+      '/api': {
+        target: 'https://localhost:8081',
+        changeOrigin: true,
+        secure: false, // Accept self-signed certificates
+      }
+    }
   },
   resolve: {
     alias: {
