@@ -61,23 +61,43 @@ const BoxManagement = () => {
     const handleConnect = async (address, name) => {
         setConnectingDevices(prev => new Set(prev).add(address));
         try {
-            const response = await bleAPI.connectDevice(address, name);
+            // Poll for connection status (max 10 attempts ~ 10-15 seconds)
+            let status = 'connecting';
+            let attempts = 0;
+            const maxAttempts = 10;
 
-            // CHECK FOR PIN REQUIREMENT
-            if (response.status === 'pin_required') {
-                setPairingDevice({ address, name });
-                setPinDialogOpen(true);
-                // Don't remove from connectingDevices yet
-                return;
+            while (attempts < maxAttempts) {
+                const response = await bleAPI.connectDevice(address, name);
+
+                if (response.status === 'pin_required') {
+                    setPairingDevice({ address, name });
+                    setPinDialogOpen(true);
+                    return; // Keep loading active
+                }
+
+                if (response.status === 'connected') {
+                    toast({
+                        title: "Connected",
+                        description: `Successfully connected to ${name || address}`,
+                    });
+                    await refreshConnections();
+                    setScannedDevices(prev => prev.filter(d => d.address !== address));
+                    return;
+                }
+
+                // If still connecting, wait and retry
+                if (response.status === 'connecting') {
+                    attempts++;
+                    await new Promise(r => setTimeout(r, 1000)); // Wait 1s
+                    continue;
+                }
+
+                // Unexpected status
+                throw new Error(`Unexpected status: ${response.status}`);
             }
 
-            toast({
-                title: "Connected",
-                description: `Successfully connected to ${name || address}`,
-            });
-            // Refresh connections and remove from scanned list
-            await refreshConnections();
-            setScannedDevices(prev => prev.filter(d => d.address !== address));
+            throw new Error("Connection timed out waiting for device response");
+
         } catch (error) {
             console.error('Connection failed:', error);
             toast({
@@ -86,8 +106,7 @@ const BoxManagement = () => {
                 variant: "destructive",
             });
         } finally {
-            // Only stop loading if we aren't waiting for a PIN
-            if (!pinDialogOpen) { // Note: this check might race, but setPinDialogOpen is sync
+            if (!pinDialogOpen) {
                 setConnectingDevices(prev => {
                     const newSet = new Set(prev);
                     newSet.delete(address);
