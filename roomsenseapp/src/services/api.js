@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // Hardcoded API base URL
 // API base URL from environment variables
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://roomsense.local/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
 
 
 // Create axios instance
