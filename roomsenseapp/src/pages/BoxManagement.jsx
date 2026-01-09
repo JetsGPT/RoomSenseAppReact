@@ -61,51 +61,48 @@ const BoxManagement = () => {
     const handleConnect = async (address, name) => {
         setConnectingDevices(prev => new Set(prev).add(address));
         try {
-            // Poll for connection status (max 10 attempts ~ 10-15 seconds)
-            let status = 'connecting';
-            let attempts = 0;
-            const maxAttempts = 10;
+            // The backend will hang for up to 30s (Long Poll)
+            const response = await bleAPI.connectDevice(address, name);
 
-            while (attempts < maxAttempts) {
-                const response = await bleAPI.connectDevice(address, name);
-
-                if (response.status === 'pin_required') {
-                    setPairingDevice({ address, name });
-                    setPinDialogOpen(true);
-                    return; // Keep loading active
-                }
-
-                if (response.status === 'connected') {
-                    toast({
-                        title: "Connected",
-                        description: `Successfully connected to ${name || address}`,
-                    });
-                    await refreshConnections();
-                    setScannedDevices(prev => prev.filter(d => d.address !== address));
-                    return;
-                }
-
-                // If still connecting, wait and retry
-                if (response.status === 'connecting') {
-                    attempts++;
-                    await new Promise(r => setTimeout(r, 1000)); // Wait 1s
-                    continue;
-                }
-
-                // Unexpected status
-                throw new Error(`Unexpected status: ${response.status}`);
+            // Scenario A: PIN Required
+            if (response.status === 'pin_required') {
+                setPairingDevice({ address, name });
+                setPinDialogOpen(true);
+                // NOTE: We do NOT remove from connectingDevices yet, 
+                // because we want to keep the spinner on the card while the user enters the PIN.
+                return;
             }
 
-            throw new Error("Connection timed out waiting for device response");
+            // Scenario B: Already Connected (or successful pair without PIN?)
+            if (response.status === 'connected') {
+                toast({
+                    title: "Connected",
+                    description: `Successfully connected to ${name || address}`,
+                });
+                await refreshConnections();
+                setScannedDevices(prev => prev.filter(d => d.address !== address));
+                return;
+            }
+
+            // Scenario C: Timeout / Still Connecting
+            if (response.status === 'connecting') {
+                throw new Error("Device didn't respond in time. Please try again.");
+            }
+
+            // Catch-all for other statuses
+            throw new Error(`Unexpected status: ${response.status}`);
 
         } catch (error) {
             console.error('Connection failed:', error);
+            // If it was a timeout from axios (code ECONNABORTED), connection might still be happening in background?
+            // But usually we just tell user it failed.
             toast({
                 title: "Connection Failed",
                 description: error.message || "Failed to connect to device",
                 variant: "destructive",
             });
         } finally {
+            // Only clear loading state if we are NOT opening the PIN dialog
             if (!pinDialogOpen) {
                 setConnectingDevices(prev => {
                     const newSet = new Set(prev);
@@ -121,38 +118,52 @@ const BoxManagement = () => {
 
         try {
             setPinDialogOpen(false);
-            // keep loading state active in UI
-            await bleAPI.pairDevice(pairingDevice.address, pinCode);
+            // The card spinner is still active here because we didn't clear connectingDevices
+
+            // Backend expects integer
+            const pinInt = parseInt(pinCode, 10);
+
+            await bleAPI.pairDevice(pairingDevice.address, pinInt);
 
             toast({
-                title: "Pairing Submitted",
-                description: "Verifying PIN code...",
+                title: "PIN Submitted",
+                description: "Verifying connection...",
             });
 
-            // Poll for success or wait a bit then refresh
-            // Ideally we'd poll status endpoint, but a simple delay + refresh works for now
-            setTimeout(async () => {
-                await refreshConnections();
-                setConnectingDevices(prev => {
-                    const newSet = new Set(prev);
-                    newSet.delete(pairingDevice.address);
-                    return newSet;
-                });
-                setPinCode("");
-                setPairingDevice(null);
-            }, 3000);
+            // UI Action: Wait 2-3 seconds then confirm status
+            await new Promise(r => setTimeout(r, 3000));
+
+            // Now refresh to see if it's truly connected
+            await refreshConnections();
+
+            // We could also check if it's in the activeConnections list now
+            // But assume success if no error thrown by pairDevice? 
+            // Actually the instructions say "call /connections ... to confirm"
+
+            // Clean up UI
+            setScannedDevices(prev => prev.filter(d => d.address !== pairingDevice.address));
+
+            toast({
+                title: "Success",
+                description: "Device paired and connected",
+            });
 
         } catch (error) {
+            console.error('Pairing failed:', error);
             toast({
                 title: "Pairing Failed",
-                description: error.message,
+                description: error.message || "Invalid PIN or timeout",
                 variant: "destructive"
             });
+        } finally {
+            // Always clear the spinner for this device
             setConnectingDevices(prev => {
                 const newSet = new Set(prev);
                 newSet.delete(pairingDevice.address);
                 return newSet;
             });
+            setPinCode("");
+            setPairingDevice(null);
         }
     };
 

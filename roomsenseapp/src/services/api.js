@@ -99,7 +99,8 @@ export const bleAPI = {
     },
 
     connectDevice: async (address, name = null) => {
-        const response = await api.post(`/devices/connect/${address}`, { name });
+        // Backend Long-poll is 30s, so we set timeout to 40s to be safe
+        const response = await api.post(`/devices/connect/${address}`, { name }, { timeout: 40000 });
         return response.data;
     },
 
