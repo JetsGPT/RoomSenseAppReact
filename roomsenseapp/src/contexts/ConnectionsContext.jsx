@@ -82,21 +82,24 @@ export const ConnectionsProvider = ({ children }) => {
     }, [fetchConnections, user]);
 
     // Poll for connections every 30 seconds to keep in sync
+    const [isPollingPaused, setPollingPaused] = useState(false);
+
     useEffect(() => {
-        if (!user) return;
+        if (!user || isPollingPaused) return;
 
         const interval = setInterval(() => {
             fetchConnections(true);
         }, 30000);
         return () => clearInterval(interval);
-    }, [fetchConnections, user]);
+    }, [fetchConnections, user, isPollingPaused]);
 
     // Memoize context value to prevent unnecessary re-renders of consumers
     const contextValue = React.useMemo(() => ({
         activeConnections,
         loading,
-        refreshConnections: fetchConnections
-    }), [activeConnections, loading, fetchConnections]);
+        refreshConnections: fetchConnections,
+        setPollingPaused
+    }), [activeConnections, loading, fetchConnections, setPollingPaused]);
 
     return (
         <ConnectionsContext.Provider value={contextValue}>

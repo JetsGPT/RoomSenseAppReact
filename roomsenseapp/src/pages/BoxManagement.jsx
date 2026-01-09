@@ -15,7 +15,7 @@ import { Label } from '@/components/ui/label';
 import { AnimatePresence } from 'framer-motion';
 
 const BoxManagement = () => {
-    const { activeConnections, loading: isLoadingConnections, refreshConnections } = useConnections();
+    const { activeConnections, loading: isLoadingConnections, refreshConnections, setPollingPaused } = useConnections();
     const [scannedDevices, setScannedDevices] = useState([]);
     const [isScanning, setIsScanning] = useState(false);
     const [connectingDevices, setConnectingDevices] = useState(new Set());
@@ -60,47 +60,67 @@ const BoxManagement = () => {
 
     const handleConnect = async (address, name) => {
         setConnectingDevices(prev => new Set(prev).add(address));
+
+        // Pause background polling so it doesn't mess with our state or cause race conditions
+        setPollingPaused(true);
+
         try {
-            // The backend will hang for up to 30s (Long Poll)
-            const response = await bleAPI.connectDevice(address, name);
+            const maxDuration = 90000; // 90 seconds timeout
+            const startTime = Date.now();
 
-            // Scenario A: PIN Required
-            if (response.status === 'pin_required') {
-                setPairingDevice({ address, name });
-                setPinDialogOpen(true);
-                // NOTE: We do NOT remove from connectingDevices yet, 
-                // because we want to keep the spinner on the card while the user enters the PIN.
-                return;
+            while (Date.now() - startTime < maxDuration) {
+                // The backend will hang for up to 30s (Long Poll)
+                const response = await bleAPI.connectDevice(address, name);
+
+                // Scenario A: PIN Required
+                if (response.status === 'pin_required') {
+                    setPairingDevice({ address, name });
+                    setPinDialogOpen(true);
+                    // NOTE: We do NOT remove from connectingDevices yet.
+                    // We also keep polling PAUSED until the user finishes the PIN flow.
+                    return;
+                }
+
+                // Scenario B: Connected (Success)
+                if (response.status === 'connected') {
+                    toast({
+                        title: "Connected",
+                        description: `Successfully connected to ${name || address}`,
+                    });
+
+                    // Resume polling before we refresh, so the refresh works normally? 
+                    // Actually, refreshConnections calls api directly.
+                    // We should resume polling now.
+                    setPollingPaused(false);
+
+                    await refreshConnections();
+                    setScannedDevices(prev => prev.filter(d => d.address !== address));
+                    return;
+                }
+
+                // Scenario C: Connecting (Intermediate State)
+                if (response.status === 'connecting') {
+                    // The backend is still trying. We MUST retry immediately to catch the next status change.
+                    // Don't sleep too long or we might miss the window, but a small breathing room is fine.
+                    // Since it's a long poll, immediate retry is usually correct.
+                    continue;
+                }
+
+                // Catch-all for other statuses
+                throw new Error(`Unexpected status: ${response.status}`);
             }
 
-            // Scenario B: Already Connected (or successful pair without PIN?)
-            if (response.status === 'connected') {
-                toast({
-                    title: "Connected",
-                    description: `Successfully connected to ${name || address}`,
-                });
-                await refreshConnections();
-                setScannedDevices(prev => prev.filter(d => d.address !== address));
-                return;
-            }
-
-            // Scenario C: Timeout / Still Connecting
-            if (response.status === 'connecting') {
-                throw new Error("Device didn't respond in time. Please try again.");
-            }
-
-            // Catch-all for other statuses
-            throw new Error(`Unexpected status: ${response.status}`);
+            throw new Error("Connection timed out. Device took too long to respond.");
 
         } catch (error) {
             console.error('Connection failed:', error);
-            // If it was a timeout from axios (code ECONNABORTED), connection might still be happening in background?
-            // But usually we just tell user it failed.
             toast({
                 title: "Connection Failed",
                 description: error.message || "Failed to connect to device",
                 variant: "destructive",
             });
+            // If failed, resume polling
+            setPollingPaused(false);
         } finally {
             // Only clear loading state if we are NOT opening the PIN dialog
             if (!pinDialogOpen) {
@@ -109,6 +129,13 @@ const BoxManagement = () => {
                     newSet.delete(address);
                     return newSet;
                 });
+                // Ensure polling is resumed if we are exiting completely (e.g. error or success was handled)
+                // However, we handled success/error specific resumes above.
+                // The only tricky case is "pin_required" which returns early.
+                // If we are here and pinDialogOpen is false, it means we are done.
+                if (!deviceToRename) { // slightly awkward check, basically if we aren't in a dialog
+                    setPollingPaused(false);
+                }
             }
         }
     };
@@ -133,12 +160,11 @@ const BoxManagement = () => {
             // UI Action: Wait 2-3 seconds then confirm status
             await new Promise(r => setTimeout(r, 3000));
 
+            // Resume polling now that we are about to check connections
+            setPollingPaused(false);
+
             // Now refresh to see if it's truly connected
             await refreshConnections();
-
-            // We could also check if it's in the activeConnections list now
-            // But assume success if no error thrown by pairDevice? 
-            // Actually the instructions say "call /connections ... to confirm"
 
             // Clean up UI
             setScannedDevices(prev => prev.filter(d => d.address !== pairingDevice.address));
@@ -155,6 +181,8 @@ const BoxManagement = () => {
                 description: error.message || "Invalid PIN or timeout",
                 variant: "destructive"
             });
+            // Resume polling on error
+            setPollingPaused(false);
         } finally {
             // Always clear the spinner for this device
             setConnectingDevices(prev => {
@@ -164,6 +192,8 @@ const BoxManagement = () => {
             });
             setPinCode("");
             setPairingDevice(null);
+            // Ensure polling is definitely resumed
+            setPollingPaused(false);
         }
     };
 
@@ -430,13 +460,14 @@ const BoxManagement = () => {
             <Dialog open={pinDialogOpen} onOpenChange={(open) => {
                 if (!open) {
                     setPinDialogOpen(false);
-                    // If closed without success, stop connecting spinner
+                    // If closed without success, stop connecting spinner AND resume polling
                     if (pairingDevice) {
                         setConnectingDevices(prev => {
                             const newSet = new Set(prev);
                             newSet.delete(pairingDevice.address);
                             return newSet;
                         });
+                        setPollingPaused(false);
                     }
                 } else {
                     setPinDialogOpen(true);
