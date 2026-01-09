@@ -65,7 +65,7 @@ const BoxManagement = () => {
         setPollingPaused(true);
 
         try {
-            const maxDuration = 90000; // 90 seconds timeout
+            const maxDuration = 25000; // 25 seconds timeout (matches PIN expiry window)
             const startTime = Date.now();
 
             while (Date.now() - startTime < maxDuration) {
