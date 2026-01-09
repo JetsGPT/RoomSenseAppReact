@@ -9,6 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useConnections } from '@/contexts/ConnectionsContext';
 import { StaggeredContainer, StaggeredItem, FadeIn } from '@/components/ui/PageTransition';
 import { RenameDeviceDialog } from '@/components/RenameDeviceDialog';
+import { PairingDialog } from '@/components/PairingDialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -140,15 +141,26 @@ const BoxManagement = () => {
         }
     };
 
-    const submitPin = async () => {
-        if (!pairingDevice || !pinCode) return;
+    const handlePinSubmit = async (pin) => {
+        // Update state first
+        setPinCode(pin);
+
+        // We can't immediately call submitPin() because it relies on the state `pinCode`
+        // which won't be updated until next render.
+        // Instead, we should refactor logic to accept pin as argument.
+        await submitPin(pin);
+    };
+
+    const submitPin = async (submittedPin = null) => {
+        // Use argument if provided, otherwise fallback to state
+        const codeToUse = submittedPin || pinCode;
+        if (!pairingDevice || !codeToUse) return;
 
         try {
             setPinDialogOpen(false);
-            // The card spinner is still active here because we didn't clear connectingDevices
 
             // Backend expects integer
-            const pinInt = parseInt(pinCode, 10);
+            const pinInt = parseInt(codeToUse, 10);
 
             await bleAPI.pairDevice(pairingDevice.address, pinInt);
 
@@ -457,70 +469,38 @@ const BoxManagement = () => {
             />
 
             {/* PIN Entry Dialog */}
-            <Dialog open={pinDialogOpen} onOpenChange={(open) => {
-                if (!open) {
-                    setPinDialogOpen(false);
-                    // If closed without success, stop connecting spinner AND resume polling
-                    if (pairingDevice) {
-                        setConnectingDevices(prev => {
-                            const newSet = new Set(prev);
-                            newSet.delete(pairingDevice.address);
-                            return newSet;
-                        });
-                        setPollingPaused(false);
+            <PairingDialog
+                open={pinDialogOpen}
+                onOpenChange={(open) => {
+                    if (!open) {
+                        setPinDialogOpen(false);
+                        // If closed without success, stop connecting spinner AND resume polling
+                        if (pairingDevice) {
+                            setConnectingDevices(prev => {
+                                const newSet = new Set(prev);
+                                newSet.delete(pairingDevice.address);
+                                return newSet;
+                            });
+                            setPollingPaused(false);
+                        }
+                    } else {
+                        setPinDialogOpen(true);
                     }
-                } else {
-                    setPinDialogOpen(true);
-                }
-            }}>
-                <DialogContent className="sm:max-w-md">
-                    <DialogHeader>
-                        <DialogTitle>Bluetooth Pairing Request</DialogTitle>
-                        <DialogDescription>
-                            Enter the 6-digit PIN code displayed on the RoomSense Box screen.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <div className="py-6 flex flex-col items-center justify-center space-y-4">
-                        <div className="w-full relative">
-                            <Label htmlFor="pin" className="sr-only">PIN Code</Label>
-                            <Input
-                                id="pin"
-                                value={pinCode}
-                                onChange={(e) => {
-                                    // Only allow numbers
-                                    const val = e.target.value.replace(/\D/g, '');
-                                    if (val.length <= 6) setPinCode(val);
-                                }}
-                                placeholder="000000"
-                                className="text-center text-3xl tracking-[0.5em] font-mono h-16"
-                                autoFocus
-                                autoComplete="off"
-                            />
-                        </div>
+                }}
+                onConfirm={(pin) => {
+                    setPinCode(pin);
+                    // Trigger submission immediately
+                    // Ideally pass submitPin directly but submitPin relies on pinCode state
+                    // Let's refactor submitPin to accept pin argument or update state and then call
 
-                        {/* Expiration Animation */}
-                        <div className="w-full space-y-1">
-                            <div className="h-1.5 w-full bg-secondary overflow-hidden rounded-full">
-                                <motion.div
-                                    className="h-full bg-primary"
-                                    initial={{ width: "100%" }}
-                                    animate={{ width: "0%" }}
-                                    transition={{ duration: 30, ease: "linear" }}
-                                />
-                            </div>
-                            <p className="text-xs text-center text-muted-foreground">
-                                Code expires in 30 seconds
-                            </p>
-                        </div>
-                    </div>
-                    <DialogFooter className="sm:justify-between">
-                        <Button variant="ghost" onClick={() => setPinDialogOpen(false)}>Cancel</Button>
-                        <Button onClick={submitPin} disabled={pinCode.length < 6} className="w-full sm:w-auto">
-                            Pair Device
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+                    // Since submitPin relies on state `pinCode`, we need to set it first.
+                    // However, useState is async. 
+                    // Better approach: Call a specific submit handler that takes the pin directly.
+                    handlePinSubmit(pin);
+                }}
+                deviceName={pairingDevice?.name || "RoomSense Box"}
+                isSubmitting={false} // We don't have a separate submitting state for the dialog yet
+            />
         </div>
     );
 };
