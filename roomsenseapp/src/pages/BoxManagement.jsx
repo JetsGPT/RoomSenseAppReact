@@ -28,6 +28,7 @@ const BoxManagement = () => {
     const [pinDialogOpen, setPinDialogOpen] = useState(false);
     const [pairingDevice, setPairingDevice] = useState(null);
     const [pinCode, setPinCode] = useState("");
+    const [isVerifyingPin, setIsVerifyingPin] = useState(false);
     const { toast } = useToast();
 
     // Fetch active connections on mount is handled by context, but we can refresh to be sure
@@ -67,6 +68,9 @@ const BoxManagement = () => {
         // Pause background polling so it doesn't mess with our state or cause race conditions
         setPollingPaused(true);
 
+        // Track local state for finally block
+        let isOpeningPinDialog = false;
+
         try {
             const maxDuration = 45000; // Increased to 45s to accommodate extended timeouts
             const startTime = Date.now();
@@ -79,6 +83,7 @@ const BoxManagement = () => {
                 if (response.status === 'pin_required') {
                     setPairingDevice({ address: upperAddress, name });
                     setPinDialogOpen(true);
+                    isOpeningPinDialog = true;
                     // NOTE: We do NOT remove from connectingDevices yet.
                     // We also keep polling PAUSED until the user finishes the PIN flow.
                     return;
@@ -129,7 +134,8 @@ const BoxManagement = () => {
             setPollingPaused(false);
         } finally {
             // Only clear loading state if we are NOT opening the PIN dialog
-            if (!pinDialogOpen) {
+            // FIX: Use local variable `isOpeningPinDialog` to avoid closure staleness issues
+            if (!isOpeningPinDialog) {
                 setConnectingDevices(prev => {
                     const newSet = new Set(prev);
                     // We need to clear by upperAddress
@@ -160,9 +166,9 @@ const BoxManagement = () => {
         const codeToUse = submittedPin || pinCode;
         if (!pairingDevice || !codeToUse) return;
 
-        try {
-            setPinDialogOpen(false);
+        setIsVerifyingPin(true);
 
+        try {
             // Backend expects integer
             const pinInt = parseInt(codeToUse, 10);
 
@@ -171,6 +177,8 @@ const BoxManagement = () => {
 
             // 1. Success
             if (response.status === 'paired') {
+                setPinDialogOpen(false); // Close dialog on success
+
                 toast({
                     title: "Success",
                     description: "Device paired and connected",
@@ -197,6 +205,7 @@ const BoxManagement = () => {
 
             // 4. Pin Submitted (Old behavior fallback, just in case, but unlikely based on new reqs)
             if (response.status === 'pin_submitted') {
+                setPinDialogOpen(false);
                 // Treat as pending? For now, we assume 'paired' is the new standard for success.
                 // But let's show a toast just in case logic falls here.
                 toast({
@@ -233,15 +242,60 @@ const BoxManagement = () => {
             // Resume polling on error
             setPollingPaused(false);
         } finally {
-            // Always clear the spinner for this device
-            setConnectingDevices(prev => {
-                const newSet = new Set(prev);
-                newSet.delete(pairingDevice.address);
-                return newSet;
-            });
+            setIsVerifyingPin(false); // Stop loading
+
+            // If dialogue is still open (e.g. error), we just stop loading.
+            // If success, we already closed it.
+
+            // Only strictly clear the connecting spinner if the dialog is closed or we are done
+            // But wait, if we fail, we might want to keep the dialog open to retry?
+            // The original code reset everything. Let's see if we want to keep dialog open on error.
+            // Original code:
+            /*
+            setConnectingDevices(prev => { ... delete ... });
             setPinCode("");
             setPairingDevice(null);
-            // Ensure polling is definitely resumed
+            setPollingPaused(false);
+            */
+
+            // New logic: Only close everything if we are CLOSING the flow (success or catastrophic failure?)
+            // Usually on "Invalid PIN", user wants to retry.
+            // But checking the original code, it aggressively cleaned up everything in `finally`.
+            // "Always clear the spinner for this device"
+
+            // Ideally: If error is retryable (wrong pin), keep dialog.
+            // But for now, let's respect the existing pattern of full reset to be safe, 
+            // OR improve it. The user asked for "edge cases". 
+            // Closing the dialog on "Invalid PIN" is annoying UX.
+
+            // Let's STICK to the safer "Reset Everything" pattern for now to avoid introducing new logic bugs,
+            // but notice that `setPinDialogOpen(false)` was NOT called in the original catch block explicitly,
+            // but `setPairingDevice(null)` WAS called in finally.
+            // If pairingDevice is null, the dialog (which depends on it?) might break or close.
+            // Actually `PairingDialog` just takes `pairingDevice?.name`.
+            // But `setPinCode("")` and `setPairingDevice(null)` implies the flow is OVER.
+            // So yes, it resets. I will keep it that way but use `isVerifyingPin` to manage the spinner.
+
+            setConnectingDevices(prev => {
+                const newSet = new Set(prev);
+                if (pairingDevice) newSet.delete(pairingDevice.address);
+                return newSet;
+            });
+
+            // If we didn't succeed, do we close the dialog?
+            // The original code didn't call setPinDialogOpen(false) in finally.
+            // But it set `setPairingDevice(null)`.
+            // If `pairingDevice` is null, `submitPin` check `if (!pairingDevice)` handles next click.
+            // Effectively it breaks the dialog flow.
+            // Let's ensure we close the dialog if we are resetting the device.
+            if (!isVerifyingPin) {
+                // wait, isVerifyingPin is set to false line 240.
+            }
+
+            // To match original behavior (which seemed to intend to close/reset):
+            setPinCode("");
+            setPairingDevice(null); // This kills the reference
+            setPinDialogOpen(false); // Ensure dialog closes
             setPollingPaused(false);
         }
     };
@@ -513,6 +567,9 @@ const BoxManagement = () => {
                         setPinDialogOpen(false);
                         // If closed without success, stop connecting spinner AND resume polling
                         if (pairingDevice) {
+                            // Fix: Ensure we disconnect on backend to prevent orphaned connections
+                            bleAPI.disconnectDevice(pairingDevice.address).catch(console.error);
+
                             setConnectingDevices(prev => {
                                 const newSet = new Set(prev);
                                 newSet.delete(pairingDevice.address);
@@ -536,7 +593,7 @@ const BoxManagement = () => {
                     handlePinSubmit(pin);
                 }}
                 deviceName={pairingDevice?.name || "RoomSense Box"}
-                isSubmitting={false} // We don't have a separate submitting state for the dialog yet
+                isSubmitting={isVerifyingPin}
             />
         </div>
     );
