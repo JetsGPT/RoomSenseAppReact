@@ -60,22 +60,24 @@ const BoxManagement = () => {
     };
 
     const handleConnect = async (address, name) => {
-        setConnectingDevices(prev => new Set(prev).add(address));
+        // Force uppercase
+        const upperAddress = address.toUpperCase();
+        setConnectingDevices(prev => new Set(prev).add(upperAddress));
 
         // Pause background polling so it doesn't mess with our state or cause race conditions
         setPollingPaused(true);
 
         try {
-            const maxDuration = 25000; // 25 seconds timeout (matches PIN expiry window)
+            const maxDuration = 45000; // Increased to 45s to accommodate extended timeouts
             const startTime = Date.now();
 
             while (Date.now() - startTime < maxDuration) {
                 // The backend will hang for up to 30s (Long Poll)
-                const response = await bleAPI.connectDevice(address, name);
+                const response = await bleAPI.connectDevice(upperAddress, name);
 
                 // Scenario A: PIN Required
                 if (response.status === 'pin_required') {
-                    setPairingDevice({ address, name });
+                    setPairingDevice({ address: upperAddress, name });
                     setPinDialogOpen(true);
                     // NOTE: We do NOT remove from connectingDevices yet.
                     // We also keep polling PAUSED until the user finishes the PIN flow.
@@ -86,24 +88,23 @@ const BoxManagement = () => {
                 if (response.status === 'connected') {
                     toast({
                         title: "Connected",
-                        description: `Successfully connected to ${name || address}`,
+                        description: `Successfully connected to ${name || upperAddress}`,
                     });
 
-                    // Resume polling before we refresh, so the refresh works normally? 
-                    // Actually, refreshConnections calls api directly.
-                    // We should resume polling now.
                     setPollingPaused(false);
-
                     await refreshConnections();
-                    setScannedDevices(prev => prev.filter(d => d.address !== address));
+                    setScannedDevices(prev => prev.filter(d => d.address !== upperAddress));
                     return;
                 }
 
-                // Scenario C: Connecting (Intermediate State)
+                // Scenario C: Converting Timeout (Backend sends explicit timeout status now)
+                if (response.status === 'timeout') {
+                    throw new Error("Connection timed out (backend reported timeout).");
+                }
+
+                // Scenario D: Connecting (Intermediate State)
                 if (response.status === 'connecting') {
                     // The backend is still trying. We MUST retry immediately to catch the next status change.
-                    // Don't sleep too long or we might miss the window, but a small breathing room is fine.
-                    // Since it's a long poll, immediate retry is usually correct.
                     continue;
                 }
 
@@ -115,9 +116,13 @@ const BoxManagement = () => {
 
         } catch (error) {
             console.error('Connection failed:', error);
+
+            // Handle 500 or other errors generic
+            const msg = error.response?.data?.detail || error.message || "Failed to connect to device";
+
             toast({
                 title: "Connection Failed",
-                description: error.message || "Failed to connect to device",
+                description: msg,
                 variant: "destructive",
             });
             // If failed, resume polling
@@ -127,14 +132,13 @@ const BoxManagement = () => {
             if (!pinDialogOpen) {
                 setConnectingDevices(prev => {
                     const newSet = new Set(prev);
+                    // We need to clear by upperAddress
+                    newSet.delete(upperAddress);
+                    // Also try original address just in case
                     newSet.delete(address);
                     return newSet;
                 });
-                // Ensure polling is resumed if we are exiting completely (e.g. error or success was handled)
-                // However, we handled success/error specific resumes above.
-                // The only tricky case is "pin_required" which returns early.
-                // If we are here and pinDialogOpen is false, it means we are done.
-                if (!deviceToRename) { // slightly awkward check, basically if we aren't in a dialog
+                if (!deviceToRename) {
                     setPollingPaused(false);
                 }
             }
@@ -162,35 +166,68 @@ const BoxManagement = () => {
             // Backend expects integer
             const pinInt = parseInt(codeToUse, 10);
 
-            await bleAPI.pairDevice(pairingDevice.address, pinInt);
+            // Response handling
+            const response = await bleAPI.pairDevice(pairingDevice.address, pinInt);
 
-            toast({
-                title: "PIN Submitted",
-                description: "Verifying connection...",
-            });
+            // 1. Success
+            if (response.status === 'paired') {
+                toast({
+                    title: "Success",
+                    description: "Device paired and connected",
+                });
 
-            // UI Action: Wait 2-3 seconds then confirm status
-            await new Promise(r => setTimeout(r, 3000));
+                // Clean up UI - Wait a moment for stabilization
+                await new Promise(r => setTimeout(r, 1000));
 
-            // Resume polling now that we are about to check connections
-            setPollingPaused(false);
+                setPollingPaused(false);
+                await refreshConnections();
+                setScannedDevices(prev => prev.filter(d => d.address !== pairingDevice.address));
+                return;
+            }
 
-            // Now refresh to see if it's truly connected
-            await refreshConnections();
+            // 2. Failure with details
+            if (response.status === 'pairing_failed') {
+                throw new Error(response.detail || "Pairing failed");
+            }
 
-            // Clean up UI
-            setScannedDevices(prev => prev.filter(d => d.address !== pairingDevice.address));
+            // 3. Timeout specifically
+            if (response.status === 'pairing_timeout') {
+                throw new Error("PIN entry timed out");
+            }
 
-            toast({
-                title: "Success",
-                description: "Device paired and connected",
-            });
+            // 4. Pin Submitted (Old behavior fallback, just in case, but unlikely based on new reqs)
+            if (response.status === 'pin_submitted') {
+                // Treat as pending? For now, we assume 'paired' is the new standard for success.
+                // But let's show a toast just in case logic falls here.
+                toast({
+                    title: "PIN Submitted",
+                    description: "Verifying connection...",
+                });
+                // Revert to polling check logic if needed, but user didn't specify this fallback.
+                // We'll trust 'paired' is sent on success.
+                setPollingPaused(false);
+                await refreshConnections();
+                return;
+            }
+
+            // Catch-all
+            throw new Error(`Unexpected pairing status: ${response.status}`);
 
         } catch (error) {
             console.error('Pairing failed:', error);
+
+            let errorMsg = error.message || "Invalid PIN or timeout";
+
+            // Handle 400 Bad Request specifically if axios throws it
+            if (error.response && error.response.status === 400) {
+                errorMsg = "Invalid Device Address or PIN";
+            } else if (error.response && error.response.data && error.response.data.detail) {
+                errorMsg = error.response.data.detail;
+            }
+
             toast({
                 title: "Pairing Failed",
-                description: error.message || "Invalid PIN or timeout",
+                description: errorMsg,
                 variant: "destructive"
             });
             // Resume polling on error
