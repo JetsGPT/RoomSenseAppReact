@@ -53,10 +53,7 @@ export const useSensorData = (options = {}) => {
     // Determine which result to return
     const activeResult = sensor_box ? singleBoxQuery : dashboardQuery;
 
-    if (activeResult.data) {
-        console.log('useSensorData raw data:', activeResult.data);
-        console.log('Is array?', Array.isArray(activeResult.data));
-    }
+
 
     const data = Array.isArray(activeResult.data) ? activeResult.data : [];
     const loading = activeResult.isLoading;

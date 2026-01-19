@@ -3,6 +3,7 @@ import { bleAPI } from '../services/api';
 import { useToast } from '../hooks/use-toast';
 
 import { useAuth } from './AuthContext';
+import { DEV_MODE, DEV_CONNECTIONS } from '../config/devConfig';
 
 const ConnectionsContext = createContext(null);
 
@@ -16,6 +17,14 @@ export const ConnectionsProvider = ({ children }) => {
 
     const fetchConnections = useCallback(async (silent = false) => {
         if (!user) {
+            setLoading(false);
+            return;
+        }
+
+        // DEV MODE: Use mock connections
+        if (DEV_MODE) {
+            console.log('[DEV MODE] Using mock connections');
+            setActiveConnections(DEV_CONNECTIONS);
             setLoading(false);
             return;
         }

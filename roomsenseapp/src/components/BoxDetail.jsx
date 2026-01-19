@@ -1,13 +1,18 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Activity, Loader2, PencilLine, RefreshCw } from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useState, memo } from 'react';
+import { Activity, Loader2, PencilLine, RefreshCw, Settings2, X, Radio, Clock } from 'lucide-react';
 import NumberFlow from '@number-flow/react';
 import { Button } from './ui/button';
 import { InfoBlock } from './ui/InfoBlock';
 import { SensorLineChart, SensorAreaChart } from './ui/SensorCharts';
+import { SensorGauge, GaugeCustomizer } from './ui/SensorGauge';
+import { SensorDisplayGrid } from './ui/SensorDisplayGrid';
+import { RoomScore, TipsCard } from './ui/RoomScore';
+import { DisplayModeSelector } from './ui/DisplayModeSelector';
 import { SensorChartManager } from './SensorChartManager';
 import { DatePicker } from './ui/date-picker';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import { RangeControls } from './box-detail/RangeControls';
+import { AnimatePresence, motion } from 'framer-motion';
 
 import {
     Pagination,
@@ -105,8 +110,11 @@ const readStoredCustomRange = (boxId) => {
 };
 
 export function BoxDetail({ boxId }) {
-    const { settings } = useSettings();
+    const { settings, updateSettings, getGaugeTypeForSensor, setGaugeTypeForSensor } = useSettings();
     const refreshInterval = settings?.refreshInterval || 30000;
+    const displayMode = settings.displayMode || 'comfort';
+    const showTips = settings.showTips !== false;
+
     const [rangeKey, setRangeKey] = useState(() => readStoredRange(boxId));
     const [customRange, setCustomRange] = useState(() => readStoredCustomRange(boxId));
     const [customDraft, setCustomDraft] = useState(() => {
@@ -117,8 +125,19 @@ export function BoxDetail({ boxId }) {
         };
     });
     const [showChartManager, setShowChartManager] = useState(false);
+    const [showSettings, setShowSettings] = useState(false);
     const [sortConfig, setSortConfig] = useState({ column: 'timestamp', direction: 'desc' });
     const [currentPage, setCurrentPage] = useState(1);
+
+    // Handle display mode change
+    const handleDisplayModeChange = useCallback((mode) => {
+        updateSettings({ displayMode: mode });
+    }, [updateSettings]);
+
+    // Handle gauge type change for a specific sensor
+    const handleGaugeTypeChange = useCallback((sensorType, newType) => {
+        setGaugeTypeForSensor(sensorType, newType);
+    }, [setGaugeTypeForSensor]);
 
     useEffect(() => {
         setRangeKey(readStoredRange(boxId));
@@ -532,35 +551,106 @@ export function BoxDetail({ boxId }) {
                 )}
             </div>
 
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4">
-                {hasLatestReadings ? (
-                    latestReadings.map((reading, index) => {
-                        const Icon = getSensorIcon(reading.sensor_type);
-                        const sensorName = getSensorName(reading.sensor_type);
-                        const formattedValue = formatSensorValue(reading.value, reading.sensor_type);
-                        return (
-                            <InfoBlock key={`${reading.sensor_type}-${index}`} title={sensorName}>
-                                <div className="flex items-center gap-2 sm:gap-3">
-                                    <Icon className="h-6 w-6 text-primary sm:h-8 sm:w-8" />
+            {/* Live Readings with Gauges */}
+            {/* Room Score */}
+            <RoomScore
+                readings={latestReadings}
+                roomName={`Room ${boxId}`}
+                size="default"
+            />
+
+            {/* Live Readings with Multi-Mode Display */}
+            <div className="space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                        <Radio className="w-4 h-4 text-primary animate-pulse" />
+                        <h3 className="font-semibold">Live Readings</h3>
+                        {latestReadings.length > 0 && (
+                            <div className="flex items-center gap-1 text-xs text-muted-foreground bg-muted px-2 py-1 rounded-full">
+                                <Clock className="w-3 h-3" />
+                                <span>{new Date(latestReadings[0]?.timestamp).toLocaleTimeString()}</span>
+                            </div>
+                        )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <DisplayModeSelector
+                            value={displayMode}
+                            onChange={handleDisplayModeChange}
+                            variant="buttons"
+                        />
+                        <Button
+                            type="button"
+                            size="sm"
+                            variant={showSettings ? 'secondary' : 'ghost'}
+                            onClick={() => setShowSettings(prev => !prev)}
+                        >
+                            <Settings2 className="h-4 w-4" />
+                        </Button>
+                    </div>
+                </div>
+
+                {/* Settings Panel */}
+                <AnimatePresence>
+                    {showSettings && (
+                        <motion.div
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: 'auto' }}
+                            exit={{ opacity: 0, height: 0 }}
+                            className="overflow-hidden"
+                        >
+                            <div className="bg-card border border-border rounded-xl p-4 space-y-4">
+                                <div className="flex items-center justify-between">
+                                    <h4 className="font-semibold">Display Settings</h4>
+                                    <Button size="icon-sm" variant="ghost" onClick={() => setShowSettings(false)}>
+                                        <X className="h-4 w-4" />
+                                    </Button>
+                                </div>
+
+                                {/* Display Mode Pills */}
+                                <div>
+                                    <label className="text-sm text-muted-foreground mb-2 block">Display Style</label>
+                                    <DisplayModeSelector
+                                        value={displayMode}
+                                        onChange={handleDisplayModeChange}
+                                        variant="pills"
+                                    />
+                                </div>
+
+                                {/* Gauge Customizer (only for gauges mode) */}
+                                {displayMode === 'gauges' && (
                                     <div>
-                                        <div className="text-lg font-bold text-foreground sm:text-2xl">
-                                            <NumberFlow value={formattedValue} />
-                                            {getSensorUnit(reading.sensor_type)}
-                                        </div>
-                                        <div className="text-xs text-muted-foreground sm:text-sm">
-                                            {new Date(reading.timestamp).toLocaleTimeString()}
+                                        <label className="text-sm text-muted-foreground mb-2 block">Gauge Styles</label>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                            {availableSensorTypes.map(sensorType => (
+                                                <GaugeCustomizer
+                                                    key={sensorType}
+                                                    sensorType={sensorType}
+                                                    currentType={getGaugeTypeForSensor(sensorType)}
+                                                    onChange={handleGaugeTypeChange}
+                                                />
+                                            ))}
                                         </div>
                                     </div>
-                                </div>
-                            </InfoBlock>
-                        );
-                    })
-                ) : (
-                    <div className="col-span-full rounded-2xl border border-dashed border-border bg-muted/20 p-6 text-center text-sm text-muted-foreground">
-                        {loading ? 'Loading latest readings…' : 'No readings available for this range yet.'}
-                    </div>
-                )}
+                                )}
+                            </div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+
+                {/* Sensor Display based on mode */}
+                <SensorDisplayGrid
+                    readings={latestReadings}
+                    displayMode={displayMode}
+                    getGaugeTypeForSensor={getGaugeTypeForSensor}
+                    compactGauges={latestReadings.length > 4}
+                    emptyMessage={loading ? 'Loading latest readings…' : 'No readings available for this range yet.'}
+                />
             </div>
+
+            {/* Smart Tips */}
+            {showTips && hasLatestReadings && (
+                <TipsCard readings={latestReadings} maxTips={3} />
+            )}
 
             <div>
                 <h3 className="mb-3 text-base font-semibold text-foreground sm:mb-4 sm:text-lg">

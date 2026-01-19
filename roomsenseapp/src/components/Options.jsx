@@ -3,8 +3,9 @@ import { InfoBlock, InfoItem } from './ui/InfoBlock';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Switch } from './ui/nightmode/switch';
-import { Clock, RefreshCw, Save, RotateCcw, BarChart3 } from 'lucide-react';
+import { Clock, RefreshCw, Save, RotateCcw, BarChart3, HeartPulse } from 'lucide-react';
 import { useSettings } from '../contexts/SettingsContext';
+import { ComfortZoneSettings } from './ui/ComfortZoneSettings';
 
 export function Options({ fetchDelay, onFetchDelayChange, onRefreshData }) {
     const { settings, updateSettings } = useSettings();
@@ -181,6 +182,19 @@ export function Options({ fetchDelay, onFetchDelayChange, onRefreshData }) {
                             onCheckedChange={setLocalShowChartDots}
                         />
                     </div>
+                </CardContent>
+            </Card>
+
+            {/* Comfort Zone Settings */}
+            <Card>
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                        <HeartPulse className="w-5 h-5" />
+                        Comfort Zone Settings
+                    </CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <ComfortZoneSettings />
                 </CardContent>
             </Card>
 

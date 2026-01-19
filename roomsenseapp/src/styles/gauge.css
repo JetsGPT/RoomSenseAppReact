@@ -1,0 +1,458 @@
+/* ============================================
+   GAUGE COMPONENT STYLES
+   ============================================ */
+
+/* ===== GAUGE CONTAINER ===== */
+.gauge-container {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: var(--spacing-md);
+    background: var(--card);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border);
+    transition: all 0.3s ease;
+    overflow: hidden;
+}
+
+.gauge-container:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    transform: translateY(-2px);
+}
+
+/* ===== GAUGE HEADER ===== */
+.gauge-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    margin-bottom: var(--spacing-sm);
+}
+
+.gauge-label {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--foreground);
+    text-transform: capitalize;
+}
+
+.gauge-unit {
+    font-size: 0.75rem;
+    color: var(--muted-foreground);
+}
+
+/* ===== GAUGE WRAPPER ===== */
+.gauge-wrapper {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 120px;
+}
+
+.gauge-wrapper svg {
+    max-width: 100%;
+    height: auto;
+}
+
+/* ===== STATE INDICATORS ===== */
+.gauge-state-live {
+    /* Normal state - full opacity and no filters */
+    opacity: 1;
+}
+
+.gauge-state-stale {
+    opacity: 0.7;
+}
+
+.gauge-state-stale .gauge-wrapper {
+    filter: sepia(0.3);
+}
+
+.gauge-state-offline {
+    opacity: 0.5;
+}
+
+.gauge-state-offline .gauge-wrapper {
+    filter: grayscale(0.7);
+}
+
+/* ===== STATE BADGES ===== */
+.gauge-badge {
+    position: absolute;
+    top: var(--spacing-sm);
+    right: var(--spacing-sm);
+    padding: 2px 8px;
+    border-radius: var(--radius-sm);
+    font-size: 0.65rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.gauge-badge-live {
+    background: var(--tea-green);
+    color: white;
+}
+
+.gauge-badge-stale {
+    background: #ffd43b;
+    color: #1a1a1a;
+}
+
+.gauge-badge-offline {
+    background: var(--muted);
+    color: var(--muted-foreground);
+}
+
+/* Pulsing animation for live badge */
+.gauge-badge-live::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: white;
+    animation: pulse-dot 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-dot {
+
+    0%,
+    100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+
+    50% {
+        opacity: 0.5;
+        transform: scale(0.8);
+    }
+}
+
+/* ===== GAUGE VALUE DISPLAY ===== */
+.gauge-value-display {
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    gap: 4px;
+    margin-top: var(--spacing-xs);
+}
+
+.gauge-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--foreground);
+    font-family: var(--font-display);
+}
+
+.gauge-value-unit {
+    font-size: 0.875rem;
+    color: var(--muted-foreground);
+    font-weight: 500;
+}
+
+/* ===== GAUGE TYPE SELECTOR ===== */
+.gauge-type-selector {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.gauge-type-selector select {
+    padding: 6px 12px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--foreground);
+    font-size: 0.875rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.gauge-type-selector select:hover {
+    border-color: var(--primary);
+}
+
+.gauge-type-selector select:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px rgba(121, 188, 158, 0.2);
+}
+
+/* ===== LIVE NOW SECTION ===== */
+.live-now-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-sm);
+}
+
+.live-now-title {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.live-now-title h3 {
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: var(--foreground);
+}
+
+.live-now-timestamp {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.75rem;
+    color: var(--muted-foreground);
+    padding: 4px 8px;
+    background: var(--muted);
+    border-radius: var(--radius-sm);
+}
+
+/* ===== RESPONSIVE STYLES ===== */
+@media (max-width: 640px) {
+    .gauge-container {
+        padding: var(--spacing-sm);
+    }
+
+    .gauge-wrapper {
+        min-height: 100px;
+    }
+
+    .gauge-value {
+        font-size: 1.25rem;
+    }
+
+    .gauge-label {
+        font-size: 0.8rem;
+    }
+
+    .live-now-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .gauge-type-selector {
+        width: 100%;
+    }
+
+    .gauge-type-selector select {
+        width: 100%;
+    }
+}
+
+/* ===== DARK MODE ADJUSTMENTS ===== */
+[data-theme="dark"] .gauge-container {
+    background: var(--card);
+    border-color: var(--border);
+}
+
+[data-theme="dark"] .gauge-container:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="dark"] .gauge-type-selector select {
+    background: var(--card);
+    border-color: var(--border);
+}
+
+/* ===== LOADING STATE ===== */
+.gauge-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 150px;
+}
+
+.gauge-loading-spinner {
+    width: 32px;
+    height: 32px;
+    border: 3px solid var(--border);
+    border-top-color: var(--primary);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+/* ===== NO DATA STATE ===== */
+.gauge-no-data {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 150px;
+    color: var(--muted-foreground);
+    text-align: center;
+    gap: var(--spacing-sm);
+}
+
+.gauge-no-data-icon {
+    width: 32px;
+    height: 32px;
+    opacity: 0.5;
+}
+
+.gauge-no-data-text {
+    font-size: 0.875rem;
+}
+
+/* ===== COMPACT MODE ===== */
+.gauge-compact {
+    padding: var(--spacing-sm);
+}
+
+.gauge-compact .gauge-wrapper {
+    min-height: 90px;
+}
+
+.gauge-compact .gauge-label {
+    font-size: 0.75rem;
+}
+
+.gauge-compact .gauge-value {
+    font-size: 1.125rem;
+}
+
+.gauge-compact .gauge-badge {
+    padding: 1px 6px;
+    font-size: 0.6rem;
+}
+
+/* ===== CUSTOMIZE BUTTON ===== */
+.gauge-customize-btn {
+    position: absolute;
+    top: var(--spacing-sm);
+    left: var(--spacing-sm);
+    width: 24px;
+    height: 24px;
+    border-radius: var(--radius-sm);
+    border: none;
+    background: var(--muted);
+    color: var(--muted-foreground);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    opacity: 0;
+    transition: all 0.2s ease;
+}
+
+.gauge-container:hover .gauge-customize-btn {
+    opacity: 1;
+}
+
+.gauge-customize-btn:hover {
+    background: var(--accent);
+    color: var(--foreground);
+}
+
+/* ===== GAUGE CUSTOMIZER PANEL ===== */
+.gauge-customizer {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-sm);
+}
+
+.gauge-customizer-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: var(--spacing-md);
+}
+
+/* ===== GAUGE GRID SELECTOR ===== */
+.gauge-type-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+}
+
+.gauge-type-grid button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 6px 10px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--muted-foreground);
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.gauge-type-grid button:hover {
+    border-color: var(--primary);
+    background: var(--accent);
+}
+
+.gauge-type-grid button.active {
+    border-color: var(--primary);
+    background: var(--primary);
+    color: white;
+}
+
+/* ===== SENSOR-SPECIFIC ICON COLORS ===== */
+.gauge-icon-temperature {
+    color: #ef4444;
+}
+
+.gauge-icon-humidity {
+    color: #3b82f6;
+}
+
+.gauge-icon-pressure {
+    color: #10b981;
+}
+
+.gauge-icon-light {
+    color: #f59e0b;
+}
+
+.gauge-icon-wind {
+    color: #06b6d4;
+}
+
+.gauge-icon-voltage {
+    color: #f97316;
+}
+
+.gauge-icon-motion {
+    color: #8b5cf6;
+}
+
+.gauge-icon-visibility {
+    color: #84cc16;
+}
+
+/* ===== PERFORMANCE OPTIMIZATIONS ===== */
+.gauge-wrapper svg {
+    will-change: transform;
+}
+
+.gauge-container {
+    contain: layout style;
+}
+
+/* Reduce paint on hover */
+@media (prefers-reduced-motion: no-preference) {
+    .gauge-container {
+        transition: box-shadow 0.3s ease, transform 0.3s ease;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+    .gauge-container,
+    .gauge-badge-live::before,
+    .gauge-loading-spinner {
+        animation: none;
+        transition: none;
+    }
+}
