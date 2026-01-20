@@ -7,7 +7,7 @@
 
 // Enable development mode (bypasses login, uses mock data)
 // Enable development mode (bypasses login, uses mock data)
-export const DEV_MODE = false;
+export const DEV_MODE = true;
 
 // Mock user for development
 export const DEV_USER = {

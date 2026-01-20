@@ -5,7 +5,8 @@ import { GaugeCustomizer } from './ui/SensorGauge';
 import { SensorDisplayGrid } from './ui/SensorDisplayGrid';
 import { RoomScore, TipsCard, RoomScoreCompact } from './ui/RoomScore';
 import { DisplayModeSelector } from './ui/DisplayModeSelector';
-import { Radio, Clock, Settings2, X, ChevronRight, PencilLine } from 'lucide-react';
+import { FloorPlanViewer } from './floor-plan/FloorPlanViewer';
+import { Radio, Clock, Settings2, X, ChevronRight, PencilLine, Map as MapIcon } from 'lucide-react';
 import { Button } from './ui/button';
 import { SensorChartManager } from './SensorChartManager';
 import { useSensorSelection } from '../hooks/useSensorSelection';
@@ -299,6 +300,15 @@ export function Overview({ sensorData, groupedData }) {
             {showTips && latestByType.length > 0 && (
                 <TipsCard readings={latestByType} maxTips={3} />
             )}
+
+            {/* ===== FLOOR PLAN SECTION ===== */}
+            <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                    <MapIcon className="w-4 h-4 text-primary" />
+                    <h3 className="text-lg font-semibold">Floor Plan</h3>
+                </div>
+                <FloorPlanViewer height={450} />
+            </div>
 
             {/* ===== ROOMS OVERVIEW ===== */}
             <div className="space-y-3">
