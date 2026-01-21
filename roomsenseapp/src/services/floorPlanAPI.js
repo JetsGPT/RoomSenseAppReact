@@ -132,4 +132,76 @@ export const floorPlanAPI = {
     },
 };
 
+// ============================================================================
+// Local Storage Fallback (for components that need synchronous access)
+// ============================================================================
+
+const STORAGE_KEY = 'roomsense_floor_plans';
+
+/**
+ * LocalStorage-based floor plan storage for synchronous access.
+ * Used by FloorPlanViewer and other components that need immediate data access
+ * without async API calls.
+ */
+export const floorPlanStorage = {
+    /**
+     * Get all floor plans from localStorage
+     * @returns {Array} Array of floor plan objects
+     */
+    getAll() {
+        try {
+            const data = localStorage.getItem(STORAGE_KEY);
+            return data ? JSON.parse(data) : [];
+        } catch (error) {
+            console.error('Failed to load floor plans from storage:', error);
+            return [];
+        }
+    },
+
+    /**
+     * Get a specific floor plan by ID
+     * @param {string} id - Floor plan ID
+     * @returns {Object|null} Floor plan object or null
+     */
+    get(id) {
+        const plans = this.getAll();
+        return plans.find(p => p.id === id) || null;
+    },
+
+    /**
+     * Save a floor plan to localStorage
+     * @param {Object} floorPlan - Floor plan object with id
+     * @returns {Object} Saved floor plan
+     */
+    save(floorPlan) {
+        const plans = this.getAll();
+        const existingIndex = plans.findIndex(p => p.id === floorPlan.id);
+
+        const planToSave = {
+            ...floorPlan,
+            id: floorPlan.id || crypto.randomUUID(),
+            updatedAt: new Date().toISOString(),
+        };
+
+        if (existingIndex >= 0) {
+            plans[existingIndex] = planToSave;
+        } else {
+            planToSave.createdAt = new Date().toISOString();
+            plans.push(planToSave);
+        }
+
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(plans));
+        return planToSave;
+    },
+
+    /**
+     * Remove a floor plan from localStorage
+     * @param {string} id - Floor plan ID
+     */
+    remove(id) {
+        const plans = this.getAll().filter(p => p.id !== id);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(plans));
+    },
+};
+
 export default floorPlanAPI;
