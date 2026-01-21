@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // Hardcoded API base URL
 // API base URL from environment variables
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://localhost:8081/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
 
 
 // Create axios instance
@@ -99,12 +99,18 @@ export const bleAPI = {
     },
 
     connectDevice: async (address, name = null) => {
-        const response = await api.post(`/devices/connect/${address}`, { name });
+        // Backend Long-poll is 30s, so we set timeout to 40s to be safe
+        const response = await api.post(`/devices/connect/${address.toUpperCase()}`, { name }, { timeout: 40000 });
+        return response.data;
+    },
+
+    pairDevice: async (address, pin) => {
+        const response = await api.post(`/devices/pair/${address.toUpperCase()}`, { pin });
         return response.data;
     },
 
     disconnectDevice: async (address) => {
-        const response = await api.post(`/devices/disconnect/${address}`);
+        const response = await api.post(`/devices/disconnect/${address.toUpperCase()}`);
         return response.data;
     },
 
@@ -119,7 +125,7 @@ export const bleAPI = {
     },
 
     renameDevice: async (address, display_name) => {
-        const response = await api.patch(`/devices/connect/${address}`, { display_name });
+        const response = await api.patch(`/devices/connect/${address.toUpperCase()}`, { display_name });
         return response.data;
     },
 };

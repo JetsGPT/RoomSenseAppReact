@@ -24,6 +24,8 @@ const Admin = lazy(() => import('./pages/Admin'));
 const BoxManagement = lazy(() => import('./pages/BoxManagement'));
 const Download = lazy(() => import('./pages/Download'));
 const Unauthorized = lazy(() => import('./pages/Unauthorized'));
+const KioskView = lazy(() => import('./pages/KioskView'));
+const FloorPlanEditor = lazy(() => import('./pages/FloorPlanEditor'));
 
 // Loading fallback component
 const LoadingFallback = () => (
@@ -53,7 +55,7 @@ function AppContent() {
     const location = useLocation();
 
     // Define routes where Navigation should NOT be shown
-    const hideNavigationRoutes = ['/login', '/unauthorized'];
+    const hideNavigationRoutes = ['/login', '/unauthorized', '/kiosk'];
     const shouldShowNavigation = !hideNavigationRoutes.includes(location.pathname);
 
     // Define routes where Sidebar should be shown (dashboard-related pages)
@@ -155,6 +157,42 @@ function AppContent() {
                                             <Unauthorized />
                                         </PageTransition>
                                     </Suspense>
+                                }
+                            />
+
+                            {/* Kiosk Mode - Fullscreen display for wall-mounted tablets */}
+                            <Route
+                                path="/kiosk"
+                                element={
+                                    <RequireAuth>
+                                        <Suspense fallback={<LoadingFallback />}>
+                                            <KioskView />
+                                        </Suspense>
+                                    </RequireAuth>
+                                }
+                            />
+
+                            {/* Floor Plan Editor - Create new floor plans */}
+                            <Route
+                                path="/floor-plan"
+                                element={
+                                    <RequireAuth>
+                                        <Suspense fallback={<LoadingFallback />}>
+                                            <FloorPlanEditor />
+                                        </Suspense>
+                                    </RequireAuth>
+                                }
+                            />
+
+                            {/* Floor Plan Editor - Edit existing floor plan */}
+                            <Route
+                                path="/floor-plan/:id"
+                                element={
+                                    <RequireAuth>
+                                        <Suspense fallback={<LoadingFallback />}>
+                                            <FloorPlanEditor />
+                                        </Suspense>
+                                    </RequireAuth>
                                 }
                             />
 

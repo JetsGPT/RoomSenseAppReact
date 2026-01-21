@@ -1,7 +1,7 @@
 import { useId } from "react"
 import { useLocation, useNavigate, Link } from "react-router-dom"
 import { motion } from "framer-motion"
-import { HouseIcon, InboxIcon, SearchIcon, ZapIcon, Shield, Box, BarChart3, Download } from "lucide-react"
+import { HouseIcon, InboxIcon, SearchIcon, ZapIcon, Shield, Box, BarChart3, Download, Monitor, Map } from "lucide-react"
 import Time from "@/components/ui/Time"
 import Logo from "@/components/logo"
 import { Button } from "@/components/ui/button"
@@ -24,7 +24,9 @@ import { useSidebar } from "@/shared/contexts/SidebarContext"
 // Navigation links array to be used in both desktop and mobile menus
 const navigationLinks = [
   { href: "/dashboard", label: "Dashboard", icon: HouseIcon },
+  { href: "/floor-plan", label: "Floor Plan", icon: Map },
   { href: "/boxes", label: "My Boxes", icon: Box },
+  { href: "/kiosk", label: "Kiosk", icon: Monitor },
   { href: "/download", label: "Download", icon: Download },
   { href: "/about-me", label: "About", icon: InboxIcon },
   { href: "/admin", label: "Admin", icon: Shield },
@@ -148,9 +150,9 @@ export default function Component() {
                           transition={{ duration: 0.2, delay: 0.1 + (index + 1) * 0.05 }}
                         >
                           <Button
-                            variant={activeView === `box-${boxId}` ? "default" : "ghost"}
+                            variant={activeView === `box - ${boxId} ` ? "default" : "ghost"}
                             className="w-full justify-start py-2.5 px-3 h-auto"
-                            onClick={() => setActiveView(`box-${boxId}`)}
+                            onClick={() => setActiveView(`box - ${boxId} `)}
                           >
                             <Box size={18} className="mr-3" />
                             <span className="font-medium">Box {boxId}</span>

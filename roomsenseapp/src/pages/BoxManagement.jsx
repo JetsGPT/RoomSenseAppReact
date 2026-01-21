@@ -9,15 +9,26 @@ import { useToast } from '@/hooks/use-toast';
 import { useConnections } from '@/contexts/ConnectionsContext';
 import { StaggeredContainer, StaggeredItem, FadeIn } from '@/components/ui/PageTransition';
 import { RenameDeviceDialog } from '@/components/RenameDeviceDialog';
+import { PairingDialog } from '@/components/PairingDialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { AnimatePresence } from 'framer-motion';
 
 const BoxManagement = () => {
-    const { activeConnections, loading: isLoadingConnections, refreshConnections } = useConnections();
+    const { activeConnections, loading: isLoadingConnections, refreshConnections, setPollingPaused } = useConnections();
     const [scannedDevices, setScannedDevices] = useState([]);
     const [isScanning, setIsScanning] = useState(false);
     const [connectingDevices, setConnectingDevices] = useState(new Set());
     const [disconnectingDevices, setDisconnectingDevices] = useState(new Set());
     const [renameDialogOpen, setRenameDialogOpen] = useState(false);
     const [deviceToRename, setDeviceToRename] = useState(null);
+
+    // Pairing State
+    const [pinDialogOpen, setPinDialogOpen] = useState(false);
+    const [pairingDevice, setPairingDevice] = useState(null);
+    const [pinCode, setPinCode] = useState("");
+    const [isVerifyingPin, setIsVerifyingPin] = useState(false);
     const { toast } = useToast();
 
     // Fetch active connections on mount is handled by context, but we can refresh to be sure
@@ -50,29 +61,242 @@ const BoxManagement = () => {
     };
 
     const handleConnect = async (address, name) => {
-        setConnectingDevices(prev => new Set(prev).add(address));
+        // Force uppercase
+        const upperAddress = address.toUpperCase();
+        setConnectingDevices(prev => new Set(prev).add(upperAddress));
+
+        // Pause background polling so it doesn't mess with our state or cause race conditions
+        setPollingPaused(true);
+
+        // Track local state for finally block
+        let isOpeningPinDialog = false;
+
         try {
-            await bleAPI.connectDevice(address, name);
-            toast({
-                title: "Connected",
-                description: `Successfully connected to ${name || address}`,
-            });
-            // Refresh connections and remove from scanned list
-            await refreshConnections();
-            setScannedDevices(prev => prev.filter(d => d.address !== address));
+            const maxDuration = 45000; // Increased to 45s to accommodate extended timeouts
+            const startTime = Date.now();
+
+            while (Date.now() - startTime < maxDuration) {
+                // The backend will hang for up to 30s (Long Poll)
+                const response = await bleAPI.connectDevice(upperAddress, name);
+
+                // Scenario A: PIN Required
+                if (response.status === 'pin_required') {
+                    setPairingDevice({ address: upperAddress, name });
+                    setPinDialogOpen(true);
+                    isOpeningPinDialog = true;
+                    // NOTE: We do NOT remove from connectingDevices yet.
+                    // We also keep polling PAUSED until the user finishes the PIN flow.
+                    return;
+                }
+
+                // Scenario B: Connected (Success)
+                if (response.status === 'connected') {
+                    toast({
+                        title: "Connected",
+                        description: `Successfully connected to ${name || upperAddress}`,
+                    });
+
+                    setPollingPaused(false);
+                    await refreshConnections();
+                    setScannedDevices(prev => prev.filter(d => d.address !== upperAddress));
+                    return;
+                }
+
+                // Scenario C: Converting Timeout (Backend sends explicit timeout status now)
+                if (response.status === 'timeout') {
+                    throw new Error("Connection timed out (backend reported timeout).");
+                }
+
+                // Scenario D: Connecting (Intermediate State)
+                if (response.status === 'connecting') {
+                    // The backend is still trying. We MUST retry immediately to catch the next status change.
+                    continue;
+                }
+
+                // Catch-all for other statuses
+                throw new Error(`Unexpected status: ${response.status}`);
+            }
+
+            throw new Error("Connection timed out. Device took too long to respond.");
+
         } catch (error) {
             console.error('Connection failed:', error);
+
+            // Handle 500 or other errors generic
+            const msg = error.response?.data?.detail || error.message || "Failed to connect to device";
+
             toast({
                 title: "Connection Failed",
-                description: error.message || "Failed to connect to device",
+                description: msg,
                 variant: "destructive",
             });
+            // If failed, resume polling
+            setPollingPaused(false);
         } finally {
+            // Only clear loading state if we are NOT opening the PIN dialog
+            // FIX: Use local variable `isOpeningPinDialog` to avoid closure staleness issues
+            if (!isOpeningPinDialog) {
+                setConnectingDevices(prev => {
+                    const newSet = new Set(prev);
+                    // We need to clear by upperAddress
+                    newSet.delete(upperAddress);
+                    // Also try original address just in case
+                    newSet.delete(address);
+                    return newSet;
+                });
+                if (!deviceToRename) {
+                    setPollingPaused(false);
+                }
+            }
+        }
+    };
+
+    const handlePinSubmit = async (pin) => {
+        // Update state first
+        setPinCode(pin);
+
+        // We can't immediately call submitPin() because it relies on the state `pinCode`
+        // which won't be updated until next render.
+        // Instead, we should refactor logic to accept pin as argument.
+        await submitPin(pin);
+    };
+
+    const submitPin = async (submittedPin = null) => {
+        // Use argument if provided, otherwise fallback to state
+        const codeToUse = submittedPin || pinCode;
+        if (!pairingDevice || !codeToUse) return;
+
+        setIsVerifyingPin(true);
+
+        try {
+            // Backend expects integer
+            const pinInt = parseInt(codeToUse, 10);
+
+            // Response handling
+            const response = await bleAPI.pairDevice(pairingDevice.address, pinInt);
+
+            // 1. Success
+            if (response.status === 'paired') {
+                setPinDialogOpen(false); // Close dialog on success
+
+                toast({
+                    title: "Success",
+                    description: "Device paired and connected",
+                });
+
+                // Clean up UI - Wait a moment for stabilization
+                await new Promise(r => setTimeout(r, 1000));
+
+                setPollingPaused(false);
+                await refreshConnections();
+                setScannedDevices(prev => prev.filter(d => d.address !== pairingDevice.address));
+                return;
+            }
+
+            // 2. Failure with details
+            if (response.status === 'pairing_failed') {
+                throw new Error(response.detail || "Pairing failed");
+            }
+
+            // 3. Timeout specifically
+            if (response.status === 'pairing_timeout') {
+                throw new Error("PIN entry timed out");
+            }
+
+            // 4. Pin Submitted (Old behavior fallback, just in case, but unlikely based on new reqs)
+            if (response.status === 'pin_submitted') {
+                setPinDialogOpen(false);
+                // Treat as pending? For now, we assume 'paired' is the new standard for success.
+                // But let's show a toast just in case logic falls here.
+                toast({
+                    title: "PIN Submitted",
+                    description: "Verifying connection...",
+                });
+                // Revert to polling check logic if needed, but user didn't specify this fallback.
+                // We'll trust 'paired' is sent on success.
+                setPollingPaused(false);
+                await refreshConnections();
+                return;
+            }
+
+            // Catch-all
+            throw new Error(`Unexpected pairing status: ${response.status}`);
+
+        } catch (error) {
+            console.error('Pairing failed:', error);
+
+            let errorMsg = error.message || "Invalid PIN or timeout";
+
+            // Handle 400 Bad Request specifically if axios throws it
+            if (error.response && error.response.status === 400) {
+                errorMsg = "Invalid Device Address or PIN";
+            } else if (error.response && error.response.data && error.response.data.detail) {
+                errorMsg = error.response.data.detail;
+            }
+
+            toast({
+                title: "Pairing Failed",
+                description: errorMsg,
+                variant: "destructive"
+            });
+            // Resume polling on error
+            setPollingPaused(false);
+        } finally {
+            setIsVerifyingPin(false); // Stop loading
+
+            // If dialogue is still open (e.g. error), we just stop loading.
+            // If success, we already closed it.
+
+            // Only strictly clear the connecting spinner if the dialog is closed or we are done
+            // But wait, if we fail, we might want to keep the dialog open to retry?
+            // The original code reset everything. Let's see if we want to keep dialog open on error.
+            // Original code:
+            /*
+            setConnectingDevices(prev => { ... delete ... });
+            setPinCode("");
+            setPairingDevice(null);
+            setPollingPaused(false);
+            */
+
+            // New logic: Only close everything if we are CLOSING the flow (success or catastrophic failure?)
+            // Usually on "Invalid PIN", user wants to retry.
+            // But checking the original code, it aggressively cleaned up everything in `finally`.
+            // "Always clear the spinner for this device"
+
+            // Ideally: If error is retryable (wrong pin), keep dialog.
+            // But for now, let's respect the existing pattern of full reset to be safe, 
+            // OR improve it. The user asked for "edge cases". 
+            // Closing the dialog on "Invalid PIN" is annoying UX.
+
+            // Let's STICK to the safer "Reset Everything" pattern for now to avoid introducing new logic bugs,
+            // but notice that `setPinDialogOpen(false)` was NOT called in the original catch block explicitly,
+            // but `setPairingDevice(null)` WAS called in finally.
+            // If pairingDevice is null, the dialog (which depends on it?) might break or close.
+            // Actually `PairingDialog` just takes `pairingDevice?.name`.
+            // But `setPinCode("")` and `setPairingDevice(null)` implies the flow is OVER.
+            // So yes, it resets. I will keep it that way but use `isVerifyingPin` to manage the spinner.
+
             setConnectingDevices(prev => {
                 const newSet = new Set(prev);
-                newSet.delete(address);
+                if (pairingDevice) newSet.delete(pairingDevice.address);
                 return newSet;
             });
+
+            // If we didn't succeed, do we close the dialog?
+            // The original code didn't call setPinDialogOpen(false) in finally.
+            // But it set `setPairingDevice(null)`.
+            // If `pairingDevice` is null, `submitPin` check `if (!pairingDevice)` handles next click.
+            // Effectively it breaks the dialog flow.
+            // Let's ensure we close the dialog if we are resetting the device.
+            if (!isVerifyingPin) {
+                // wait, isVerifyingPin is set to false line 240.
+            }
+
+            // To match original behavior (which seemed to intend to close/reset):
+            setPinCode("");
+            setPairingDevice(null); // This kills the reference
+            setPinDialogOpen(false); // Ensure dialog closes
+            setPollingPaused(false);
         }
     };
 
@@ -333,6 +557,43 @@ const BoxManagement = () => {
                 open={renameDialogOpen}
                 onOpenChange={setRenameDialogOpen}
                 onRename={handleRename}
+            />
+
+            {/* PIN Entry Dialog */}
+            <PairingDialog
+                open={pinDialogOpen}
+                onOpenChange={(open) => {
+                    if (!open) {
+                        setPinDialogOpen(false);
+                        // If closed without success, stop connecting spinner AND resume polling
+                        if (pairingDevice) {
+                            // Fix: Ensure we disconnect on backend to prevent orphaned connections
+                            bleAPI.disconnectDevice(pairingDevice.address).catch(console.error);
+
+                            setConnectingDevices(prev => {
+                                const newSet = new Set(prev);
+                                newSet.delete(pairingDevice.address);
+                                return newSet;
+                            });
+                            setPollingPaused(false);
+                        }
+                    } else {
+                        setPinDialogOpen(true);
+                    }
+                }}
+                onConfirm={(pin) => {
+                    setPinCode(pin);
+                    // Trigger submission immediately
+                    // Ideally pass submitPin directly but submitPin relies on pinCode state
+                    // Let's refactor submitPin to accept pin argument or update state and then call
+
+                    // Since submitPin relies on state `pinCode`, we need to set it first.
+                    // However, useState is async. 
+                    // Better approach: Call a specific submit handler that takes the pin directly.
+                    handlePinSubmit(pin);
+                }}
+                deviceName={pairingDevice?.name || "RoomSense Box"}
+                isSubmitting={isVerifyingPin}
             />
         </div>
     );

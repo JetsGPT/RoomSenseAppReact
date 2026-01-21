@@ -1,71 +1,111 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useCallback, memo } from 'react';
 import { InfoBlock, InfoItem } from './ui/InfoBlock';
-import { SensorLineChart, MultiBoxChart } from './ui/SensorCharts';
-import { Thermometer, Droplets, Gauge, Sun, Activity, PencilLine } from 'lucide-react';
-import NumberFlow from "@number-flow/react"
+import { MultiBoxChart } from './ui/SensorCharts';
+import { GaugeCustomizer } from './ui/SensorGauge';
+import { SensorDisplayGrid } from './ui/SensorDisplayGrid';
+import { RoomScore, TipsCard, RoomScoreCompact } from './ui/RoomScore';
+import { DisplayModeSelector } from './ui/DisplayModeSelector';
+import { FloorPlanViewer } from './floor-plan/FloorPlanViewer';
+import { Radio, Clock, Settings2, X, ChevronRight, PencilLine, Map as MapIcon } from 'lucide-react';
 import { Button } from './ui/button';
 import { SensorChartManager } from './SensorChartManager';
 import { useSensorSelection } from '../hooks/useSensorSelection';
+import { useComfortZones } from '../hooks/useComfortZones';
+import { useSettings } from '../contexts/SettingsContext';
+import { useSidebar } from '../shared/contexts/SidebarContext';
+import { getSensorIcon, getSensorUnit, getSensorName } from '../config/sensorConfig';
+import { sensorHelpers } from '../services/sensorsAPI';
+import { AnimatePresence, motion } from 'framer-motion';
+
+/**
+ * RoomCard Component
+ * Shows a room/box summary with comfort score.
+ */
+const RoomCard = memo(function RoomCard({ boxId, readings, displayMode, onClick }) {
+    const { getComfortZone } = useComfortZones();
+
+    const latestReadings = useMemo(() => {
+        return sensorHelpers.getLatestReadings(readings);
+    }, [readings]);
+
+    return (
+        <motion.div
+            className="room-card bg-card border border-border rounded-2xl p-4 hover:shadow-lg transition-shadow cursor-pointer"
+            whileHover={{ scale: 1.01 }}
+            whileTap={{ scale: 0.99 }}
+            onClick={onClick}
+        >
+            <div className="flex items-center justify-between mb-3">
+                <h4 className="font-semibold text-foreground">{boxId}</h4>
+                <RoomScoreCompact readings={latestReadings} />
+            </div>
+
+            {/* Quick status icons */}
+            <div className="flex flex-wrap gap-2 mb-3">
+                {latestReadings.slice(0, 4).map(reading => {
+                    const zone = getComfortZone(reading.sensor_type, reading.value);
+                    const ZoneIcon = zone?.Icon;
+                    if (!ZoneIcon) return null;
+                    return (
+                        <ZoneIcon
+                            key={reading.sensor_type}
+                            className="w-5 h-5"
+                            style={{ color: zone?.color }}
+                            title={reading.sensor_type}
+                        />
+                    );
+                })}
+            </div>
+
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span>{readings.length} readings</span>
+                <div className="flex items-center gap-1">
+                    <span>View Details</span>
+                    <ChevronRight className="w-3 h-3" />
+                </div>
+            </div>
+        </motion.div>
+    );
+});
 
 export function Overview({ sensorData, groupedData }) {
-    // Get sensor type icon
-    const getSensorIcon = (sensorType) => {
-        switch (sensorType) {
-            case 'temperature':
-                return Thermometer;
-            case 'humidity':
-                return Droplets;
-            case 'pressure':
-                return Gauge;
-            case 'light':
-                return Sun;
-            default:
-                return Gauge;
-        }
-    };
+    const {
+        settings,
+        updateSettings,
+        getGaugeTypeForSensor,
+        setGaugeTypeForSensor
+    } = useSettings();
 
-    // Get unit for sensor type
-    const getUnit = (sensorType) => {
-        switch (sensorType) {
-            case 'temperature':
-                return '°C';
-            case 'humidity':
-                return '%';
-            case 'pressure':
-                return ' hPa';
-            case 'light':
-                return ' lux';
-            default:
-                return '';
-        }
-    };
+    const { setActiveView } = useSidebar();
 
-    // Get latest reading for each sensor type in a box
-    const getLatestReadings = (readings) => {
-        const latestByType = {};
-        readings.forEach(reading => {
+    const displayMode = settings.displayMode || 'comfort';
+    const showTips = settings.showTips !== false;
+    const showRoomScore = settings.showRoomScore !== false;
+
+    const [showSettings, setShowSettings] = useState(false);
+    const [showQuickTrendManager, setShowQuickTrendManager] = useState(false);
+
+    // Get latest reading for each sensor type across ALL boxes (for Live Now section)
+    const latestByType = useMemo(() => {
+        if (!Array.isArray(sensorData) || sensorData.length === 0) return [];
+
+        const latest = {};
+        sensorData.forEach(reading => {
             if (!reading || !reading.sensor_type) return;
-            if (!latestByType[reading.sensor_type] ||
-                new Date(reading.timestamp) > new Date(latestByType[reading.sensor_type].timestamp)) {
-                latestByType[reading.sensor_type] = reading;
+            if (!latest[reading.sensor_type] ||
+                new Date(reading.timestamp) > new Date(latest[reading.sensor_type].timestamp)) {
+                latest[reading.sensor_type] = reading;
             }
         });
-        return Object.values(latestByType);
-    };
+        return Object.values(latest);
+    }, [sensorData]);
 
-    // Prepare chart data for a specific sensor type
-    const getChartDataForSensorType = (sensorType) => {
-        return sensorData
-            .filter(reading => reading.sensor_type === sensorType)
-            .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
-            .map(reading => ({
-                timestamp: reading.timestamp,
-                value: reading.value,
-                sensor_box: reading.sensor_box
-            }));
-    };
-
-    const [showQuickTrendManager, setShowQuickTrendManager] = useState(false);
+    // Get most recent timestamp for "Last updated" display
+    const lastUpdate = useMemo(() => {
+        if (!Array.isArray(sensorData) || sensorData.length === 0) return 'No data';
+        const maxTime = Math.max(...sensorData.map(r => new Date(r.timestamp).getTime()));
+        return new Date(maxTime).toLocaleTimeString();
+    }, [sensorData]);
 
     const availableSensorTypes = useMemo(() => {
         if (!Array.isArray(sensorData)) return [];
@@ -82,128 +122,222 @@ export function Overview({ sensorData, groupedData }) {
         defaultSelection: ['temperature', 'humidity']
     });
 
-    const quickTrendCharts = quickTrendSensorTypes.map((sensorType) => {
-        // 1. Filter data for this sensor type
-        const typeData = Array.isArray(sensorData) ? sensorData
-            .filter(reading => reading.sensor_type === sensorType)
-            .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp)) : [];
+    // Handle display mode change
+    const handleDisplayModeChange = useCallback((mode) => {
+        updateSettings({ displayMode: mode });
+    }, [updateSettings]);
 
-        if (typeData.length === 0) {
-            return null;
-        }
+    // Handle gauge type change for a specific sensor
+    const handleGaugeTypeChange = useCallback((sensorType, newType) => {
+        setGaugeTypeForSensor(sensorType, newType);
+    }, [setGaugeTypeForSensor]);
 
-        // 2. Pivot data: Group by timestamp
-        const pivotedData = [];
-        const timeMap = new Map();
+    const handleCustomize = useCallback(() => {
+        setShowSettings(true);
+    }, []);
 
-        typeData.forEach(reading => {
-            const time = reading.timestamp;
-            if (!timeMap.has(time)) {
-                timeMap.set(time, { timestamp: time });
-                pivotedData.push(timeMap.get(time));
-            }
-            const entry = timeMap.get(time);
-            entry[reading.sensor_box] = reading.value;
-        });
+    const quickTrendCharts = useMemo(() => {
+        return quickTrendSensorTypes.map((sensorType) => {
+            const typeData = Array.isArray(sensorData) ? sensorData
+                .filter(reading => reading.sensor_type === sensorType)
+                .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp)) : [];
 
-        // 3. Generate colors for boxes
-        const uniqueBoxes = [...new Set(typeData.map(r => r.sensor_box))];
-        const boxColors = uniqueBoxes.reduce((acc, boxId, index) => {
-            acc[boxId] = `hsl(${(index * 137.5) % 360}, 70%, 50%)`;
-            return acc;
-        }, {});
+            if (typeData.length === 0) return null;
 
-        return (
-            <MultiBoxChart
-                key={sensorType}
-                data={pivotedData}
-                sensorType={sensorType}
-                boxColors={boxColors}
-            />
-        );
-    }).filter(Boolean);
+            const pivotedData = [];
+            const timeMap = new Map();
+
+            typeData.forEach(reading => {
+                const time = reading.timestamp;
+                if (!timeMap.has(time)) {
+                    timeMap.set(time, { timestamp: time });
+                    pivotedData.push(timeMap.get(time));
+                }
+                const entry = timeMap.get(time);
+                entry[reading.sensor_box] = reading.value;
+            });
+
+            const uniqueBoxes = [...new Set(typeData.map(r => r.sensor_box))];
+            const boxColors = uniqueBoxes.reduce((acc, boxId, index) => {
+                acc[boxId] = `hsl(${(index * 137.5) % 360}, 70%, 50%)`;
+                return acc;
+            }, {});
+
+            return (
+                <MultiBoxChart
+                    key={sensorType}
+                    data={pivotedData}
+                    sensorType={sensorType}
+                    boxColors={boxColors}
+                />
+            );
+        }).filter(Boolean);
+    }, [quickTrendSensorTypes, sensorData]);
 
     return (
-        <div className="space-y-4 sm:space-y-6">
-            {/* Quick Stats */}
-            <div className="grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-4">
-                <InfoBlock title="Total Boxes" className="text-center">
-                    <div className="flex items-center justify-center">
-                        <Activity className="w-6 h-6 sm:w-8 sm:h-8 text-primary" />
-                        <NumberFlow className="ml-1 sm:ml-2 text-lg sm:text-2xl font-bold" value={Object.keys(groupedData).length} />
+        <div className="space-y-6">
+            {/* ===== HERO SECTION - Room Score ===== */}
+            {showRoomScore && latestByType.length > 0 && (
+                <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                >
+                    <RoomScore
+                        readings={latestByType}
+                        roomName="Your Home"
+                        size="large"
+                    />
+                </motion.div>
+            )}
 
+            {/* ===== LIVE NOW SECTION ===== */}
+            <div className="space-y-3 sm:space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                        <Radio className="w-4 h-4 text-primary animate-pulse" />
+                        <h3 className="text-lg font-semibold">Live Now</h3>
+                        <div className="flex items-center gap-1 text-xs text-muted-foreground bg-muted px-2 py-1 rounded-full">
+                            <Clock className="w-3 h-3" />
+                            <span>{lastUpdate}</span>
+                        </div>
                     </div>
-                </InfoBlock>
-
-                <InfoBlock title="Sensor Types" className="text-center">
-                    <div className="flex items-center justify-center">
-                        <Thermometer className="w-6 h-6 sm:w-8 sm:h-8 text-primary" />
-                        <NumberFlow className="ml-1 sm:ml-2 text-lg sm:text-2xl font-bold" value={[...new Set(sensorData.map(r => r.sensor_type))].length} />
+                    <div className="flex items-center gap-2">
+                        <DisplayModeSelector
+                            value={displayMode}
+                            onChange={handleDisplayModeChange}
+                            variant="buttons"
+                        />
+                        <Button
+                            type="button"
+                            size="sm"
+                            variant={showSettings ? 'secondary' : 'ghost'}
+                            onClick={() => setShowSettings(prev => !prev)}
+                        >
+                            <Settings2 className="h-4 w-4" />
+                        </Button>
                     </div>
-                </InfoBlock>
+                </div>
 
-                <InfoBlock title="Total Readings" className="text-center">
-                    <div className="flex items-center justify-center">
-                        <Gauge className="w-6 h-6 sm:w-8 sm:h-8 text-primary" />
-                        <NumberFlow className="ml-1 sm:ml-2 text-lg sm:text-2xl font-bold" value={sensorData.length} />
-                    </div>
-                </InfoBlock>
+                {/* Settings Panel */}
+                <AnimatePresence>
+                    {showSettings && (
+                        <motion.div
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: 'auto' }}
+                            exit={{ opacity: 0, height: 0 }}
+                            className="overflow-hidden"
+                        >
+                            <div className="bg-card border border-border rounded-xl p-4 space-y-4">
+                                <div className="flex items-center justify-between">
+                                    <h4 className="font-semibold">Display Settings</h4>
+                                    <Button size="icon-sm" variant="ghost" onClick={() => setShowSettings(false)}>
+                                        <X className="h-4 w-4" />
+                                    </Button>
+                                </div>
 
-                <InfoBlock title="Last Update" className="text-center">
-                    <div className="text-xs sm:text-sm text-muted-foreground">
-                        {sensorData.length > 0 ?
-                            new Date(Math.max(...sensorData.map(r => new Date(r.timestamp)))).toLocaleString()
-                            : 'No data'
-                        }
-                    </div>
-                </InfoBlock>
-            </div>
+                                {/* Display Mode Grid */}
+                                <div>
+                                    <label className="text-sm text-muted-foreground mb-2 block">Display Style</label>
+                                    <DisplayModeSelector
+                                        value={displayMode}
+                                        onChange={handleDisplayModeChange}
+                                        variant="pills"
+                                    />
+                                </div>
 
-            {/* Sensor Boxes Overview */}
-            <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-                {Object.entries(groupedData).map(([boxId, readings]) => {
-                    const latestReadings = getLatestReadings(readings);
-                    return (
-                        <InfoBlock key={boxId} title={`Box ${boxId}`} className="hover:shadow-md transition-shadow">
-                            <div className="space-y-2 sm:space-y-3">
-                                {latestReadings.map((reading, index) => {
-                                    const sensorType = reading.sensor_type || 'unknown';
-                                    const Icon = getSensorIcon(sensorType);
-                                    const value = typeof reading.value === 'number' ? reading.value : parseFloat(reading.value);
-                                    return (
-                                        <InfoItem
-                                            key={`${sensorType}-${index}`}
-                                            label={sensorType.charAt(0).toUpperCase() + sensorType.slice(1)}
-                                            value={<><NumberFlow value={!isNaN(value) ? value.toFixed(1) : '0.0'} />{getUnit(sensorType)}</>}
-                                            icon={Icon}
+                                {/* Gauge Customizer (only for gauges mode) */}
+                                {displayMode === 'gauges' && (
+                                    <div>
+                                        <label className="text-sm text-muted-foreground mb-2 block">Gauge Styles</label>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                            {availableSensorTypes.map(sensorType => (
+                                                <GaugeCustomizer
+                                                    key={sensorType}
+                                                    sensorType={sensorType}
+                                                    currentType={getGaugeTypeForSensor(sensorType)}
+                                                    onChange={handleGaugeTypeChange}
+                                                />
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Toggle Options */}
+                                <div className="flex flex-wrap gap-4">
+                                    <label className="flex items-center gap-2 text-sm">
+                                        <input
+                                            type="checkbox"
+                                            checked={showRoomScore}
+                                            onChange={(e) => updateSettings({ showRoomScore: e.target.checked })}
+                                            className="rounded"
                                         />
-                                    );
-                                })}
-                                <div className="pt-2 border-t border-border">
-                                    <p className="text-xs text-muted-foreground">
-                                        <NumberFlow value={readings.length} /> readings
-                                    </p>
+                                        Show Room Score
+                                    </label>
+                                    <label className="flex items-center gap-2 text-sm">
+                                        <input
+                                            type="checkbox"
+                                            checked={showTips}
+                                            onChange={(e) => updateSettings({ showTips: e.target.checked })}
+                                            className="rounded"
+                                        />
+                                        Show Tips
+                                    </label>
                                 </div>
                             </div>
-                        </InfoBlock>
-                    );
-                })}
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+
+                {/* Sensor Display */}
+                <SensorDisplayGrid
+                    readings={latestByType}
+                    displayMode={displayMode}
+                    getGaugeTypeForSensor={getGaugeTypeForSensor}
+                />
             </div>
 
-            {/* Quick Trends */}
-            <div className="space-y-3 sm:space-y-4">
+            {/* ===== TIPS SECTION ===== */}
+            {showTips && latestByType.length > 0 && (
+                <TipsCard readings={latestByType} maxTips={3} />
+            )}
+
+            {/* ===== FLOOR PLAN SECTION ===== */}
+            <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                    <MapIcon className="w-4 h-4 text-primary" />
+                    <h3 className="text-lg font-semibold">Floor Plan</h3>
+                </div>
+                <FloorPlanViewer height={450} />
+            </div>
+
+            {/* ===== ROOMS OVERVIEW ===== */}
+            <div className="space-y-3">
+                <h3 className="text-lg font-semibold">Your Rooms</h3>
+                <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+                    {Object.entries(groupedData).map(([boxId, readings]) => (
+                        <RoomCard
+                            key={boxId}
+                            boxId={boxId}
+                            readings={readings}
+                            displayMode={displayMode}
+                            onClick={() => setActiveView(`box-${boxId}`)}
+                        />
+                    ))}
+                </div>
+            </div>
+
+            {/* ===== QUICK TRENDS ===== */}
+            <div className="space-y-3 sm:space-y-4 pt-4 border-t border-border">
                 <div className="flex items-center justify-between gap-2">
-                    <h3 className="text-base sm:text-lg font-semibold text-foreground">Quick Trends</h3>
+                    <h3 className="text-lg font-semibold">Trends</h3>
                     <Button
                         type="button"
                         size="icon-sm"
                         variant={showQuickTrendManager ? 'secondary' : 'ghost'}
                         onClick={() => setShowQuickTrendManager((prev) => !prev)}
-                        aria-pressed={showQuickTrendManager}
                         className="shrink-0"
                     >
                         <PencilLine className="h-4 w-4" />
-                        <span className="sr-only">Configure quick trend charts</span>
                     </Button>
                 </div>
                 {showQuickTrendManager && (
@@ -216,7 +350,7 @@ export function Overview({ sensorData, groupedData }) {
                 )}
                 {quickTrendSensorTypes.length === 0 || quickTrendCharts.length === 0 ? (
                     <div className="rounded-2xl border border-dashed border-border bg-muted/20 p-6 text-center text-sm text-muted-foreground">
-                        Select at least one sensor type to display quick trend charts.
+                        Select sensors to display trend charts.
                     </div>
                 ) : (
                     <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2">

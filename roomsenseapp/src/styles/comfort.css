@@ -1,0 +1,548 @@
+/* ============================================
+   COMFORT-BASED DISPLAY STYLES
+   ============================================ */
+
+/* ===== COMFORT CARD ===== */
+.comfort-card {
+    display: flex;
+    flex-direction: column;
+    padding: var(--spacing-md);
+    border-radius: var(--radius-lg);
+    border: 1px solid;
+    background: var(--card);
+    transition: all 0.3s ease;
+    overflow: hidden;
+}
+
+.comfort-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+}
+
+.comfort-card-header {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    margin-bottom: var(--spacing-sm);
+}
+
+.comfort-card-name {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--muted-foreground);
+    flex: 1;
+}
+
+.comfort-card-status {
+    font-weight: 700;
+    font-size: 1rem;
+}
+
+.comfort-card-body {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+    padding: var(--spacing-sm) 0;
+}
+
+.comfort-card-icon {
+    font-size: 2.5rem;
+    line-height: 1;
+}
+
+.comfort-card-info {
+    flex: 1;
+}
+
+.comfort-card-label {
+    font-size: 1.125rem;
+    font-weight: 700;
+    margin-bottom: 2px;
+}
+
+.comfort-card-value {
+    display: flex;
+    align-items: baseline;
+    gap: 2px;
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--foreground);
+}
+
+.comfort-card-unit {
+    font-size: 0.875rem;
+    font-weight: 400;
+    color: var(--muted-foreground);
+}
+
+.comfort-card-message {
+    font-size: 0.8rem;
+    color: var(--muted-foreground);
+    padding-top: var(--spacing-sm);
+    border-top: 1px solid var(--border);
+    margin-top: var(--spacing-sm);
+}
+
+/* ===== STATUS TILE ===== */
+.status-tile {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: var(--spacing-md);
+    border-radius: var(--radius-lg);
+    border: 1px solid;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    min-height: 120px;
+    position: relative;
+    background: var(--card);
+}
+
+.status-tile-dot {
+    position: absolute;
+    top: var(--spacing-sm);
+    right: var(--spacing-sm);
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    animation: pulse-status 2s ease-in-out infinite;
+}
+
+@keyframes pulse-status {
+
+    0%,
+    100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+
+    50% {
+        opacity: 0.6;
+        transform: scale(0.9);
+    }
+}
+
+.status-tile-emoji {
+    font-size: 2rem;
+    margin-bottom: var(--spacing-xs);
+}
+
+.status-tile-label {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--foreground);
+    text-align: center;
+}
+
+.status-tile-value {
+    font-size: 0.75rem;
+    color: var(--muted-foreground);
+    margin-top: 2px;
+    display: flex;
+    align-items: baseline;
+    gap: 2px;
+}
+
+/* ===== SIMPLE CARD ===== */
+.simple-card {
+    display: flex;
+    flex-direction: column;
+    padding: var(--spacing-md);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border);
+    background: var(--card);
+    border-left-width: 4px;
+}
+
+.simple-card-header {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    margin-bottom: var(--spacing-sm);
+}
+
+.simple-card-name {
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--muted-foreground);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.simple-card-value {
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+}
+
+.simple-card-unit {
+    font-size: 1rem;
+    font-weight: 400;
+    color: var(--muted-foreground);
+}
+
+/* ===== ROOM SCORE ===== */
+.room-score {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-md);
+    padding: var(--spacing-md);
+    background: var(--card);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border);
+}
+
+.room-score-circle {
+    width: 70px;
+    height: 70px;
+    border-radius: 50%;
+    border: 4px solid;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    background: var(--background);
+}
+
+.room-score-icon {
+    font-size: 1rem;
+    line-height: 1;
+}
+
+.room-score-icon-svg {
+    width: 1rem;
+    height: 1rem;
+    margin-bottom: 2px;
+}
+
+.room-score-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--foreground);
+    line-height: 1;
+}
+
+.room-score-text {
+    flex: 1 1 200px;
+    min-width: 150px;
+}
+
+.room-score-label {
+    font-size: 1rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.room-score-message {
+    font-size: 0.875rem;
+    color: var(--muted-foreground);
+    margin-top: 2px;
+    white-space: nowrap;
+}
+
+.room-score-bar {
+    width: 100%;
+    flex-basis: 100%;
+    height: 6px;
+    background: var(--muted);
+    border-radius: var(--radius-full);
+    overflow: hidden;
+}
+
+.room-score-bar-fill {
+    height: 100%;
+    border-radius: var(--radius-full);
+    transition: width 0.5s ease-out;
+}
+
+/* Room Score sizes */
+.room-score-small .room-score-circle {
+    width: 50px;
+    height: 50px;
+    border-width: 3px;
+}
+
+.room-score-small .room-score-icon {
+    font-size: 0.75rem;
+}
+
+.room-score-small .room-score-value {
+    font-size: 1rem;
+}
+
+.room-score-large .room-score-circle {
+    width: 90px;
+    height: 90px;
+    border-width: 5px;
+}
+
+.room-score-large .room-score-value {
+    font-size: 2rem;
+}
+
+/* Room Score Compact */
+.room-score-compact {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.875rem;
+}
+
+.room-score-compact-icon {
+    font-size: 1rem;
+}
+
+.room-score-compact-value {
+    font-weight: 700;
+}
+
+.room-score-compact-label {
+    color: var(--muted-foreground);
+    font-weight: 400;
+}
+
+/* ===== TIPS CARD ===== */
+.tips-card {
+    padding: var(--spacing-md);
+    background: var(--card);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border);
+}
+
+.tips-card-empty {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-md);
+    background: linear-gradient(135deg, rgba(74, 222, 128, 0.1), rgba(74, 222, 128, 0.05));
+    border-color: rgba(74, 222, 128, 0.3);
+}
+
+.tips-card-header {
+    margin-bottom: var(--spacing-sm);
+}
+
+.tips-card-title {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--foreground);
+}
+
+.tips-card-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+}
+
+.tips-card-item {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border-radius: var(--radius-sm);
+    background: var(--muted);
+}
+
+.tips-card-item-high {
+    background: rgba(248, 113, 113, 0.1);
+}
+
+.tips-card-item-medium {
+    background: rgba(251, 191, 36, 0.1);
+}
+
+.tips-card-item-low {
+    background: rgba(163, 230, 53, 0.1);
+}
+
+.tips-card-item-icon {
+    font-size: 1rem;
+    flex-shrink: 0;
+}
+
+.tips-card-item-text {
+    font-size: 0.8rem;
+    color: var(--foreground);
+    line-height: 1.4;
+}
+
+/* ===== DISPLAY MODE SELECTOR ===== */
+.display-mode-selector {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.display-mode-label {
+    font-size: 0.8rem;
+    color: var(--muted-foreground);
+}
+
+.display-mode-select {
+    padding: 6px 12px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--foreground);
+    font-size: 0.875rem;
+    cursor: pointer;
+}
+
+.display-mode-select:focus {
+    outline: none;
+    border-color: var(--primary);
+}
+
+/* Pills variant */
+.display-mode-pills {
+    display: flex;
+    gap: var(--spacing-xs);
+    flex-wrap: wrap;
+}
+
+.display-mode-pill {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 12px;
+    border-radius: var(--radius-full);
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--muted-foreground);
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.display-mode-pill:hover {
+    border-color: var(--primary);
+    color: var(--foreground);
+}
+
+.display-mode-pill.active {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: white;
+}
+
+.display-mode-pill-icon {
+    font-size: 1rem;
+}
+
+.display-mode-pill-label {
+    font-weight: 500;
+}
+
+/* Buttons variant */
+.display-mode-buttons {
+    display: flex;
+    gap: 2px;
+    background: var(--muted);
+    padding: 2px;
+    border-radius: var(--radius-md);
+}
+
+.display-mode-btn {
+    padding: 6px 10px;
+    border: none;
+    background: transparent;
+    color: var(--muted-foreground);
+    font-size: 1rem;
+    cursor: pointer;
+    border-radius: var(--radius-sm);
+    transition: all 0.2s ease;
+}
+
+.display-mode-btn:hover {
+    background: var(--background);
+}
+
+.display-mode-btn.active {
+    background: var(--background);
+    color: var(--foreground);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* Grid variant */
+.display-mode-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: var(--spacing-sm);
+}
+
+.display-mode-grid-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: var(--spacing-md);
+    border-radius: var(--radius-lg);
+    border: 2px solid var(--border);
+    background: var(--card);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.display-mode-grid-item:hover {
+    border-color: var(--primary);
+}
+
+.display-mode-grid-item.active {
+    border-color: var(--primary);
+    background: linear-gradient(135deg, rgba(121, 188, 158, 0.1), transparent);
+}
+
+.display-mode-grid-icon {
+    font-size: 1.5rem;
+    margin-bottom: var(--spacing-xs);
+}
+
+.display-mode-grid-label {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--foreground);
+}
+
+.display-mode-grid-desc {
+    font-size: 0.7rem;
+    color: var(--muted-foreground);
+    text-align: center;
+    margin-top: 2px;
+}
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 640px) {
+    .comfort-card-icon {
+        font-size: 2rem;
+    }
+
+    .comfort-card-label {
+        font-size: 1rem;
+    }
+
+    .comfort-card-value {
+        font-size: 1.25rem;
+    }
+
+    .room-score {
+        flex-direction: column;
+        text-align: center;
+    }
+
+    .room-score-text {
+        text-align: center;
+    }
+
+    .display-mode-pills {
+        justify-content: center;
+    }
+
+    .display-mode-pill-label {
+        display: none;
+    }
+}

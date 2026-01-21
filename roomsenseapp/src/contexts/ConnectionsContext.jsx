@@ -3,6 +3,7 @@ import { bleAPI } from '../services/api';
 import { useToast } from '../hooks/use-toast';
 
 import { useAuth } from './AuthContext';
+import { DEV_MODE, DEV_CONNECTIONS } from '../config/devConfig';
 
 const ConnectionsContext = createContext(null);
 
@@ -16,6 +17,14 @@ export const ConnectionsProvider = ({ children }) => {
 
     const fetchConnections = useCallback(async (silent = false) => {
         if (!user) {
+            setLoading(false);
+            return;
+        }
+
+        // DEV MODE: Use mock connections
+        if (DEV_MODE) {
+            console.log('[DEV MODE] Using mock connections');
+            setActiveConnections(DEV_CONNECTIONS);
             setLoading(false);
             return;
         }
@@ -82,21 +91,24 @@ export const ConnectionsProvider = ({ children }) => {
     }, [fetchConnections, user]);
 
     // Poll for connections every 30 seconds to keep in sync
+    const [isPollingPaused, setPollingPaused] = useState(false);
+
     useEffect(() => {
-        if (!user) return;
+        if (!user || isPollingPaused) return;
 
         const interval = setInterval(() => {
             fetchConnections(true);
         }, 30000);
         return () => clearInterval(interval);
-    }, [fetchConnections, user]);
+    }, [fetchConnections, user, isPollingPaused]);
 
     // Memoize context value to prevent unnecessary re-renders of consumers
     const contextValue = React.useMemo(() => ({
         activeConnections,
         loading,
-        refreshConnections: fetchConnections
-    }), [activeConnections, loading, fetchConnections]);
+        refreshConnections: fetchConnections,
+        setPollingPaused
+    }), [activeConnections, loading, fetchConnections, setPollingPaused]);
 
     return (
         <ConnectionsContext.Provider value={contextValue}>

@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { authAPI } from '../services/api';
+import { DEV_MODE, DEV_USER } from '../config/devConfig';
 
 const AuthContext = createContext(null);
 
@@ -13,6 +14,14 @@ export const AuthProvider = ({ children }) => {
     // Check if user is already logged in on mount
     useEffect(() => {
         const initAuth = async () => {
+            // DEV MODE: Skip authentication, use mock user
+            if (DEV_MODE) {
+                console.log('[DEV MODE] Bypassing authentication, using mock user');
+                setUser(DEV_USER);
+                setLoading(false);
+                return;
+            }
+
             try {
                 // Fetch CSRF token first
                 await authAPI.getCsrfToken();
@@ -28,6 +37,9 @@ export const AuthProvider = ({ children }) => {
 
     // Re-validate session on every route change
     useEffect(() => {
+        // Skip in dev mode
+        if (DEV_MODE) return;
+
         if (user) {
             // Only check auth if we think we're logged in
             // This prevents unnecessary calls when user is already null
@@ -37,6 +49,13 @@ export const AuthProvider = ({ children }) => {
     }, [location.pathname]);
 
     const checkAuth = async (showLoading = true) => {
+        // DEV MODE: Always return mock user
+        if (DEV_MODE) {
+            setUser(DEV_USER);
+            setLoading(false);
+            return;
+        }
+
         try {
             if (showLoading) {
                 setLoading(true);

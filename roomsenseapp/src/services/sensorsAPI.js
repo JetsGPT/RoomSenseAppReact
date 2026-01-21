@@ -13,7 +13,7 @@ import { DEFAULT_TIME_RANGE_VALUE, DEFAULT_DATA_LIMIT } from '../config/sensorCo
 // ============================================================================
 
 /** Sensors API base URL */
-const SENSORS_API_BASE_URL = import.meta.env.VITE_API_URL || 'https://localhost:8081/api';
+const SENSORS_API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
 
 
 /** Create axios instance with default configuration */
@@ -132,7 +132,7 @@ export const sensorsAPI = {
     exportCSV: async (params = {}) => {
         const queryParams = buildQueryParams(params);
         const url = buildApiUrl('/sensors/data/export/csv', queryParams);
-        
+
         try {
             const response = await api.get(url, {
                 responseType: 'blob', // Important for file download
@@ -143,22 +143,22 @@ export const sensorsAPI = {
             const downloadUrl = window.URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = downloadUrl;
-            
+
             // Extract filename from Content-Disposition header or use default
             const contentDisposition = response.headers['content-disposition'];
             let filename = 'sensor-data-export.csv';
-            
+
             if (contentDisposition) {
                 const filenameMatch = contentDisposition.match(/filename="?(.+)"?/i);
                 if (filenameMatch && filenameMatch[1]) {
                     filename = filenameMatch[1];
                 }
             }
-            
+
             link.download = filename;
             document.body.appendChild(link);
             link.click();
-            
+
             // Cleanup
             document.body.removeChild(link);
             window.URL.revokeObjectURL(downloadUrl);
