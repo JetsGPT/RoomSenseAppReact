@@ -6,7 +6,7 @@
  */
 
 import React, { createContext, useContext, useReducer, useCallback, useMemo, useEffect, useRef } from 'react';
-import { floorPlanStorage } from '../services/floorPlanAPI';
+import { floorPlanAPI } from '../services/floorPlanAPI';
 
 // ============================================================================
 // Types & Constants
@@ -475,7 +475,7 @@ export function FloorPlanProvider({ children }) {
                 // Only save if data actually changed
                 const dataString = JSON.stringify(floorPlanData);
                 if (dataString !== lastSaveDataRef.current) {
-                    floorPlanStorage.save(floorPlanData);
+                    await floorPlanAPI.updateFloorPlan(state.id, floorPlanData);
                     lastSaveDataRef.current = dataString;
                 }
 
@@ -628,7 +628,6 @@ export function FloorPlanProvider({ children }) {
 
         try {
             const floorPlanData = {
-                id: state.id,
                 name: state.name,
                 floors: state.floors,
                 viewSettings: {
@@ -638,7 +637,12 @@ export function FloorPlanProvider({ children }) {
                 },
             };
 
-            const saved = floorPlanStorage.save(floorPlanData);
+            let saved;
+            if (state.id) {
+                saved = await floorPlanAPI.updateFloorPlan(state.id, floorPlanData);
+            } else {
+                saved = await floorPlanAPI.createFloorPlan(floorPlanData);
+            }
             lastSaveDataRef.current = JSON.stringify(floorPlanData);
 
             dispatch({ type: ACTION_TYPES.SET_FLOOR_PLAN, payload: { id: saved.id } });
@@ -652,35 +656,40 @@ export function FloorPlanProvider({ children }) {
         }
     }, [state.id, state.name, state.floors, state.zoom, state.panX, state.panY]);
 
-    const loadFloorPlan = useCallback((id) => {
-        const floorPlan = floorPlanStorage.getById(id);
-        if (floorPlan) {
-            // Migrate old format (elements/sensors at root) to new format (floors array)
-            let floors = floorPlan.floors;
-            if (!floors || floors.length === 0) {
-                floors = [{
-                    id: crypto.randomUUID(),
-                    name: 'Ground Floor',
-                    elements: floorPlan.elements || [],
-                    sensors: floorPlan.sensors || [],
-                }];
-            }
+    const loadFloorPlan = useCallback(async (id) => {
+        try {
+            const floorPlan = await floorPlanAPI.getFloorPlan(id);
+            if (floorPlan) {
+                // Handle legacy format (elements/sensors at root) to new format (floors array)
+                let floors = floorPlan.floors;
+                if (!floors || floors.length === 0) {
+                    floors = [{
+                        id: crypto.randomUUID(),
+                        name: 'Ground Floor',
+                        elements: floorPlan.elements || [],
+                        sensors: floorPlan.sensors || [],
+                    }];
+                }
 
-            dispatch({
-                type: ACTION_TYPES.SET_FLOOR_PLAN,
-                payload: {
-                    id: floorPlan.id,
-                    name: floorPlan.name,
-                    floors,
-                    zoom: floorPlan.viewSettings?.zoom || 1,
-                    panX: floorPlan.viewSettings?.panX || 0,
-                    panY: floorPlan.viewSettings?.panY || 0,
-                },
-            });
-            lastSaveDataRef.current = JSON.stringify(floorPlan);
-            return floorPlan;
+                dispatch({
+                    type: ACTION_TYPES.SET_FLOOR_PLAN,
+                    payload: {
+                        id: floorPlan.id,
+                        name: floorPlan.name,
+                        floors,
+                        zoom: floorPlan.viewSettings?.zoom || 1,
+                        panX: floorPlan.viewSettings?.panX || 0,
+                        panY: floorPlan.viewSettings?.panY || 0,
+                    },
+                });
+                lastSaveDataRef.current = JSON.stringify(floorPlan);
+                return floorPlan;
+            }
+            return null;
+        } catch (error) {
+            console.error('Failed to load floor plan:', error);
+            return null;
         }
-        return null;
     }, []);
 
     const newFloorPlan = useCallback(() => {

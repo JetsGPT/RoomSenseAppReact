@@ -8,7 +8,7 @@
 import axios from 'axios';
 
 // API base URL - uses same pattern as sensorsAPI
-const API_BASE_URL = import.meta.env.VITE_SENSOR_API_URL || 'http://localhost:5000';
+const API_BASE_URL = import.meta.env.VITE_SENSOR_API_URL || '/api';
 
 const apiClient = axios.create({
     baseURL: API_BASE_URL,
@@ -28,7 +28,7 @@ export const floorPlanAPI = {
      * @returns {Promise<Array>} Array of floor plan objects
      */
     async getFloorPlans() {
-        const response = await apiClient.get('/api/floor-plans');
+        const response = await apiClient.get('/floor-plans');
         return response.data;
     },
 
@@ -38,7 +38,7 @@ export const floorPlanAPI = {
      * @returns {Promise<Object>} Floor plan object with elements and sensors
      */
     async getFloorPlan(id) {
-        const response = await apiClient.get(`/api/floor-plans/${id}`);
+        const response = await apiClient.get(`/floor-plans/${id}`);
         return response.data;
     },
 
@@ -51,7 +51,7 @@ export const floorPlanAPI = {
      * @returns {Promise<Object>} Created floor plan with ID
      */
     async createFloorPlan(floorPlan) {
-        const response = await apiClient.post('/api/floor-plans', floorPlan);
+        const response = await apiClient.post('/floor-plans', floorPlan);
         return response.data;
     },
 
@@ -62,7 +62,7 @@ export const floorPlanAPI = {
      * @returns {Promise<Object>} Updated floor plan
      */
     async updateFloorPlan(id, updates) {
-        const response = await apiClient.put(`/api/floor-plans/${id}`, updates);
+        const response = await apiClient.put(`/floor-plans/${id}`, updates);
         return response.data;
     },
 
@@ -72,7 +72,7 @@ export const floorPlanAPI = {
      * @returns {Promise<void>}
      */
     async deleteFloorPlan(id) {
-        await apiClient.delete(`/api/floor-plans/${id}`);
+        await apiClient.delete(`/floor-plans/${id}`);
     },
 
     // ========================================================================
@@ -85,7 +85,7 @@ export const floorPlanAPI = {
      * @returns {Promise<Array>} Array of sensor placement objects
      */
     async getSensorPlacements(floorPlanId) {
-        const response = await apiClient.get(`/api/floor-plans/${floorPlanId}/sensors`);
+        const response = await apiClient.get(`/floor-plans/${floorPlanId}/sensors`);
         return response.data;
     },
 
@@ -100,7 +100,7 @@ export const floorPlanAPI = {
      */
     async addSensorPlacement(floorPlanId, placement) {
         const response = await apiClient.post(
-            `/api/floor-plans/${floorPlanId}/sensors`,
+            `/floor-plans/${floorPlanId}/sensors`,
             placement
         );
         return response.data;
@@ -115,7 +115,7 @@ export const floorPlanAPI = {
      */
     async updateSensorPlacement(floorPlanId, sensorId, updates) {
         const response = await apiClient.put(
-            `/api/floor-plans/${floorPlanId}/sensors/${sensorId}`,
+            `/floor-plans/${floorPlanId}/sensors/${sensorId}`,
             updates
         );
         return response.data;
@@ -128,81 +128,7 @@ export const floorPlanAPI = {
      * @returns {Promise<void>}
      */
     async removeSensorPlacement(floorPlanId, sensorId) {
-        await apiClient.delete(`/api/floor-plans/${floorPlanId}/sensors/${sensorId}`);
-    },
-};
-
-// ============================================================================
-// Local Storage Helpers (for offline/demo mode)
-// ============================================================================
-
-const STORAGE_KEY = 'roomsense_floor_plans';
-
-export const floorPlanStorage = {
-    /**
-     * Get all floor plans from local storage
-     * @returns {Array} Array of floor plans
-     */
-    getAll() {
-        const stored = localStorage.getItem(STORAGE_KEY);
-        return stored ? JSON.parse(stored) : [];
-    },
-
-    /**
-     * Get a specific floor plan by ID
-     * @param {string} id - Floor plan ID
-     * @returns {Object|null} Floor plan or null if not found
-     */
-    getById(id) {
-        const plans = this.getAll();
-        return plans.find(p => p.id === id) || null;
-    },
-
-    /**
-     * Save a floor plan (create or update)
-     * @param {Object} floorPlan - Floor plan to save
-     * @returns {Object} Saved floor plan with ID
-     */
-    save(floorPlan) {
-        const plans = this.getAll();
-        const now = new Date().toISOString();
-
-        if (floorPlan.id) {
-            // Update existing
-            const index = plans.findIndex(p => p.id === floorPlan.id);
-            if (index !== -1) {
-                plans[index] = { ...plans[index], ...floorPlan, updatedAt: now };
-                localStorage.setItem(STORAGE_KEY, JSON.stringify(plans));
-                return plans[index];
-            }
-        }
-
-        // Create new
-        const newPlan = {
-            ...floorPlan,
-            id: floorPlan.id || crypto.randomUUID(),
-            createdAt: now,
-            updatedAt: now,
-        };
-        plans.push(newPlan);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(plans));
-        return newPlan;
-    },
-
-    /**
-     * Delete a floor plan
-     * @param {string} id - Floor plan ID
-     */
-    delete(id) {
-        const plans = this.getAll().filter(p => p.id !== id);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(plans));
-    },
-
-    /**
-     * Clear all floor plans from storage
-     */
-    clear() {
-        localStorage.removeItem(STORAGE_KEY);
+        await apiClient.delete(`/floor-plans/${floorPlanId}/sensors/${sensorId}`);
     },
 };
 

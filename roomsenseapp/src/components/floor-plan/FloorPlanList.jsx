@@ -6,7 +6,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { floorPlanStorage } from '../../services/floorPlanAPI';
+import { floorPlanAPI } from '../../services/floorPlanAPI';
 import { useToast } from '../../hooks/use-toast';
 import {
     X,
@@ -26,10 +26,23 @@ export function FloorPlanList({ onSelect, onClose }) {
 
     // Load floor plans
     useEffect(() => {
-        const plans = floorPlanStorage.getAll();
-        setFloorPlans(plans);
-        setLoading(false);
-    }, []);
+        const loadPlans = async () => {
+            try {
+                const plans = await floorPlanAPI.getFloorPlans();
+                setFloorPlans(plans);
+            } catch (error) {
+                console.error('Failed to load floor plans:', error);
+                toast({
+                    title: 'Error',
+                    description: 'Could not load floor plans.',
+                    variant: 'destructive',
+                });
+            } finally {
+                setLoading(false);
+            }
+        };
+        loadPlans();
+    }, [toast]);
 
     // Format date
     const formatDate = (dateString) => {
@@ -50,14 +63,24 @@ export function FloorPlanList({ onSelect, onClose }) {
         setDeleteConfirm(id);
     };
 
-    const confirmDelete = (id) => {
-        floorPlanStorage.delete(id);
-        setFloorPlans(prev => prev.filter(p => p.id !== id));
-        setDeleteConfirm(null);
-        toast({
-            title: 'Deleted',
-            description: 'Floor plan has been deleted.',
-        });
+    const confirmDelete = async (id) => {
+        try {
+            await floorPlanAPI.deleteFloorPlan(id);
+            setFloorPlans(prev => prev.filter(p => p.id !== id));
+            setDeleteConfirm(null);
+            toast({
+                title: 'Deleted',
+                description: 'Floor plan has been deleted.',
+            });
+        } catch (error) {
+            console.error('Failed to delete floor plan:', error);
+            toast({
+                title: 'Delete Failed',
+                description: 'Could not delete floor plan.',
+                variant: 'destructive',
+            });
+            setDeleteConfirm(null);
+        }
     };
 
     return (

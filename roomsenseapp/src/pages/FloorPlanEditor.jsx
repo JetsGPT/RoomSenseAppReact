@@ -16,7 +16,6 @@ import { SensorPalette } from '../components/floor-plan/SensorPalette';
 import { FloorPlanList } from '../components/floor-plan/FloorPlanList';
 import { FloorSelector } from '../components/floor-plan/FloorSelector';
 import { useToast } from '../hooks/use-toast';
-import { floorPlanStorage } from '../services/floorPlanAPI';
 import {
     Save,
     FolderOpen,
@@ -99,15 +98,16 @@ function FloorPlanEditorContent() {
     // Load floor plan if ID is provided
     useEffect(() => {
         if (id) {
-            const loaded = loadFloorPlan(id);
-            if (!loaded) {
-                toast({
-                    title: 'Floor Plan Not Found',
-                    description: 'The requested floor plan could not be found.',
-                    variant: 'destructive',
-                });
-                navigate('/floor-plan');
-            }
+            loadFloorPlan(id).then(loaded => {
+                if (!loaded) {
+                    toast({
+                        title: 'Floor Plan Not Found',
+                        description: 'The requested floor plan could not be found.',
+                        variant: 'destructive',
+                    });
+                    navigate('/floor-plan');
+                }
+            });
         }
     }, [id, loadFloorPlan, toast, navigate]);
 
