@@ -5,18 +5,11 @@
  * Handles floor plan CRUD operations and sensor placement management.
  */
 
-import axios from 'axios';
-
-// API base URL - uses same pattern as sensorsAPI
-const API_BASE_URL = import.meta.env.VITE_SENSOR_API_URL || '/api';
-
-const apiClient = axios.create({
-    baseURL: API_BASE_URL,
-    timeout: 10000,
-    headers: {
-        'Content-Type': 'application/json',
-    },
-});
+// Import the main API instance which already has:
+// - withCredentials: true (for session cookies)
+// - CSRF token header setup
+// - Proper base URL configuration
+import api from './api.js';
 
 // ============================================================================
 // Floor Plan API Functions
@@ -28,7 +21,7 @@ export const floorPlanAPI = {
      * @returns {Promise<Array>} Array of floor plan objects
      */
     async getFloorPlans() {
-        const response = await apiClient.get('/floor-plans');
+        const response = await api.get('/floor-plans');
         return response.data;
     },
 
@@ -38,7 +31,7 @@ export const floorPlanAPI = {
      * @returns {Promise<Object>} Floor plan object with elements and sensors
      */
     async getFloorPlan(id) {
-        const response = await apiClient.get(`/floor-plans/${id}`);
+        const response = await api.get(`/floor-plans/${id}`);
         return response.data;
     },
 
@@ -51,7 +44,7 @@ export const floorPlanAPI = {
      * @returns {Promise<Object>} Created floor plan with ID
      */
     async createFloorPlan(floorPlan) {
-        const response = await apiClient.post('/floor-plans', floorPlan);
+        const response = await api.post('/floor-plans', floorPlan);
         return response.data;
     },
 
@@ -62,7 +55,7 @@ export const floorPlanAPI = {
      * @returns {Promise<Object>} Updated floor plan
      */
     async updateFloorPlan(id, updates) {
-        const response = await apiClient.put(`/floor-plans/${id}`, updates);
+        const response = await api.put(`/floor-plans/${id}`, updates);
         return response.data;
     },
 
@@ -72,7 +65,7 @@ export const floorPlanAPI = {
      * @returns {Promise<void>}
      */
     async deleteFloorPlan(id) {
-        await apiClient.delete(`/floor-plans/${id}`);
+        await api.delete(`/floor-plans/${id}`);
     },
 
     // ========================================================================
@@ -85,7 +78,7 @@ export const floorPlanAPI = {
      * @returns {Promise<Array>} Array of sensor placement objects
      */
     async getSensorPlacements(floorPlanId) {
-        const response = await apiClient.get(`/floor-plans/${floorPlanId}/sensors`);
+        const response = await api.get(`/floor-plans/${floorPlanId}/sensors`);
         return response.data;
     },
 
@@ -99,7 +92,7 @@ export const floorPlanAPI = {
      * @returns {Promise<Object>} Created sensor placement with ID
      */
     async addSensorPlacement(floorPlanId, placement) {
-        const response = await apiClient.post(
+        const response = await api.post(
             `/floor-plans/${floorPlanId}/sensors`,
             placement
         );
@@ -114,7 +107,7 @@ export const floorPlanAPI = {
      * @returns {Promise<Object>} Updated sensor placement
      */
     async updateSensorPlacement(floorPlanId, sensorId, updates) {
-        const response = await apiClient.put(
+        const response = await api.put(
             `/floor-plans/${floorPlanId}/sensors/${sensorId}`,
             updates
         );
@@ -128,7 +121,7 @@ export const floorPlanAPI = {
      * @returns {Promise<void>}
      */
     async removeSensorPlacement(floorPlanId, sensorId) {
-        await apiClient.delete(`/floor-plans/${floorPlanId}/sensors/${sensorId}`);
+        await api.delete(`/floor-plans/${floorPlanId}/sensors/${sensorId}`);
     },
 };
 
