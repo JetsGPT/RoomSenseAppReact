@@ -55,8 +55,6 @@ const DEFAULT_FLOOR = {
 const initialState = {
     // Floor plan metadata
     id: null,
-    // Floor plan metadata
-    id: null,
     name: 'Untitled Floor Plan',
     isActive: false,
 
@@ -101,7 +99,6 @@ initialState.activeFloorId = initialState.floors[0]?.id;
 // ============================================================================
 
 const ACTION_TYPES = {
-    SET_FLOOR_PLAN: 'SET_FLOOR_PLAN',
     SET_FLOOR_PLAN: 'SET_FLOOR_PLAN',
     SET_NAME: 'SET_NAME',
     SET_IS_ACTIVE: 'SET_IS_ACTIVE',
