@@ -55,7 +55,10 @@ const DEFAULT_FLOOR = {
 const initialState = {
     // Floor plan metadata
     id: null,
+    // Floor plan metadata
+    id: null,
     name: 'Untitled Floor Plan',
+    isActive: false,
 
     // Multi-floor support
     floors: [{ ...DEFAULT_FLOOR, id: crypto.randomUUID() }],
@@ -99,7 +102,9 @@ initialState.activeFloorId = initialState.floors[0]?.id;
 
 const ACTION_TYPES = {
     SET_FLOOR_PLAN: 'SET_FLOOR_PLAN',
+    SET_FLOOR_PLAN: 'SET_FLOOR_PLAN',
     SET_NAME: 'SET_NAME',
+    SET_IS_ACTIVE: 'SET_IS_ACTIVE',
     SET_TOOL: 'SET_TOOL',
     SET_STYLE: 'SET_STYLE',
 
@@ -175,6 +180,13 @@ function floorPlanReducer(state, action) {
             return {
                 ...state,
                 name: action.payload,
+                isDirty: true,
+            };
+
+        case ACTION_TYPES.SET_IS_ACTIVE:
+            return {
+                ...state,
+                isActive: action.payload,
                 isDirty: true,
             };
 
@@ -464,6 +476,7 @@ export function FloorPlanProvider({ children }) {
                 const floorPlanData = {
                     id: state.id,
                     name: state.name,
+                    isActive: state.isActive,
                     floors: state.floors,
                     viewSettings: {
                         zoom: state.zoom,
@@ -492,7 +505,7 @@ export function FloorPlanProvider({ children }) {
                 clearTimeout(autoSaveTimeoutRef.current);
             }
         };
-    }, [state.isDirty, state.id, state.name, state.floors, state.zoom, state.panX, state.panY, state.autoSaveEnabled]);
+    }, [state.isDirty, state.id, state.name, state.isActive, state.floors, state.zoom, state.panX, state.panY, state.autoSaveEnabled]);
 
     // ========================================================================
     // Actions
@@ -508,6 +521,10 @@ export function FloorPlanProvider({ children }) {
 
     const setName = useCallback((name) => {
         dispatch({ type: ACTION_TYPES.SET_NAME, payload: name });
+    }, []);
+
+    const setIsActive = useCallback((isActive) => {
+        dispatch({ type: ACTION_TYPES.SET_IS_ACTIVE, payload: isActive });
     }, []);
 
     // Floor actions
@@ -629,6 +646,7 @@ export function FloorPlanProvider({ children }) {
         try {
             const floorPlanData = {
                 name: state.name,
+                isActive: state.isActive,
                 floors: state.floors,
                 viewSettings: {
                     zoom: state.zoom,
@@ -654,7 +672,7 @@ export function FloorPlanProvider({ children }) {
             dispatch({ type: ACTION_TYPES.SET_SAVING, payload: false });
             throw error;
         }
-    }, [state.id, state.name, state.floors, state.zoom, state.panX, state.panY]);
+    }, [state.id, state.name, state.isActive, state.floors, state.zoom, state.panX, state.panY]);
 
     const loadFloorPlan = useCallback(async (id) => {
         try {
@@ -676,6 +694,7 @@ export function FloorPlanProvider({ children }) {
                     payload: {
                         id: floorPlan.id,
                         name: floorPlan.name,
+                        isActive: floorPlan.isActive || false,
                         floors,
                         zoom: floorPlan.viewSettings?.zoom || 1,
                         panX: floorPlan.viewSettings?.panX || 0,
@@ -719,6 +738,7 @@ export function FloorPlanProvider({ children }) {
         // State
         id: state.id,
         name: state.name,
+        isActive: state.isActive,
         floors: state.floors,
         activeFloorId: state.activeFloorId,
         activeFloor,
@@ -744,6 +764,7 @@ export function FloorPlanProvider({ children }) {
         setTool,
         setStyle,
         setName,
+        setIsActive,
 
         // Floor actions
         addFloor,
@@ -788,7 +809,7 @@ export function FloorPlanProvider({ children }) {
         newFloorPlan,
     }), [
         state, activeFloor, elements, sensors, allSensors,
-        setTool, setStyle, setName,
+        setTool, setStyle, setName, setIsActive,
         addFloor, removeFloor, renameFloor, setActiveFloor,
         addElement, updateElement, removeElement, selectElement, clearSelection,
         placeSensor, moveSensor, removeSensor, selectSensor,

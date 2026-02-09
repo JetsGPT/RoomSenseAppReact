@@ -176,6 +176,15 @@ export const floorPlanStorage = {
             updatedAt: new Date().toISOString(),
         };
 
+        // If setting this plan to active, deactivate all others
+        if (planToSave.isActive) {
+            plans.forEach(p => {
+                if (p.id !== planToSave.id) {
+                    p.isActive = false;
+                }
+            });
+        }
+
         if (existingIndex >= 0) {
             plans[existingIndex] = planToSave;
         } else {

@@ -146,7 +146,14 @@ export function FloorPlanList({ onSelect, onClose }) {
 
                                     {/* Info */}
                                     <div className="card-info">
-                                        <h4 className="card-name">{plan.name}</h4>
+                                        <div className="flex items-center gap-2">
+                                            <h4 className="card-name">{plan.name}</h4>
+                                            {plan.isActive && (
+                                                <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-green-500/10 text-green-500 border border-green-500/20">
+                                                    Active
+                                                </span>
+                                            )}
+                                        </div>
                                         <div className="card-meta">
                                             <Clock className="w-3 h-3" />
                                             <span>{formatDate(plan.updatedAt)}</span>

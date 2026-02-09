@@ -86,9 +86,10 @@ function FloorPlanEditorContent() {
         isSaving,
         saveFloorPlan,
         loadFloorPlan,
-        newFloorPlan,
         autoSaveStatus,
         lastSaved,
+        isActive,
+        setIsActive,
     } = useFloorPlan();
 
     const [showSensorPalette, setShowSensorPalette] = useState(true);
@@ -215,6 +216,16 @@ function FloorPlanEditorContent() {
                 </div>
 
                 <div className="floor-plan-header-actions">
+                    <label className="flex items-center gap-2 mr-4 cursor-pointer" title="Set as active floor plan">
+                        <input
+                            type="checkbox"
+                            checked={isActive}
+                            onChange={(e) => setIsActive(e.target.checked)}
+                            className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        />
+                        <span className="text-sm font-medium">Active Plan</span>
+                    </label>
+
                     <button
                         className="floor-plan-action-btn"
                         onClick={handleNew}
