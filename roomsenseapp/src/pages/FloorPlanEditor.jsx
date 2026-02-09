@@ -86,6 +86,7 @@ function FloorPlanEditorContent() {
         isSaving,
         saveFloorPlan,
         loadFloorPlan,
+        newFloorPlan,
         autoSaveStatus,
         lastSaved,
         isActive,
