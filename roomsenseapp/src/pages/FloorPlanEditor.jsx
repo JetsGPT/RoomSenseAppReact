@@ -28,7 +28,11 @@ import {
     CloudOff,
     Check,
     Loader2,
+    Loader2,
     AlertCircle,
+    Star,
+    Cloud,
+    HardDrive,
 } from 'lucide-react';
 import '../styles/floorplan.css';
 
@@ -90,6 +94,9 @@ function FloorPlanEditorContent() {
         newFloorPlan,
         autoSaveStatus,
         lastSaved,
+
+        isActive,
+        setActivePlan,
     } = useFloorPlan();
 
     const [showSensorPalette, setShowSensorPalette] = useState(true);
@@ -99,15 +106,18 @@ function FloorPlanEditorContent() {
     // Load floor plan if ID is provided
     useEffect(() => {
         if (id) {
-            const loaded = loadFloorPlan(id);
-            if (!loaded) {
-                toast({
-                    title: 'Floor Plan Not Found',
-                    description: 'The requested floor plan could not be found.',
-                    variant: 'destructive',
-                });
-                navigate('/floor-plan');
-            }
+            const load = async () => {
+                const loaded = await loadFloorPlan(id);
+                if (!loaded) {
+                    toast({
+                        title: 'Floor Plan Not Found',
+                        description: 'The requested floor plan could not be found.',
+                        variant: 'destructive',
+                    });
+                    navigate('/floor-plan');
+                }
+            };
+            load();
         }
     }, [id, loadFloorPlan, toast, navigate]);
 
@@ -215,6 +225,16 @@ function FloorPlanEditorContent() {
                 </div>
 
                 <div className="floor-plan-header-actions">
+                    <button
+                        className={`floor-plan-action-btn ${isActive ? 'active-plan' : ''}`}
+                        onClick={() => setActivePlan(!isActive)}
+                        title={isActive ? "Currently Active Plan" : "Set as Active Plan"}
+                        style={{ color: isActive ? 'var(--yellow-500, #eab308)' : 'inherit' }}
+                    >
+                        <Star className={`w-4 h-4 ${isActive ? 'fill-current' : ''}`} />
+                        <span>{isActive ? 'Active' : 'Set Active'}</span>
+                    </button>
+
                     <button
                         className="floor-plan-action-btn"
                         onClick={handleNew}
