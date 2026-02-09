@@ -133,24 +133,42 @@ export const floorPlanAPI = {
 };
 
 // ============================================================================
-// Local Storage Helpers (Internal Use for Fallback)
+// Local Storage Helpers (for offline/demo mode)
 // ============================================================================
 
 const STORAGE_KEY = 'roomsense_floor_plans';
 
-const floorPlanStorage = {
+export const floorPlanStorage = {
+    /**
+     * Get all floor plans from local storage
+     * @returns {Array} Array of floor plans
+     */
     getAll() {
         const stored = localStorage.getItem(STORAGE_KEY);
         return stored ? JSON.parse(stored) : [];
     },
+
+    /**
+     * Get a specific floor plan by ID
+     * @param {string} id - Floor plan ID
+     * @returns {Object|null} Floor plan or null if not found
+     */
     getById(id) {
         const plans = this.getAll();
         return plans.find(p => p.id === id) || null;
     },
+
+    /**
+     * Save a floor plan (create or update)
+     * @param {Object} floorPlan - Floor plan to save
+     * @returns {Object} Saved floor plan with ID
+     */
     save(floorPlan) {
         const plans = this.getAll();
         const now = new Date().toISOString();
+
         if (floorPlan.id) {
+            // Update existing
             const index = plans.findIndex(p => p.id === floorPlan.id);
             if (index !== -1) {
                 plans[index] = { ...plans[index], ...floorPlan, updatedAt: now };
@@ -158,116 +176,34 @@ const floorPlanStorage = {
                 return plans[index];
             }
         }
-        const newPlan = { ...floorPlan, id: floorPlan.id || crypto.randomUUID(), createdAt: now, updatedAt: now };
+
+        // Create new
+        const newPlan = {
+            ...floorPlan,
+            id: floorPlan.id || crypto.randomUUID(),
+            createdAt: now,
+            updatedAt: now,
+        };
         plans.push(newPlan);
         localStorage.setItem(STORAGE_KEY, JSON.stringify(plans));
         return newPlan;
     },
+
+    /**
+     * Delete a floor plan
+     * @param {string} id - Floor plan ID
+     */
     delete(id) {
         const plans = this.getAll().filter(p => p.id !== id);
         localStorage.setItem(STORAGE_KEY, JSON.stringify(plans));
     },
-    setActive(id) {
-        const plans = this.getAll();
-        const updatedPlans = plans.map(p => ({ ...p, isActive: p.id === id }));
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedPlans));
-        return updatedPlans.find(p => p.id === id);
-    }
+
+    /**
+     * Clear all floor plans from storage
+     */
+    clear() {
+        localStorage.removeItem(STORAGE_KEY);
+    },
 };
 
-// ============================================================================
-// Hybrid Service (API + Local Fallback)
-// ============================================================================
-
-export const floorPlanHelpers = {
-    /**
-     * Get all floor plans (API first, Local fallback)
-     */
-    async getAll() {
-        try {
-            const plans = await floorPlanAPI.getFloorPlans();
-            return plans.map(p => ({ ...p, source: 'cloud' }));
-        } catch (error) {
-            console.warn('API unavailable, falling back to local storage', error);
-            const localPlans = floorPlanStorage.getAll();
-            return localPlans.map(p => ({ ...p, source: 'local' }));
-        }
-    },
-
-    /**
-     * Get a specific floor plan by ID
-     */
-    async getById(id) {
-        try {
-            const plan = await floorPlanAPI.getFloorPlan(id);
-            return { ...plan, source: 'cloud' };
-        } catch (error) {
-            console.warn(`API getById failed for ${id}, checking local`, error);
-            const localPlan = floorPlanStorage.getById(id);
-            return localPlan ? { ...localPlan, source: 'local' } : null;
-        }
-    },
-
-    /**
-     * Save a floor plan (API first, Local fallback)
-     */
-    async save(floorPlan) {
-        try {
-            if (floorPlan.id) {
-                // Try Update
-                try {
-                    const updated = await floorPlanAPI.updateFloorPlan(floorPlan.id, floorPlan);
-                    return { ...updated, source: 'cloud' };
-                } catch (e) {
-                    if (e.response && e.response.status === 404) {
-                        // Not found, try Create
-                        const created = await floorPlanAPI.createFloorPlan(floorPlan);
-                        return { ...created, source: 'cloud' };
-                    }
-                    throw e;
-                }
-            } else {
-                // Create
-                const created = await floorPlanAPI.createFloorPlan(floorPlan);
-                return { ...created, source: 'cloud' };
-            }
-        } catch (error) {
-            console.warn('API save failed, saving locally', error);
-            const saved = floorPlanStorage.save(floorPlan);
-            return { ...saved, source: 'local' };
-        }
-    },
-
-    /**
-     * Delete a floor plan
-     */
-    async delete(id) {
-        try {
-            await floorPlanAPI.deleteFloorPlan(id);
-        } catch (error) {
-            console.warn('API delete failed, trying local delete', error);
-        }
-        // Always try to clean up local storage too
-        floorPlanStorage.delete(id);
-    },
-
-    /**
-     * Set a floor plan as active
-     */
-    async setActive(id) {
-        try {
-            // API call - backend handles mutual exclusion
-            await floorPlanAPI.updateFloorPlan(id, { isActive: true });
-
-            // Return updated plan (fetch it to be sure of state)
-            const plan = await floorPlanAPI.getFloorPlan(id);
-            return { ...plan, isActive: true, source: 'cloud' };
-        } catch (error) {
-            console.warn('API setActive failed, using local storage', error);
-            const updated = floorPlanStorage.setActive(id);
-            return { ...updated, source: 'local' };
-        }
-    }
-};
-
-export default floorPlanHelpers;
+export default floorPlanAPI;

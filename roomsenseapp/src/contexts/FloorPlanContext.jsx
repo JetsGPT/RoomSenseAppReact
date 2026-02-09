@@ -6,7 +6,7 @@
  */
 
 import React, { createContext, useContext, useReducer, useCallback, useMemo, useEffect, useRef } from 'react';
-import { floorPlanHelpers as floorPlanAPI } from '../services/floorPlanAPI';
+import { floorPlanStorage } from '../services/floorPlanAPI';
 
 // ============================================================================
 // Types & Constants
@@ -59,9 +59,7 @@ const initialState = {
 
     // Multi-floor support
     floors: [{ ...DEFAULT_FLOOR, id: crypto.randomUUID() }],
-    floors: [{ ...DEFAULT_FLOOR, id: crypto.randomUUID() }],
     activeFloorId: null, // Will be set on init
-    isActive: false, // Is this plan the active one for dashboard/kiosk?
 
     // Editor state
     selectedTool: TOOLS.SELECT,
@@ -103,9 +101,7 @@ const ACTION_TYPES = {
     SET_FLOOR_PLAN: 'SET_FLOOR_PLAN',
     SET_NAME: 'SET_NAME',
     SET_TOOL: 'SET_TOOL',
-    SET_TOOL: 'SET_TOOL',
     SET_STYLE: 'SET_STYLE',
-    SET_IS_ACTIVE: 'SET_IS_ACTIVE',
 
     // Floor actions
     ADD_FLOOR: 'ADD_FLOOR',
@@ -171,7 +167,6 @@ function floorPlanReducer(state, action) {
                 ...state,
                 ...action.payload,
                 activeFloorId: action.payload.activeFloorId || action.payload.floors?.[0]?.id || state.activeFloorId,
-                isActive: !!action.payload.isActive,
                 isDirty: false,
                 autoSaveStatus: AUTO_SAVE_STATUS.IDLE,
             };
@@ -195,13 +190,6 @@ function floorPlanReducer(state, action) {
             return {
                 ...state,
                 currentStyle: { ...state.currentStyle, ...action.payload },
-            };
-
-        case ACTION_TYPES.SET_IS_ACTIVE:
-            return {
-                ...state,
-                isActive: action.payload,
-                // Don't mark as dirty for this change as it's saved separately/immediately
             };
 
         // Floor actions
@@ -537,26 +525,6 @@ export function FloorPlanProvider({ children }) {
         dispatch({ type: ACTION_TYPES.RENAME_FLOOR, payload: { id, name } });
     }, []);
 
-
-
-    const setActivePlan = useCallback(async (isActive) => {
-        if (state.id) {
-            // Save to storage immediately (API)
-            if (isActive) {
-                try {
-                    await floorPlanAPI.setActive(state.id);
-                } catch (error) {
-                    console.error('Failed to set active plan:', error);
-                    // Still update local state optimistically?
-                    // Or maybe we should rely on the result.
-                    // The API helper falls back to local storage, so it should succeed.
-                }
-            }
-            // Update local state
-            dispatch({ type: ACTION_TYPES.SET_IS_ACTIVE, payload: isActive });
-        }
-    }, [state.id]);
-
     const setActiveFloor = useCallback((id) => {
         dispatch({ type: ACTION_TYPES.SET_ACTIVE_FLOOR, payload: id });
     }, []);
@@ -670,10 +638,10 @@ export function FloorPlanProvider({ children }) {
                 },
             };
 
-            const saved = await floorPlanAPI.save(floorPlanData);
+            const saved = floorPlanStorage.save(floorPlanData);
             lastSaveDataRef.current = JSON.stringify(floorPlanData);
 
-            dispatch({ type: ACTION_TYPES.SET_FLOOR_PLAN, payload: { ...saved, isActive: saved.isActive } });
+            dispatch({ type: ACTION_TYPES.SET_FLOOR_PLAN, payload: { id: saved.id } });
             dispatch({ type: ACTION_TYPES.SET_SAVED });
 
             return saved;
@@ -684,29 +652,35 @@ export function FloorPlanProvider({ children }) {
         }
     }, [state.id, state.name, state.floors, state.zoom, state.panX, state.panY]);
 
-
-    const loadFloorPlan = useCallback(async (id) => {
-        dispatch({ type: ACTION_TYPES.SET_LOADING, payload: true });
-
-        try {
-            const floorPlan = await floorPlanAPI.getById(id);
-
-            if (floorPlan) {
-                dispatch({ type: ACTION_TYPES.SET_FLOOR_PLAN, payload: floorPlan });
-                lastSaveDataRef.current = JSON.stringify(floorPlan);
-                // Reset history on load
-                dispatch({ type: ACTION_TYPES.SAVE_HISTORY });
-            } else {
-                console.error(`Floor plan not found: ${id}`);
-                // Could dispatch error state
+    const loadFloorPlan = useCallback((id) => {
+        const floorPlan = floorPlanStorage.getById(id);
+        if (floorPlan) {
+            // Migrate old format (elements/sensors at root) to new format (floors array)
+            let floors = floorPlan.floors;
+            if (!floors || floors.length === 0) {
+                floors = [{
+                    id: crypto.randomUUID(),
+                    name: 'Ground Floor',
+                    elements: floorPlan.elements || [],
+                    sensors: floorPlan.sensors || [],
+                }];
             }
+
+            dispatch({
+                type: ACTION_TYPES.SET_FLOOR_PLAN,
+                payload: {
+                    id: floorPlan.id,
+                    name: floorPlan.name,
+                    floors,
+                    zoom: floorPlan.viewSettings?.zoom || 1,
+                    panX: floorPlan.viewSettings?.panX || 0,
+                    panY: floorPlan.viewSettings?.panY || 0,
+                },
+            });
+            lastSaveDataRef.current = JSON.stringify(floorPlan);
             return floorPlan;
-        } catch (error) {
-            console.error('Failed to load floor plan:', error);
-            return null;
-        } finally {
-            dispatch({ type: ACTION_TYPES.SET_LOADING, payload: false });
         }
+        return null;
     }, []);
 
     const newFloorPlan = useCallback(() => {
@@ -737,7 +711,6 @@ export function FloorPlanProvider({ children }) {
         id: state.id,
         name: state.name,
         floors: state.floors,
-        isActive: state.isActive,
         activeFloorId: state.activeFloorId,
         activeFloor,
         elements,
@@ -767,7 +740,6 @@ export function FloorPlanProvider({ children }) {
         addFloor,
         removeFloor,
         renameFloor,
-        setActivePlan,
         setActiveFloor,
 
         // Element actions
@@ -808,7 +780,7 @@ export function FloorPlanProvider({ children }) {
     }), [
         state, activeFloor, elements, sensors, allSensors,
         setTool, setStyle, setName,
-        addFloor, removeFloor, renameFloor, setActivePlan, setActiveFloor,
+        addFloor, removeFloor, renameFloor, setActiveFloor,
         addElement, updateElement, removeElement, selectElement, clearSelection,
         placeSensor, moveSensor, removeSensor, selectSensor,
         startDrawing, updateDrawing, endDrawing,

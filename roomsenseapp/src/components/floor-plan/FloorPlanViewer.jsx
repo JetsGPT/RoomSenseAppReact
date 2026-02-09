@@ -8,7 +8,7 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { floorPlanHelpers as floorPlanAPI } from '../../services/floorPlanAPI';
+import { floorPlanStorage } from '../../services/floorPlanAPI';
 import { useConnections } from '../../contexts/ConnectionsContext';
 import { useDashboardSensorData } from '../../hooks/useSensorData';
 import { useComfortZones } from '../../hooks/useComfortZones';
@@ -23,9 +23,7 @@ import {
     Droplets,
     Wind,
     Plus,
-    Plus,
     RotateCw,
-    Star,
 } from 'lucide-react';
 import '../../styles/floorplan.css';
 
@@ -204,33 +202,27 @@ export function FloorPlanViewer({ height = 300 }) {
 
     // Load floor plans
     useEffect(() => {
-        const loadPlans = async () => {
-            const plans = await floorPlanAPI.getAll();
-            setFloorPlans(plans);
+        const plans = floorPlanStorage.getAll();
+        setFloorPlans(plans);
 
-            // Select plan:
-            // 1. Plan marked as active
-            // 2. Plan with sensors (legacy behavior)
-            // 3. First plan available
-            const activePlan = plans.find(p => p.isActive);
-            const planWithSensors = plans.find(p =>
-                (p.floors && p.floors.some(f => f.sensors?.length > 0)) ||
-                (p.sensors && p.sensors.length > 0)
-            );
-
-            const selected = activePlan || planWithSensors || plans[0];
-
-            if (selected) {
-                setSelectedPlanId(selected.id);
-                // Set first floor with sensors, or first floor
-                if (selected.floors) {
-                    const floorWithSensors = selected.floors.find(f => f.sensors?.length > 0);
-                    setSelectedFloorId(floorWithSensors?.id || selected.floors[0]?.id);
-                }
+        // Select first plan with sensors
+        const planWithSensors = plans.find(p =>
+            (p.floors && p.floors.some(f => f.sensors?.length > 0)) ||
+            (p.sensors && p.sensors.length > 0)
+        );
+        if (planWithSensors) {
+            setSelectedPlanId(planWithSensors.id);
+            // Set first floor with sensors
+            if (planWithSensors.floors) {
+                const floorWithSensors = planWithSensors.floors.find(f => f.sensors?.length > 0);
+                setSelectedFloorId(floorWithSensors?.id || planWithSensors.floors[0]?.id);
             }
-        };
-
-        loadPlans();
+        } else if (plans.length > 0) {
+            setSelectedPlanId(plans[0].id);
+            if (plans[0].floors) {
+                setSelectedFloorId(plans[0].floors[0]?.id);
+            }
+        }
     }, []);
 
 

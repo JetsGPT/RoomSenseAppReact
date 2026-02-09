@@ -6,7 +6,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { floorPlanHelpers as floorPlanAPI } from '../../services/floorPlanAPI';
+import { floorPlanStorage } from '../../services/floorPlanAPI';
 import { useToast } from '../../hooks/use-toast';
 import {
     X,
@@ -15,11 +15,7 @@ import {
     Clock,
     Plus,
     FolderOpen,
-    FolderOpen,
     AlertTriangle,
-    Star,
-    Cloud,
-    HardDrive,
 } from 'lucide-react';
 
 export function FloorPlanList({ onSelect, onClose }) {
@@ -30,13 +26,9 @@ export function FloorPlanList({ onSelect, onClose }) {
 
     // Load floor plans
     useEffect(() => {
-        const loadPlans = async () => {
-            setLoading(true);
-            const plans = await floorPlanAPI.getAll();
-            setFloorPlans(plans);
-            setLoading(false);
-        };
-        loadPlans();
+        const plans = floorPlanStorage.getAll();
+        setFloorPlans(plans);
+        setLoading(false);
     }, []);
 
     // Format date
@@ -58,8 +50,8 @@ export function FloorPlanList({ onSelect, onClose }) {
         setDeleteConfirm(id);
     };
 
-    const confirmDelete = async (id) => {
-        await floorPlanAPI.delete(id);
+    const confirmDelete = (id) => {
+        floorPlanStorage.delete(id);
         setFloorPlans(prev => prev.filter(p => p.id !== id));
         setDeleteConfirm(null);
         toast({
@@ -131,20 +123,10 @@ export function FloorPlanList({ onSelect, onClose }) {
 
                                     {/* Info */}
                                     <div className="card-info">
-                                        <div className="flex items-center gap-2">
-                                            <h4 className="card-name">{plan.name}</h4>
-                                            {plan.isActive && (
-                                                <Star className="w-3 h-3 text-yellow-500 fill-yellow-500" />
-                                            )}
-                                        </div>
+                                        <h4 className="card-name">{plan.name}</h4>
                                         <div className="card-meta">
                                             <Clock className="w-3 h-3" />
                                             <span>{formatDate(plan.updatedAt)}</span>
-                                            {plan.source === 'cloud' ? (
-                                                <Cloud className="w-3 h-3 text-blue-500" title="Saved to Cloud" />
-                                            ) : (
-                                                <HardDrive className="w-3 h-3 text-orange-500" title="Saved Locally" />
-                                            )}
                                         </div>
                                         <div className="card-stats">
                                             <span>{plan.elements?.length || 0} elements</span>
