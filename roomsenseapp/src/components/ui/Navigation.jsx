@@ -1,7 +1,7 @@
 import { useId, useState } from "react"
 import { useLocation, useNavigate, Link } from "react-router-dom"
 import { motion } from "framer-motion"
-import { HouseIcon, InboxIcon, SearchIcon, ZapIcon, Shield, Box, BarChart3, Download, Monitor, Map, CloudSun, GitCompareArrows } from "lucide-react"
+import { HouseIcon, InboxIcon, SearchIcon, ZapIcon, Shield, Box, BarChart3, Download, Monitor, Map, CloudSun, GitCompareArrows, Bell } from "lucide-react"
 import Time from "@/components/ui/Time"
 import Logo from "@/components/logo"
 import { Button } from "@/components/ui/button"
@@ -30,6 +30,7 @@ const navigationLinks = [
   { href: "/correlation", label: "Correlation", icon: GitCompareArrows },
   { href: "/kiosk", label: "Kiosk", icon: Monitor },
   { href: "/download", label: "Download", icon: Download },
+  { href: "/notifications", label: "Notifications", icon: Bell },
   { href: "/about-me", label: "About", icon: InboxIcon },
   { href: "/admin", label: "Admin", icon: Shield },
   { href: "#", label: "Help", icon: ZapIcon },

@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { Button } from '../../components/ui/button';
 import { Separator } from '../../components/ui/separator';
 import { Card } from '../../components/ui/card';
-import { Home, Box, Settings, Calendar, GitCompareArrows } from 'lucide-react';
+import { Home, Box, Settings, Calendar, GitCompareArrows, Bell } from 'lucide-react';
 import { useSidebar } from '../contexts/SidebarContext';
 
 
@@ -50,11 +50,19 @@ export function AppSidebar() {
             label: 'Correlation',
             icon: GitCompareArrows,
             description: 'Compare sensor metrics'
+        },
+        {
+            id: 'notifications',
+            label: 'Notifications',
+            icon: Bell,
+            description: 'Manage alert rules'
         }
     ];
 
     const handleItemClick = (itemId) => {
-        if (!location.pathname.startsWith('/dashboard')) {
+        if (itemId === 'notifications') {
+            navigate('/notifications');
+        } else if (!location.pathname.startsWith('/dashboard')) {
             navigate(`/dashboard?view=${itemId}`);
         } else {
             setActiveView(itemId);
