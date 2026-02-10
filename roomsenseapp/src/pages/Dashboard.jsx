@@ -7,6 +7,7 @@ import { SensorLineChart, SensorAreaChart, MultiSensorChart } from '../component
 import { Overview } from '../components/Overview';
 import { BoxDetail } from '../components/BoxDetail';
 import { Options } from '../components/Options';
+import HeatmapView from './HeatmapView';
 import { StaggeredContainer, StaggeredItem, FadeIn, SlideIn } from '../components/ui/PageTransition';
 import {
     getSensorUnit,
@@ -101,6 +102,8 @@ const Dashboard = () => {
                     boxId={boxId}
                 />
             );
+        } else if (activeView === 'heatmap') {
+            return <HeatmapView />;
         } else if (activeView === 'options') {
             return (
                 <Options
