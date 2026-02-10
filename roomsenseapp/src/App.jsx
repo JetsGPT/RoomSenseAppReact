@@ -178,6 +178,19 @@ function AppContent() {
 
                             {/* Unauthorized page */}
                             <Route
+                                path="/system-health"
+                                element={
+                                    <RequireAuth>
+                                        <Suspense fallback={<LoadingFallback />}>
+                                            <PageTransition>
+                                                <SystemHealth />
+                                            </PageTransition>
+                                        </Suspense>
+                                    </RequireAuth>
+                                }
+                            />
+
+                            <Route
                                 path="/unauthorized"
                                 element={
                                     <Suspense fallback={<LoadingFallback />}>
