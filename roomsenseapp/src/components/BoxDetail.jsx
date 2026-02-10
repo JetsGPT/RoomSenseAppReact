@@ -1,10 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useState, memo } from 'react';
-import { Activity, Loader2, PencilLine, RefreshCw, Settings2, X, Radio, Clock, CloudSun } from 'lucide-react';
+import { Activity, Loader2, PencilLine, RefreshCw, Settings2, X, Radio, Clock } from 'lucide-react';
 import NumberFlow from '@number-flow/react';
 import { Button } from './ui/button';
 import { InfoBlock } from './ui/InfoBlock';
 import { SensorLineChart, SensorAreaChart } from './ui/SensorCharts';
-import { IndoorOutdoorChart } from './ui/IndoorOutdoorChart';
 import { SensorGauge, GaugeCustomizer } from './ui/SensorGauge';
 import { SensorDisplayGrid } from './ui/SensorDisplayGrid';
 import { RoomScore, TipsCard } from './ui/RoomScore';
@@ -27,7 +26,6 @@ import {
 import { useSensorSelection } from '../hooks/useSensorSelection';
 import { useSensorData } from '../hooks/useSensorData';
 import { useSettings } from '../contexts/SettingsContext';
-import { useWeather } from '../contexts/WeatherContext';
 import {
     getSensorIcon,
     getSensorUnit,
@@ -113,7 +111,6 @@ const readStoredCustomRange = (boxId) => {
 
 export function BoxDetail({ boxId }) {
     const { settings, updateSettings, getGaugeTypeForSensor, setGaugeTypeForSensor } = useSettings();
-    const { getHistory } = useWeather();
     const refreshInterval = settings?.refreshInterval || 30000;
     const displayMode = settings.displayMode || 'comfort';
     const showTips = settings.showTips !== false;
@@ -129,46 +126,8 @@ export function BoxDetail({ boxId }) {
     });
     const [showChartManager, setShowChartManager] = useState(false);
     const [showSettings, setShowSettings] = useState(false);
-    const [showWeatherComparison, setShowWeatherComparison] = useState(false);
-    const [outdoorData, setOutdoorData] = useState([]);
     const [sortConfig, setSortConfig] = useState({ column: 'timestamp', direction: 'desc' });
     const [currentPage, setCurrentPage] = useState(1);
-
-    // Weather Data Fetching Effect
-    useEffect(() => {
-        if (!showWeatherComparison) return;
-
-        const fetchWeather = async () => {
-            let start, end;
-
-            if (rangeKey === 'custom' && customRange.start && customRange.end) {
-                start = new Date(customRange.start);
-                end = new Date(customRange.end);
-            } else {
-                end = new Date();
-                const rangeConfig = TIME_RANGES[rangeKey];
-                if (rangeConfig && rangeConfig.value) {
-                    const match = rangeConfig.value.match(/-(\d+)([hdm])/);
-                    if (match) {
-                        const val = parseInt(match[1]);
-                        const unit = match[2];
-                        start = new Date(end);
-                        if (unit === 'h') start.setHours(start.getHours() - val);
-                        if (unit === 'd') start.setDate(start.getDate() - val);
-                        if (unit === 'm') start.setMonth(start.getMonth() - val);
-                    }
-                }
-            }
-
-            if (start && end) {
-                const formatDate = (d) => d.toISOString().split('T')[0];
-                const data = await getHistory(formatDate(start), formatDate(end));
-                setOutdoorData(data);
-            }
-        };
-
-        fetchWeather();
-    }, [showWeatherComparison, rangeKey, customRange, getHistory]);
 
     // Handle display mode change
     const handleDisplayModeChange = useCallback((mode) => {
@@ -525,18 +484,6 @@ export function BoxDetail({ boxId }) {
                             <Button
                                 type="button"
                                 size="icon-sm"
-                                variant={showWeatherComparison ? 'default' : 'ghost'}
-                                onClick={() => setShowWeatherComparison((prev) => !prev)}
-                                aria-pressed={showWeatherComparison}
-                                className="shrink-0"
-                                title="Compare with Outdoor Weather"
-                            >
-                                <CloudSun className="h-4 w-4" />
-                                <span className="sr-only">Toggle Weather Comparison</span>
-                            </Button>
-                            <Button
-                                type="button"
-                                size="icon-sm"
                                 variant={showChartManager ? 'secondary' : 'ghost'}
                                 onClick={() => setShowChartManager((prev) => !prev)}
                                 aria-pressed={showChartManager}
@@ -721,18 +668,6 @@ export function BoxDetail({ boxId }) {
                                 if (chartData.length === 0) {
                                     return null;
                                 }
-
-                                if (showWeatherComparison && (sensorType === 'temperature' || sensorType === 'humidity')) {
-                                    return (
-                                        <IndoorOutdoorChart
-                                            key={sensorType}
-                                            indoorData={chartData}
-                                            outdoorData={outdoorData}
-                                            sensorType={sensorType}
-                                        />
-                                    );
-                                }
-
                                 return (
                                     <SensorLineChart
                                         key={sensorType}

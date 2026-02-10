@@ -15,7 +15,7 @@ const Login = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
 
-    const { login, register, checkAuth } = useAuth();
+    const { login, register } = useAuth();
     const navigate = useNavigate();
     const location = useLocation();
 
@@ -79,8 +79,6 @@ const Login = () => {
         setLocalError('');
         setPassword('');
     };
-
-
 
     return (
         <Motion.div
@@ -200,7 +198,6 @@ const Login = () => {
                             >
                                 {isRegistering ? 'Back to Sign In' : 'Create Account'}
                             </Button>
-
                         </div>
                     </form>
                 </div>

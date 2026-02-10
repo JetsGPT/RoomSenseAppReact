@@ -1,7 +1,7 @@
 import React from 'react';
 import { Card } from './card';
 import { Button } from './button';
-import { Home, Box, BarChart3, Settings, Calendar } from 'lucide-react';
+import { Home, Box, BarChart3, Settings } from 'lucide-react';
 
 export function Sidebar({ activeView, onViewChange, sensorBoxes }) {
     const sidebarItems = [
@@ -22,12 +22,6 @@ export function Sidebar({ activeView, onViewChange, sensorBoxes }) {
             label: 'Analytics',
             icon: BarChart3,
             description: 'Advanced data analysis'
-        },
-        {
-            id: 'heatmap',
-            label: 'Heatmap',
-            icon: Calendar,
-            description: 'Sensor history view'
         }
     ];
 
@@ -48,15 +42,16 @@ export function Sidebar({ activeView, onViewChange, sensorBoxes }) {
                 {sidebarItems.map((item) => {
                     const Icon = item.icon;
                     const isActive = activeView === item.id;
-
+                    
                     return (
                         <Button
                             key={item.id}
                             variant={isActive ? "default" : "ghost"}
-                            className={`w-full justify-start h-auto p-2 sm:p-3 ${isActive
-                                ? 'bg-primary text-primary-foreground'
-                                : 'hover:bg-accent hover:text-accent-foreground'
-                                }`}
+                            className={`w-full justify-start h-auto p-2 sm:p-3 ${
+                                isActive 
+                                    ? 'bg-primary text-primary-foreground' 
+                                    : 'hover:bg-accent hover:text-accent-foreground'
+                            }`}
                             onClick={() => onViewChange(item.id)}
                         >
                             <div className="flex items-center gap-2 sm:gap-3 w-full">
@@ -73,13 +68,14 @@ export function Sidebar({ activeView, onViewChange, sensorBoxes }) {
 
             {/* Footer */}
             <div className="p-2 sm:p-4 border-t border-border">
-                <Button
-                    variant={activeView === 'options' ? "default" : "ghost"}
-                    size="sm"
-                    className={`w-full justify-start text-xs sm:text-sm ${activeView === 'options'
-                        ? 'bg-primary text-primary-foreground'
-                        : 'hover:bg-accent hover:text-accent-foreground'
-                        }`}
+                <Button 
+                    variant={activeView === 'options' ? "default" : "ghost"} 
+                    size="sm" 
+                    className={`w-full justify-start text-xs sm:text-sm ${
+                        activeView === 'options' 
+                            ? 'bg-primary text-primary-foreground' 
+                            : 'hover:bg-accent hover:text-accent-foreground'
+                    }`}
                     onClick={() => onViewChange('options')}
                 >
                     <Settings size={14} className="mr-1 sm:mr-2 sm:w-4 sm:h-4" />

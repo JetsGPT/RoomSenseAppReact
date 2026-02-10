@@ -109,35 +109,6 @@ export const sensorsAPI = {
     },
 
     /**
-     * Get aggregated daily data for heatmap.
-     * @param {string} sensor_box - The ID of the sensor box
-     * @param {string} sensor_type - The sensor type
-     * @param {Object} [params={}] - Additional query parameters (start_time, end_time, aggregation)
-     * @returns {Promise<Array>} Array of { date, value } objects
-     */
-    getAggregatedData: async (sensor_box, sensor_type, params = {}) => {
-        const { start_time = '-365d', end_time = 'now()', aggregation = 'mean' } = params;
-        // manually build query params for specific endpoint args
-        const queryParams = new URLSearchParams();
-        if (start_time) queryParams.append('start_time', start_time);
-        if (end_time) queryParams.append('end_time', end_time);
-        if (aggregation) queryParams.append('aggregation', aggregation);
-
-        const url = `/sensors/data/aggregated/${encodeURIComponent(sensor_box)}/${encodeURIComponent(sensor_type)}?${queryParams.toString()}`;
-        const response = await api.get(url);
-        return response.data;
-    },
-
-    /**
-     * Get list of unique sensor boxes.
-     * @returns {Promise<Array>} Array of sensor box identifiers
-     */
-    getSensorBoxes: async () => {
-        const response = await api.get('/sensors/boxes');
-        return response.data;
-    },
-
-    /**
      * Get list of unique sensor types.
      * @returns {Promise<Array>} Array of sensor type identifiers
      */
