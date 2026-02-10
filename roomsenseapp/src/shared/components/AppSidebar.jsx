@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { Button } from '../../components/ui/button';
 import { Separator } from '../../components/ui/separator';
 import { Card } from '../../components/ui/card';
-import { Home, Box, Settings, Calendar, GitCompareArrows, Bell } from 'lucide-react';
+import { Home, Box, Settings, Calendar, GitCompareArrows, Bell, Activity } from 'lucide-react';
 import { useSidebar } from '../contexts/SidebarContext';
 
 
@@ -56,12 +56,20 @@ export function AppSidebar() {
             label: 'Notifications',
             icon: Bell,
             description: 'Manage alert rules'
+        },
+        {
+            id: 'system-health',
+            label: 'System Health',
+            icon: Activity,
+            description: 'Device status monitor'
         }
     ];
 
     const handleItemClick = (itemId) => {
         if (itemId === 'notifications') {
             navigate('/notifications');
+        } else if (itemId === 'system-health') {
+            navigate('/system-health');
         } else if (!location.pathname.startsWith('/dashboard')) {
             navigate(`/dashboard?view=${itemId}`);
         } else {

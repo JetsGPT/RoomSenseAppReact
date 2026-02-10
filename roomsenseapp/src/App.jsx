@@ -29,6 +29,7 @@ const KioskView = lazy(() => import('./pages/KioskView'));
 const FloorPlanEditor = lazy(() => import('./pages/FloorPlanEditor'));
 const Weather = lazy(() => import('./pages/Weather'));
 const Notifications = lazy(() => import('./pages/Notifications'));
+const SystemHealth = lazy(() => import('./pages/SystemHealth'));
 
 // Loading fallback component
 const LoadingFallback = () => (
@@ -62,7 +63,7 @@ function AppContent() {
     const shouldShowNavigation = !hideNavigationRoutes.includes(location.pathname);
 
     // Define routes where Sidebar should be shown (dashboard-related pages)
-    const showSidebarRoutes = ['/dashboard', '/notifications'];
+    const showSidebarRoutes = ['/dashboard', '/notifications', '/system-health'];
     const shouldShowSidebar = showSidebarRoutes.includes(location.pathname);
 
     return (

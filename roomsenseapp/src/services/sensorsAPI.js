@@ -157,6 +157,15 @@ export const sensorsAPI = {
     },
 
     /**
+     * Get system health status for all active devices.
+     * @returns {Promise<Array>} Array of device health objects
+     */
+    getSystemHealth: async () => {
+        const response = await api.get('/sensors/health-status');
+        return response.data;
+    },
+
+    /**
      * Export sensor data as CSV file.
      * Downloads a CSV file with sensor data based on the provided filters.
      * @param {Object} [params={}] - Filter parameters
