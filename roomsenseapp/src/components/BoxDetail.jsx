@@ -8,6 +8,7 @@ import { IndoorOutdoorChart } from './ui/IndoorOutdoorChart';
 import { SensorGauge, GaugeCustomizer } from './ui/SensorGauge';
 import { SensorDisplayGrid } from './ui/SensorDisplayGrid';
 import { RoomScore, TipsCard } from './ui/RoomScore';
+import { MoldRiskWidget } from './ui/MoldRiskWidget';
 import { DisplayModeSelector } from './ui/DisplayModeSelector';
 import { SensorChartManager } from './SensorChartManager';
 import { DatePicker } from './ui/date-picker';
@@ -605,12 +606,19 @@ export function BoxDetail({ boxId }) {
             </div>
 
             {/* Live Readings with Gauges */}
-            {/* Room Score */}
-            <RoomScore
-                readings={latestReadings}
-                roomName={`Room ${boxId}`}
-                size="default"
-            />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Room Score */}
+                <RoomScore
+                    readings={latestReadings}
+                    roomName={`Room ${boxId}`}
+                    size="default"
+                />
+
+                {/* Mold Risk Widget */}
+                <MoldRiskWidget
+                    sensorBoxId={boxId}
+                />
+            </div>
 
             {/* Live Readings with Multi-Mode Display */}
             <div className="space-y-3">

@@ -147,6 +147,16 @@ export const sensorsAPI = {
     },
 
     /**
+     * Get mold risk assessment for a specific box.
+     * @param {string} sensor_box - The ID of the sensor box
+     * @returns {Promise<Object>} Mold risk assessment object
+     */
+    getMoldRisk: async (sensor_box) => {
+        const response = await api.get(`/sensors/data/mold-risk/${encodeURIComponent(sensor_box)}`);
+        return response.data;
+    },
+
+    /**
      * Export sensor data as CSV file.
      * Downloads a CSV file with sensor data based on the provided filters.
      * @param {Object} [params={}] - Filter parameters
