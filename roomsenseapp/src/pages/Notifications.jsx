@@ -195,7 +195,7 @@ export default function Notifications() {
 
     // ─── Render ──────────────────────────────────────────────────
     return (
-        <div className="p-4 md:p-6 lg:p-8 max-w-6xl mx-auto space-y-6">
+        <div className="p-4 md:p-6 lg:p-8 max-w-6xl mx-auto space-y-6 mt-6">
             <StaggeredContainer>
                 {/* ── Page header ────────────────────────────────── */}
                 <StaggeredItem>
@@ -208,7 +208,7 @@ export default function Notifications() {
                                 Manage threshold rules and view notification history.
                             </p>
                         </div>
-                        <Button onClick={openCreate} className="gap-2">
+                        <Button onClick={openCreate} className="gap-2 flex items-center">
                             <Plus size={16} />
                             New Rule
                         </Button>
@@ -258,7 +258,7 @@ export default function Notifications() {
                                     <p className="text-sm mb-4">
                                         Create your first threshold rule to start receiving notifications.
                                     </p>
-                                    <Button variant="outline" onClick={openCreate} className="gap-2">
+                                    <Button variant="outline" onClick={openCreate} className="gap-2 flex items-center">
                                         <Plus size={16} />
                                         Create Rule
                                     </Button>
