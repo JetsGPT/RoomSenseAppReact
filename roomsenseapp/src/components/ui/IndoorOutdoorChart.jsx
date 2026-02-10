@@ -1,7 +1,7 @@
 import React, { useMemo, useCallback, useState } from 'react';
 import { motion } from 'framer-motion';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Legend, Tooltip, ResponsiveContainer } from 'recharts';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './Card'; // Corrected import path
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './card'; // Corrected import path
 import { Button } from './button'; // Corrected import path
 import {
     getSensorName,
