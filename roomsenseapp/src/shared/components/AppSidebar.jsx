@@ -83,7 +83,12 @@ export function AppSidebar() {
             <nav className="flex-1 p-4 space-y-2">
                 {sidebarItems.map((item, index) => {
                     const Icon = item.icon;
-                    const isActive = activeView === item.id;
+                    // Check pathname for top-level routes, otherwise use activeView query param
+                    const isRouteActive = (item.id === 'notifications' && location.pathname === '/notifications') ||
+                        (item.id === 'system-health' && location.pathname === '/system-health');
+                    const isViewActive = activeView === item.id && location.pathname.startsWith('/dashboard');
+
+                    const isActive = isRouteActive || isViewActive;
 
                     return (
                         <motion.div
