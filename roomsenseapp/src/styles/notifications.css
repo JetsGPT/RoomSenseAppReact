@@ -1,0 +1,119 @@
+/* =============================================
+   Notifications Page Styles
+   ============================================= */
+
+/* Status indicator pulse */
+.notification-status-dot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-right: 8px;
+    flex-shrink: 0;
+}
+
+.notification-status-dot.running {
+    background-color: hsl(142 71% 45%);
+    box-shadow: 0 0 0 0 hsla(142, 71%, 45%, 0.6);
+    animation: status-pulse 2s ease-in-out infinite;
+}
+
+.notification-status-dot.stopped {
+    background-color: hsl(0 0% 55%);
+}
+
+.notification-status-dot.error {
+    background-color: hsl(0 84% 60%);
+    box-shadow: 0 0 0 0 hsla(0, 84%, 60%, 0.6);
+    animation: status-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes status-pulse {
+    0% {
+        box-shadow: 0 0 0 0 currentColor;
+        opacity: 1;
+    }
+
+    70% {
+        box-shadow: 0 0 0 8px transparent;
+        opacity: 0.7;
+    }
+
+    100% {
+        box-shadow: 0 0 0 0 transparent;
+        opacity: 1;
+    }
+}
+
+/* History section */
+.notification-history {
+    max-height: 420px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+}
+
+.notification-history::-webkit-scrollbar {
+    width: 6px;
+}
+
+.notification-history::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.notification-history::-webkit-scrollbar-thumb {
+    background-color: hsl(var(--muted-foreground) / 0.3);
+    border-radius: 3px;
+}
+
+/* History entry row */
+.history-entry {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid hsl(var(--border));
+    transition: background-color 0.15s ease;
+}
+
+.history-entry:last-child {
+    border-bottom: none;
+}
+
+.history-entry:hover {
+    background-color: hsl(var(--accent) / 0.3);
+    border-radius: 6px;
+    padding-left: 8px;
+    padding-right: 8px;
+}
+
+/* Empty state */
+.notification-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 48px 24px;
+    text-align: center;
+    color: hsl(var(--muted-foreground));
+}
+
+.notification-empty svg {
+    margin-bottom: 16px;
+    opacity: 0.4;
+}
+
+/* Responsive grid for the page header */
+.notifications-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+@media (max-width: 640px) {
+    .notifications-header {
+        flex-direction: column;
+        align-items: stretch;
+    }
+}
