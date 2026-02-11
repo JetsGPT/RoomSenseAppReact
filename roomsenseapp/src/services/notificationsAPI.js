@@ -23,7 +23,7 @@ export const notificationsAPI = {
      * @returns {Promise<Array>} Array of rule objects
      */
     async getRules() {
-        const response = await api.get('/notifications');
+        const response = await api.get('/notifications/rules');
         return response.data;
     },
 
@@ -39,7 +39,7 @@ export const notificationsAPI = {
      * @returns {Promise<Object>} Created rule with ID
      */
     async createRule(data) {
-        const response = await api.post('/notifications', data);
+        const response = await api.post('/notifications/rules', data);
         return response.data;
     },
 
@@ -50,7 +50,7 @@ export const notificationsAPI = {
      * @returns {Promise<Object>} Updated rule
      */
     async updateRule(id, data) {
-        const response = await api.put(`/notifications/${id}`, data);
+        const response = await api.put(`/notifications/rules/${id}`, data);
         return response.data;
     },
 
@@ -60,7 +60,7 @@ export const notificationsAPI = {
      * @returns {Promise<void>}
      */
     async deleteRule(id) {
-        await api.delete(`/notifications/${id}`);
+        await api.delete(`/notifications/rules/${id}`);
     },
 
     /**
