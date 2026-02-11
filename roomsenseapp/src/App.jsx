@@ -71,7 +71,7 @@ function AppContent() {
             {shouldShowNavigation && <Navigation />}
             <div className="flex min-h-screen">
                 {shouldShowSidebar && <AppSidebar />}
-                <div className={`flex-1 ${shouldShowSidebar ? 'lg:ml-64' : ''}`}>
+                <div className="flex-1">
                     <AnimatePresence mode="wait">
                         <Routes location={location} key={location.pathname}>
                             {/* Public routes - redirects to dashboard if already logged in */}

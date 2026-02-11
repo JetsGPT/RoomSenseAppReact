@@ -32,6 +32,26 @@ const HeatmapView = () => {
     const [selectedBox, setSelectedBox] = useState('');
     const [selectedType, setSelectedType] = useState(''); // Default empty, set after types load
     const [aggregation, setAggregation] = useState('mean');
+    const currentYear = new Date().getFullYear();
+    const [selectedYear, setSelectedYear] = useState(currentYear.toString());
+
+    // Build list of years (last 5 years + current)
+    const availableYears = React.useMemo(() => {
+        const years = [];
+        for (let y = currentYear; y >= currentYear - 5; y--) {
+            years.push(y.toString());
+        }
+        return years;
+    }, [currentYear]);
+
+    // Compute date range from selected year
+    const { yearStart, yearEnd } = React.useMemo(() => {
+        const y = parseInt(selectedYear);
+        return {
+            yearStart: new Date(y, 0, 1),      // Jan 1
+            yearEnd: new Date(y, 11, 31, 23, 59, 59) // Dec 31
+        };
+    }, [selectedYear]);
 
     // Initial load of types and setting default box
     useEffect(() => {
@@ -71,7 +91,9 @@ const HeatmapView = () => {
             setLoading(true);
             try {
                 const data = await sensorsAPI.getAggregatedData(selectedBox, selectedType, {
-                    aggregation: aggregation
+                    aggregation: aggregation,
+                    start_time: yearStart.toISOString(),
+                    end_time: yearEnd.toISOString()
                 });
                 setHeatmapData(data);
             } catch (err) {
@@ -83,7 +105,7 @@ const HeatmapView = () => {
         };
 
         fetchData();
-    }, [selectedBox, selectedType, aggregation]);
+    }, [selectedBox, selectedType, aggregation, yearStart, yearEnd]);
 
     // Derived configs
     const sensorConfig = getSensorConfig(selectedType);
@@ -95,7 +117,7 @@ const HeatmapView = () => {
                     <div>
                         <h1 className="text-3xl font-bold tracking-tight">Sensor Heatmap</h1>
                         <p className="text-muted-foreground">
-                            Visualize daily patterns and reliability over the past year.
+                            Visualize daily patterns and reliability for a selected year.
                         </p>
                     </div>
 
@@ -138,6 +160,19 @@ const HeatmapView = () => {
                                 <SelectItem value="count">Data Points</SelectItem>
                             </SelectContent>
                         </Select>
+
+                        <Select value={selectedYear} onValueChange={setSelectedYear}>
+                            <SelectTrigger className="w-[120px]">
+                                <SelectValue placeholder="Year" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {availableYears.map(year => (
+                                    <SelectItem key={year} value={year}>
+                                        {year}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
                     </div>
                 </div>
             </StaggeredItem>
@@ -159,6 +194,8 @@ const HeatmapView = () => {
                             loading={loading}
                             color={sensorConfig.color}
                             unit={sensorConfig.unit}
+                            startDate={yearStart}
+                            endDate={yearEnd}
                         />
                     </CardContent>
                 </Card>
@@ -186,7 +223,7 @@ const HeatmapView = () => {
                         <CardHeader className="py-4"><CardTitle className="text-base">Data Coverage</CardTitle></CardHeader>
                         <CardContent>
                             <div className="text-2xl font-bold">
-                                {Math.round((heatmapData.length / 365) * 100)}%
+                                {Math.round((heatmapData.length / ((parseInt(selectedYear) % 4 === 0 && (parseInt(selectedYear) % 100 !== 0 || parseInt(selectedYear) % 400 === 0)) ? 366 : 365)) * 100)}%
                             </div>
                         </CardContent>
                     </Card>
