@@ -1,7 +1,7 @@
 import { useAuth } from '../contexts/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { InfoBlock, InfoItem } from '../components/ui/InfoBlock';
-import { User, Shield, Calendar, Hash } from 'lucide-react';
+import { User, Shield, Calendar, Hash, Settings, Mail, Phone } from 'lucide-react';
 
 const AboutMe = () => {
     const { user, logout } = useAuth();
@@ -11,6 +11,8 @@ const AboutMe = () => {
         await logout();
         navigate('/login');
     };
+
+    const fullName = [user?.first_name, user?.last_name].filter(Boolean).join(' ');
 
     return (
         <div className="min-h-screen bg-background">
@@ -31,6 +33,27 @@ const AboutMe = () => {
                             value={user?.username} 
                             icon={User}
                         />
+                        {fullName && (
+                            <InfoItem 
+                                label="Full Name" 
+                                value={fullName} 
+                                icon={User}
+                            />
+                        )}
+                        {user?.email && (
+                            <InfoItem 
+                                label="Email" 
+                                value={user.email} 
+                                icon={Mail}
+                            />
+                        )}
+                        {user?.phone && (
+                            <InfoItem 
+                                label="Phone" 
+                                value={user.phone} 
+                                icon={Phone}
+                            />
+                        )}
                         <InfoItem 
                             label="User ID" 
                             value={user?.id} 
@@ -57,6 +80,13 @@ const AboutMe = () => {
                             >
                                 Sign Out
                             </button>
+                            <Link
+                                to="/settings"
+                                className="w-full px-4 py-2 inline-flex items-center justify-center gap-2 bg-accent/40 text-foreground rounded-md hover:bg-accent/60 transition-colors font-medium"
+                            >
+                                <Settings className="h-4 w-4" />
+                                Settings
+                            </Link>
                         </div>
                     </InfoBlock>
                 </div>

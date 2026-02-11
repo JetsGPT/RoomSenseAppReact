@@ -151,6 +151,12 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
+    const updateProfile = async (profileData) => {
+        const updatedUser = await authAPI.updateProfile(profileData);
+        setUser(updatedUser);
+        return updatedUser;
+    };
+
     const hasRole = (role) => {
         return user?.role === role;
     };
@@ -166,6 +172,7 @@ export const AuthProvider = ({ children }) => {
         login,
         register,
         logout,
+        updateProfile,
         checkAuth,
         hasRole,
         hasAnyRole,

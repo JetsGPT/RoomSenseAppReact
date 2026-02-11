@@ -11,6 +11,7 @@ import Navigation from './components/ui/Navigation';
 import { AppSidebar } from './shared/components/AppSidebar';
 import { PageTransition } from './components/ui/PageTransition';
 import { ErrorBoundary } from './shared/components/ErrorBoundary';
+import { Toaster } from './components/ui/toaster';
 import { Loader2 } from 'lucide-react';
 import './App.css';
 import { useSensorData } from './hooks/useSensorData';
@@ -26,6 +27,8 @@ const Download = lazy(() => import('./pages/Download'));
 const Unauthorized = lazy(() => import('./pages/Unauthorized'));
 const KioskView = lazy(() => import('./pages/KioskView'));
 const FloorPlanEditor = lazy(() => import('./pages/FloorPlanEditor'));
+const Settings = lazy(() => import('./pages/Settings'));
+const Automations = lazy(() => import('./pages/Automations'));
 
 // Loading fallback component
 const LoadingFallback = () => (
@@ -92,6 +95,30 @@ function AppContent() {
                                         <Suspense fallback={<LoadingFallback />}>
                                             <PageTransition>
                                                 <AboutMe />
+                                            </PageTransition>
+                                        </Suspense>
+                                    </RequireAuth>
+                                }
+                            />
+                            <Route
+                                path="/settings"
+                                element={
+                                    <RequireAuth>
+                                        <Suspense fallback={<LoadingFallback />}>
+                                            <PageTransition>
+                                                <Settings />
+                                            </PageTransition>
+                                        </Suspense>
+                                    </RequireAuth>
+                                }
+                            />
+                            <Route
+                                path="/automations"
+                                element={
+                                    <RequireAuth>
+                                        <Suspense fallback={<LoadingFallback />}>
+                                            <PageTransition>
+                                                <Automations />
                                             </PageTransition>
                                         </Suspense>
                                     </RequireAuth>
@@ -217,6 +244,7 @@ function App() {
                     <AuthProvider>
                         <ConnectionsProvider>
                             <DashboardWrapper />
+                            <Toaster />
                         </ConnectionsProvider>
                     </AuthProvider>
                 </SettingsProvider>

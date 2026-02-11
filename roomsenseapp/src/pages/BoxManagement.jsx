@@ -3,13 +3,14 @@ import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Wifi, WifiOff, Search, Plus, Trash2, Box, RefreshCw, Pencil } from 'lucide-react';
-import { bleAPI } from '@/services/api';
+import { Loader2, Wifi, WifiOff, Search, Plus, Trash2, Box, RefreshCw, Pencil, PackagePlus } from 'lucide-react';
+import { bleAPI, boxesAPI } from '@/services/api';
 import { useToast } from '@/hooks/use-toast';
 import { useConnections } from '@/contexts/ConnectionsContext';
 import { StaggeredContainer, StaggeredItem, FadeIn } from '@/components/ui/PageTransition';
 import { RenameDeviceDialog } from '@/components/RenameDeviceDialog';
 import { PairingDialog } from '@/components/PairingDialog';
+import { ClaimDeviceDialog } from '@/components/ClaimDeviceDialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -29,12 +30,72 @@ const BoxManagement = () => {
     const [pairingDevice, setPairingDevice] = useState(null);
     const [pinCode, setPinCode] = useState("");
     const [isVerifyingPin, setIsVerifyingPin] = useState(false);
+
+    // Claim Device State
+    const [claimDialogOpen, setClaimDialogOpen] = useState(false);
+    const [claimedDevices, setClaimedDevices] = useState([]);
+    const [isLoadingClaimed, setIsLoadingClaimed] = useState(true);
+    const [unclaimingIds, setUnclaimingIds] = useState(new Set());
+
     const { toast } = useToast();
 
     // Fetch active connections on mount is handled by context, but we can refresh to be sure
     useEffect(() => {
         refreshConnections(true);
     }, [refreshConnections]);
+
+    // Fetch claimed devices on mount
+    const fetchClaimedDevices = async () => {
+        setIsLoadingClaimed(true);
+        try {
+            const devices = await boxesAPI.getClaimedDevices();
+            setClaimedDevices(devices);
+        } catch (error) {
+            console.error('Failed to fetch claimed devices:', error);
+        } finally {
+            setIsLoadingClaimed(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchClaimedDevices();
+    }, []);
+
+    const handleClaimDevice = async (data) => {
+        const result = await boxesAPI.claimDevice(data);
+        toast({
+            title: "Device Claimed",
+            description: `Successfully claimed ${result.box_name || result.box_id}`,
+        });
+        // Refresh the claimed devices list
+        await fetchClaimedDevices();
+        return result;
+    };
+
+    const handleUnclaimDevice = async (claimId, boxName) => {
+        setUnclaimingIds(prev => new Set(prev).add(claimId));
+        try {
+            await boxesAPI.unclaimDevice(claimId);
+            toast({
+                title: "Device Unclaimed",
+                description: `${boxName || 'Device'} has been removed from your account`,
+            });
+            setClaimedDevices(prev => prev.filter(d => d.id !== claimId));
+        } catch (error) {
+            console.error('Unclaim failed:', error);
+            toast({
+                title: "Unclaim Failed",
+                description: error.response?.data?.error || error.message || "Failed to unclaim device",
+                variant: "destructive",
+            });
+        } finally {
+            setUnclaimingIds(prev => {
+                const newSet = new Set(prev);
+                newSet.delete(claimId);
+                return newSet;
+            });
+        }
+    };
 
     const fetchActiveConnections = () => refreshConnections();
 
@@ -355,11 +416,18 @@ const BoxManagement = () => {
                         initial={{ opacity: 0, y: -20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.5 }}
+                        className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4"
                     >
-                        <h1 className="text-3xl sm:text-4xl font-bold mb-2">My Boxes</h1>
-                        <p className="text-sm sm:text-base text-muted-foreground">
-                            Manage your RoomSense slave boxes and BLE connections
-                        </p>
+                        <div>
+                            <h1 className="text-3xl sm:text-4xl font-bold mb-2">My Boxes</h1>
+                            <p className="text-sm sm:text-base text-muted-foreground">
+                                Manage your RoomSense slave boxes and BLE connections
+                            </p>
+                        </div>
+                        <Button onClick={() => setClaimDialogOpen(true)} className="w-full sm:w-auto">
+                            <PackagePlus className="mr-2 h-5 w-5" />
+                            Claim Device
+                        </Button>
                     </motion.div>
 
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
@@ -549,6 +617,93 @@ const BoxManagement = () => {
                             </CardContent>
                         </Card>
                     </div>
+
+                    {/* Claimed Devices Card */}
+                    <Card>
+                        <CardHeader>
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <CardTitle className="flex items-center gap-2">
+                                        <PackagePlus className="h-5 w-5" />
+                                        Claimed Devices
+                                    </CardTitle>
+                                    <CardDescription>
+                                        Sensor boxes linked to your account
+                                    </CardDescription>
+                                </div>
+                                <Button
+                                    variant="outline"
+                                    size="icon"
+                                    onClick={fetchClaimedDevices}
+                                    disabled={isLoadingClaimed}
+                                >
+                                    <RefreshCw className={`h-4 w-4 ${isLoadingClaimed ? 'animate-spin' : ''}`} />
+                                </Button>
+                            </div>
+                        </CardHeader>
+                        <CardContent>
+                            {isLoadingClaimed ? (
+                                <div className="flex items-center justify-center py-12">
+                                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                                </div>
+                            ) : claimedDevices.length === 0 ? (
+                                <div className="text-center py-12">
+                                    <Box className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                                    <p className="text-muted-foreground">No claimed devices</p>
+                                    <p className="text-sm text-muted-foreground mt-1">
+                                        Click "Claim Device" to link a sensor box to your account
+                                    </p>
+                                </div>
+                            ) : (
+                                <StaggeredContainer className="space-y-3">
+                                    {claimedDevices.map((device, index) => (
+                                        <StaggeredItem key={device.id} index={index}>
+                                            <motion.div
+                                                className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 sm:p-4 rounded-lg border bg-card hover:bg-accent/50 transition-colors gap-3 sm:gap-0"
+                                                whileHover={{ scale: 1.02 }}
+                                                whileTap={{ scale: 0.98 }}
+                                            >
+                                                <div className="flex items-center gap-3 w-full sm:w-auto">
+                                                    <div className="p-2 rounded-full bg-primary/10 flex-shrink-0">
+                                                        <Box className="h-5 w-5 text-primary" />
+                                                    </div>
+                                                    <div className="min-w-0 flex-1">
+                                                        <p className="font-medium truncate">
+                                                            {device.box_name || device.box_id}
+                                                        </p>
+                                                        <p className="text-xs sm:text-sm text-muted-foreground truncate">
+                                                            {device.box_name
+                                                                ? `ID: ${device.box_id} • Claimed ${new Date(device.claimed_at).toLocaleDateString()}`
+                                                                : `Claimed ${new Date(device.claimed_at).toLocaleDateString()}`}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                                                    <Badge variant="outline" className="whitespace-nowrap">
+                                                        Claimed
+                                                    </Badge>
+                                                    <Button
+                                                        variant="destructive"
+                                                        size="icon"
+                                                        onClick={() => handleUnclaimDevice(device.id, device.box_name || device.box_id)}
+                                                        disabled={unclaimingIds.has(device.id)}
+                                                        className="flex-shrink-0"
+                                                        title="Unclaim device"
+                                                    >
+                                                        {unclaimingIds.has(device.id) ? (
+                                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                                        ) : (
+                                                            <Trash2 className="h-4 w-4" />
+                                                        )}
+                                                    </Button>
+                                                </div>
+                                            </motion.div>
+                                        </StaggeredItem>
+                                    ))}
+                                </StaggeredContainer>
+                            )}
+                        </CardContent>
+                    </Card>
                 </div>
             </FadeIn>
 
@@ -557,6 +712,13 @@ const BoxManagement = () => {
                 open={renameDialogOpen}
                 onOpenChange={setRenameDialogOpen}
                 onRename={handleRename}
+            />
+
+            {/* Claim Device Dialog */}
+            <ClaimDeviceDialog
+                open={claimDialogOpen}
+                onOpenChange={setClaimDialogOpen}
+                onClaim={handleClaimDevice}
             />
 
             {/* PIN Entry Dialog */}

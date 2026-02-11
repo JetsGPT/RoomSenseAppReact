@@ -1,7 +1,7 @@
 import { useId } from "react"
 import { useLocation, useNavigate, Link } from "react-router-dom"
 import { motion } from "framer-motion"
-import { HouseIcon, InboxIcon, SearchIcon, ZapIcon, Shield, Box, BarChart3, Download, Monitor, Map } from "lucide-react"
+import { HouseIcon, InboxIcon, SearchIcon, ZapIcon, Shield, Box, BarChart3, Download, Monitor, Map, Settings, Workflow } from "lucide-react"
 import Time from "@/components/ui/Time"
 import Logo from "@/components/logo"
 import { Button } from "@/components/ui/button"
@@ -26,9 +26,11 @@ const navigationLinks = [
   { href: "/dashboard", label: "Dashboard", icon: HouseIcon },
   { href: "/floor-plan", label: "Floor Plan", icon: Map },
   { href: "/boxes", label: "My Boxes", icon: Box },
+  { href: "/automations", label: "Automations", icon: Workflow },
   { href: "/kiosk", label: "Kiosk", icon: Monitor },
   { href: "/download", label: "Download", icon: Download },
   { href: "/about-me", label: "About", icon: InboxIcon },
+  { href: "/settings", label: "Settings", icon: Settings },
   { href: "/admin", label: "Admin", icon: Shield },
   { href: "#", label: "Help", icon: ZapIcon },
 ]

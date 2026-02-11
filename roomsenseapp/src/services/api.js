@@ -51,6 +51,16 @@ export const authAPI = {
         return response.data;
     },
 
+    deleteAccount: async (password) => {
+        const response = await api.delete('/users/me', { data: { password } });
+        return response.data;
+    },
+
+    updateProfile: async ({ first_name, last_name, email, phone }) => {
+        const response = await api.put('/users/me', { first_name, last_name, email, phone });
+        return response.data;
+    },
+
     getCurrentUser: async () => {
         const response = await api.get('/users/me');
         return response.data;
@@ -126,6 +136,24 @@ export const bleAPI = {
 
     renameDevice: async (address, display_name) => {
         const response = await api.patch(`/devices/connect/${address.toUpperCase()}`, { display_name });
+        return response.data;
+    },
+};
+
+// Sensor Box Claiming API
+export const boxesAPI = {
+    claimDevice: async ({ box_id, claim_password, box_name }) => {
+        const response = await api.post('/boxes/claim', { box_id, claim_password, box_name });
+        return response.data;
+    },
+
+    getClaimedDevices: async () => {
+        const response = await api.get('/boxes/claimed');
+        return response.data;
+    },
+
+    unclaimDevice: async (claimId) => {
+        const response = await api.delete(`/boxes/claim/${claimId}`);
         return response.data;
     },
 };
