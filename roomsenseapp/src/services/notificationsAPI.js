@@ -29,13 +29,15 @@ export const notificationsAPI = {
 
     /**
      * Create a new notification rule
-     * @param {Object} data - Rule data
+     * @param {Object} data - Rule data (backend field names)
+     * @param {string} data.name - Rule name
      * @param {string} data.sensor_id - Sensor box address
-     * @param {string} data.metric - Metric name (temperature, humidity, etc.)
-     * @param {string} data.operator - Comparison operator (>, <, ==, !=)
+     * @param {string} data.sensor_type - Metric name (temperature, humidity, etc.)
+     * @param {string} data.condition - Comparison operator (>, <, ==, !=)
      * @param {number} data.threshold - Threshold value
-     * @param {string} data.ntfy_topic - ntfy notification topic
-     * @param {number} [data.cooldown_minutes] - Cooldown between notifications
+     * @param {string} data.notification_target - ntfy notification topic
+     * @param {string} [data.notification_provider] - Provider (default: 'ntfy')
+     * @param {number} [data.cooldown_seconds] - Cooldown between notifications in seconds
      * @returns {Promise<Object>} Created rule with ID
      */
     async createRule(data) {

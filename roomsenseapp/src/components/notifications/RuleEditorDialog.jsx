@@ -28,6 +28,14 @@ const METRICS = [
     { value: 'pm25', label: 'PM2.5 (µg/m³)' },
 ];
 
+const METRIC_LABELS = {
+    temperature: 'Temperature',
+    humidity: 'Humidity',
+    co2: 'CO₂',
+    voc: 'VOC',
+    pm25: 'PM2.5',
+};
+
 const OPERATORS = [
     { value: '>', label: '> Greater than' },
     { value: '<', label: '< Less than' },
@@ -36,12 +44,13 @@ const OPERATORS = [
 ];
 
 const DEFAULT_FORM = {
+    name: '',
     sensor_id: '',
-    metric: '',
-    operator: '>',
+    sensor_type: '',       // maps to "metric" in UI
+    condition: '>',        // maps to "operator" in UI
     threshold: '',
-    ntfy_topic: '',
-    cooldown_minutes: '15',
+    notification_target: '', // maps to "ntfy_topic" in UI
+    cooldown_minutes: '15',  // converted to seconds on submit
 };
 
 /**
@@ -60,16 +69,21 @@ export function RuleEditorDialog({ open, onOpenChange, editingRule, onSave }) {
 
     const isEdit = Boolean(editingRule);
 
-    // Populate form when editing
+    // Populate form when editing — map backend field names to form fields
     useEffect(() => {
         if (editingRule) {
             setForm({
+                name: editingRule.name || '',
                 sensor_id: editingRule.sensor_id || '',
-                metric: editingRule.metric || '',
-                operator: editingRule.operator || '>',
+                sensor_type: editingRule.sensor_type || '',
+                condition: editingRule.condition || '>',
                 threshold: String(editingRule.threshold ?? ''),
-                ntfy_topic: editingRule.ntfy_topic || '',
-                cooldown_minutes: String(editingRule.cooldown_minutes ?? '15'),
+                notification_target: editingRule.notification_target || '',
+                cooldown_minutes: String(
+                    editingRule.cooldown_seconds != null
+                        ? Math.round(editingRule.cooldown_seconds / 60)
+                        : '15'
+                ),
             });
         } else {
             setForm(DEFAULT_FORM);
@@ -84,10 +98,22 @@ export function RuleEditorDialog({ open, onOpenChange, editingRule, onSave }) {
         e.preventDefault();
         setSaving(true);
         try {
+            const cooldownMinutes = parseInt(form.cooldown_minutes, 10) || 15;
+
+            // Auto-generate a name if the user didn't provide one
+            const autoName = form.name.trim()
+                || `${METRIC_LABELS[form.sensor_type] || form.sensor_type} alert`;
+
+            // Send data with backend-expected field names
             await onSave({
-                ...form,
+                name: autoName,
+                sensor_id: form.sensor_id,
+                sensor_type: form.sensor_type,
+                condition: form.condition,
                 threshold: parseFloat(form.threshold),
-                cooldown_minutes: parseInt(form.cooldown_minutes, 10) || 15,
+                notification_target: form.notification_target,
+                notification_provider: 'ntfy',
+                cooldown_seconds: cooldownMinutes * 60,
             });
             onOpenChange(false);
         } catch {
@@ -99,11 +125,11 @@ export function RuleEditorDialog({ open, onOpenChange, editingRule, onSave }) {
 
     const isValid =
         form.sensor_id &&
-        form.metric &&
-        form.operator &&
+        form.sensor_type &&
+        form.condition &&
         form.threshold !== '' &&
         !isNaN(parseFloat(form.threshold)) &&
-        form.ntfy_topic.trim();
+        form.notification_target.trim();
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -118,6 +144,18 @@ export function RuleEditorDialog({ open, onOpenChange, editingRule, onSave }) {
                 </DialogHeader>
 
                 <form onSubmit={handleSubmit} className="space-y-4 py-2">
+                    {/* Rule Name */}
+                    <div className="space-y-2">
+                        <Label htmlFor="rule-name">Rule Name <span className="text-muted-foreground text-xs">(optional)</span></Label>
+                        <Input
+                            id="rule-name"
+                            type="text"
+                            placeholder="e.g. High humidity alert"
+                            value={form.name}
+                            onChange={(e) => handleFieldChange('name', e.target.value)}
+                        />
+                    </div>
+
                     {/* Sensor */}
                     <div className="space-y-2">
                         <Label htmlFor="rule-sensor">Sensor Box</Label>
@@ -138,12 +176,12 @@ export function RuleEditorDialog({ open, onOpenChange, editingRule, onSave }) {
                         </Select>
                     </div>
 
-                    {/* Metric */}
+                    {/* Metric (sensor_type) */}
                     <div className="space-y-2">
                         <Label htmlFor="rule-metric">Metric</Label>
                         <Select
-                            value={form.metric}
-                            onValueChange={(v) => handleFieldChange('metric', v)}
+                            value={form.sensor_type}
+                            onValueChange={(v) => handleFieldChange('sensor_type', v)}
                         >
                             <SelectTrigger id="rule-metric">
                                 <SelectValue placeholder="Select metric" />
@@ -158,13 +196,13 @@ export function RuleEditorDialog({ open, onOpenChange, editingRule, onSave }) {
                         </Select>
                     </div>
 
-                    {/* Operator + Threshold */}
+                    {/* Operator (condition) + Threshold */}
                     <div className="grid grid-cols-2 gap-3">
                         <div className="space-y-2">
                             <Label htmlFor="rule-operator">Condition</Label>
                             <Select
-                                value={form.operator}
-                                onValueChange={(v) => handleFieldChange('operator', v)}
+                                value={form.condition}
+                                onValueChange={(v) => handleFieldChange('condition', v)}
                             >
                                 <SelectTrigger id="rule-operator">
                                     <SelectValue placeholder="Operator" />
@@ -191,15 +229,15 @@ export function RuleEditorDialog({ open, onOpenChange, editingRule, onSave }) {
                         </div>
                     </div>
 
-                    {/* ntfy topic */}
+                    {/* ntfy topic (notification_target) */}
                     <div className="space-y-2">
                         <Label htmlFor="rule-topic">ntfy Topic</Label>
                         <Input
                             id="rule-topic"
                             type="text"
                             placeholder="e.g. roomsense-alerts"
-                            value={form.ntfy_topic}
-                            onChange={(e) => handleFieldChange('ntfy_topic', e.target.value)}
+                            value={form.notification_target}
+                            onChange={(e) => handleFieldChange('notification_target', e.target.value)}
                         />
                     </div>
 

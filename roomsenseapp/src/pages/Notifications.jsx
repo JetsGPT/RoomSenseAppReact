@@ -84,7 +84,7 @@ export default function Notifications() {
         setLoadingRules(true);
         try {
             const data = await notificationsAPI.getRules();
-            setRules(Array.isArray(data) ? data : []);
+            setRules(Array.isArray(data?.rules) ? data.rules : Array.isArray(data) ? data : []);
         } catch {
             setRules([]);
         } finally {
@@ -96,7 +96,7 @@ export default function Notifications() {
         setLoadingHistory(true);
         try {
             const data = await notificationsAPI.getHistory({ limit: 20 });
-            setHistory(Array.isArray(data) ? data : []);
+            setHistory(Array.isArray(data?.history) ? data.history : Array.isArray(data) ? data : []);
         } catch {
             setHistory([]);
         } finally {
@@ -146,7 +146,7 @@ export default function Notifications() {
     const handleDeleteRule = async (rule) => {
         try {
             await notificationsAPI.deleteRule(rule.id);
-            toast({ title: 'Deleted', description: `Rule "${METRIC_LABELS[rule.metric] || rule.metric}" removed.`, variant: 'default' });
+            toast({ title: 'Deleted', description: `Rule "${rule.name || METRIC_LABELS[rule.sensor_type] || rule.sensor_type}" removed.`, variant: 'default' });
             fetchRules();
         } catch {
             toast({ title: 'Error', description: 'Failed to delete rule.', variant: 'destructive' });
@@ -283,16 +283,16 @@ export default function Notifications() {
                                                         {sensorName(rule.sensor_id)}
                                                     </TableCell>
                                                     <TableCell>
-                                                        {METRIC_LABELS[rule.metric] || rule.metric}
+                                                        {METRIC_LABELS[rule.sensor_type] || rule.sensor_type}
                                                     </TableCell>
                                                     <TableCell>
                                                         <code className="text-xs bg-muted px-1.5 py-0.5 rounded">
-                                                            {rule.operator} {rule.threshold}
-                                                            {METRIC_UNITS[rule.metric] || ''}
+                                                            {rule.condition} {rule.threshold}
+                                                            {METRIC_UNITS[rule.sensor_type] || ''}
                                                         </code>
                                                     </TableCell>
                                                     <TableCell className="text-muted-foreground text-sm">
-                                                        {rule.ntfy_topic}
+                                                        {rule.notification_target}
                                                     </TableCell>
                                                     <TableCell className="text-center">
                                                         <Switch
@@ -374,23 +374,23 @@ export default function Notifications() {
                                             <div className="flex-1 min-w-0">
                                                 <div className="flex items-center gap-2 flex-wrap">
                                                     <span className="font-medium text-sm text-foreground">
-                                                        {METRIC_LABELS[entry.metric] || entry.metric}
+                                                        {METRIC_LABELS[entry.sensor_type] || entry.sensor_type}
                                                     </span>
                                                     <Badge variant="outline" className="text-xs">
                                                         {sensorName(entry.sensor_id)}
                                                     </Badge>
                                                 </div>
                                                 <p className="text-xs text-muted-foreground mt-0.5 truncate">
-                                                    Value: {entry.value}
-                                                    {METRIC_UNITS[entry.metric] ? ` ${METRIC_UNITS[entry.metric]}` : ''}
-                                                    {entry.ntfy_topic && ` → ${entry.ntfy_topic}`}
+                                                    Value: {entry.sensor_value}
+                                                    {METRIC_UNITS[entry.sensor_type] ? ` ${METRIC_UNITS[entry.sensor_type]}` : ''}
+                                                    {entry.notification_target && ` → ${entry.notification_target}`}
                                                 </p>
                                             </div>
 
                                             {/* Timestamp */}
                                             <span className="text-xs text-muted-foreground whitespace-nowrap">
-                                                {entry.created_at
-                                                    ? new Date(entry.created_at).toLocaleString()
+                                                {entry.sent_at
+                                                    ? new Date(entry.sent_at).toLocaleString()
                                                     : '—'}
                                             </span>
                                         </motion.div>
