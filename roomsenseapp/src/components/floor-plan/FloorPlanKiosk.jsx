@@ -7,13 +7,14 @@
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { floorPlanStorage } from '../../services/floorPlanAPI';
+import { floorPlanStorage, floorPlanAPI } from '../../services/floorPlanAPI';
 import { useConnections } from '../../contexts/ConnectionsContext';
 import { useDashboardSensorData } from '../../hooks/useSensorData';
 import { useComfortZones } from '../../hooks/useComfortZones';
 import { sensorHelpers } from '../../services/sensorsAPI';
 import { calculateBoundingBox } from '../../utils/floorPlanUtils';
 import { getSensorUnit } from '../../config/sensorConfig';
+import { useToast } from '../../hooks/use-toast';
 import {
     Thermometer,
     Droplets,
@@ -146,6 +147,7 @@ function KioskSensor({ sensor, sensorData, activeConnections, viewTransform, con
 }
 
 export function FloorPlanKiosk({ autoRotateFloors = true, rotationInterval = 10000 }) {
+    const { toast } = useToast();
     const { activeConnections } = useConnections();
     const canvasRef = useRef(null);
     const containerRef = useRef(null);
@@ -202,28 +204,63 @@ export function FloorPlanKiosk({ autoRotateFloors = true, rotationInterval = 100
     });
 
     // Load floor plans
+    // Load floor plans
     useEffect(() => {
-        const plans = floorPlanStorage.getAll();
-        setFloorPlans(plans);
+        let mounted = true;
 
-        // Select first plan with sensors
-        const planWithSensors = plans.find(p =>
-            (p.floors && p.floors.some(f => f.sensors?.length > 0)) ||
-            (p.sensors && p.sensors.length > 0)
-        );
-        if (planWithSensors) {
-            setSelectedPlanId(planWithSensors.id);
-            if (planWithSensors.floors) {
-                const floorWithSensors = planWithSensors.floors.find(f => f.sensors?.length > 0);
-                setSelectedFloorId(floorWithSensors?.id || planWithSensors.floors[0]?.id);
+        const loadPlans = async () => {
+            try {
+                // Try API first
+                const apiPlans = await floorPlanAPI.getFloorPlans();
+                if (mounted) {
+                    setFloorPlans(apiPlans);
+                    selectActivePlan(apiPlans);
+                }
+            } catch (error) {
+                console.warn('Kiosk: Failed to load from API, falling back to local', error);
+
+                // Fallback to local
+                const localPlans = floorPlanStorage.getAll();
+                if (mounted) {
+                    setFloorPlans(localPlans);
+                    selectActivePlan(localPlans);
+                }
             }
-        } else if (plans.length > 0) {
-            setSelectedPlanId(plans[0].id);
-            if (plans[0].floors) {
-                setSelectedFloorId(plans[0].floors[0]?.id);
+        };
+
+        loadPlans();
+
+        return () => {
+            mounted = false;
+        };
+    }, []);
+
+    const selectActivePlan = (plans) => {
+        // 1. Find explicit active plan
+        let plan = plans.find(p => p.isActive);
+
+        // 2. Fallback: Plan with sensors
+        if (!plan) {
+            plan = plans.find(p =>
+                (p.floors && p.floors.some(f => f.sensors?.length > 0)) ||
+                (p.sensors && p.sensors.length > 0)
+            );
+        }
+
+        // 3. Fallback: First plan
+        if (!plan && plans.length > 0) {
+            plan = plans[0];
+        }
+
+        if (plan) {
+            setSelectedPlanId(plan.id);
+            if (plan.floors) {
+                // Try to find floor with sensors, else first
+                const floorWithSensors = plan.floors.find(f => f.sensors?.length > 0);
+                setSelectedFloorId(floorWithSensors?.id || plan.floors[0]?.id);
             }
         }
-    }, []);
+    };
 
     // Get selected plan and floor
     const selectedPlan = floorPlans.find(p => p.id === selectedPlanId);

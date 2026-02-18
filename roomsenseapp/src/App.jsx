@@ -4,6 +4,7 @@ import { lazy, Suspense, useMemo } from 'react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { SettingsProvider } from './contexts/SettingsContext';
+import { WeatherProvider } from './contexts/WeatherContext';
 import { ConnectionsProvider, useConnections } from './contexts/ConnectionsContext';
 import { SidebarProvider } from './shared/contexts/SidebarContext';
 import { RequireAuth, RequireRole, PublicOnly } from './components/ProtectedRoute';
@@ -11,7 +12,6 @@ import Navigation from './components/ui/Navigation';
 import { AppSidebar } from './shared/components/AppSidebar';
 import { PageTransition } from './components/ui/PageTransition';
 import { ErrorBoundary } from './shared/components/ErrorBoundary';
-import { Toaster } from './components/ui/toaster';
 import { Loader2 } from 'lucide-react';
 import './App.css';
 import { useSensorData } from './hooks/useSensorData';
@@ -27,8 +27,9 @@ const Download = lazy(() => import('./pages/Download'));
 const Unauthorized = lazy(() => import('./pages/Unauthorized'));
 const KioskView = lazy(() => import('./pages/KioskView'));
 const FloorPlanEditor = lazy(() => import('./pages/FloorPlanEditor'));
-const Settings = lazy(() => import('./pages/Settings'));
-const Automations = lazy(() => import('./pages/Automations'));
+const Weather = lazy(() => import('./pages/Weather'));
+const Notifications = lazy(() => import('./pages/Notifications'));
+const SystemHealth = lazy(() => import('./pages/SystemHealth'));
 
 // Loading fallback component
 const LoadingFallback = () => (
@@ -62,7 +63,7 @@ function AppContent() {
     const shouldShowNavigation = !hideNavigationRoutes.includes(location.pathname);
 
     // Define routes where Sidebar should be shown (dashboard-related pages)
-    const showSidebarRoutes = ['/dashboard'];
+    const showSidebarRoutes = ['/dashboard', '/notifications', '/system-health'];
     const shouldShowSidebar = showSidebarRoutes.includes(location.pathname);
 
     return (
@@ -70,7 +71,7 @@ function AppContent() {
             {shouldShowNavigation && <Navigation />}
             <div className="flex min-h-screen">
                 {shouldShowSidebar && <AppSidebar />}
-                <div className={`flex-1 ${shouldShowSidebar ? 'lg:ml-64' : ''}`}>
+                <div className="flex-1">
                     <AnimatePresence mode="wait">
                         <Routes location={location} key={location.pathname}>
                             {/* Public routes - redirects to dashboard if already logged in */}
@@ -101,24 +102,12 @@ function AppContent() {
                                 }
                             />
                             <Route
-                                path="/settings"
+                                path="/weather"
                                 element={
                                     <RequireAuth>
                                         <Suspense fallback={<LoadingFallback />}>
                                             <PageTransition>
-                                                <Settings />
-                                            </PageTransition>
-                                        </Suspense>
-                                    </RequireAuth>
-                                }
-                            />
-                            <Route
-                                path="/automations"
-                                element={
-                                    <RequireAuth>
-                                        <Suspense fallback={<LoadingFallback />}>
-                                            <PageTransition>
-                                                <Automations />
+                                                <Weather />
                                             </PageTransition>
                                         </Suspense>
                                     </RequireAuth>
@@ -174,8 +163,33 @@ function AppContent() {
                                     </RequireAuth>
                                 }
                             />
+                            <Route
+                                path="/notifications"
+                                element={
+                                    <RequireAuth>
+                                        <Suspense fallback={<LoadingFallback />}>
+                                            <PageTransition>
+                                                <Notifications />
+                                            </PageTransition>
+                                        </Suspense>
+                                    </RequireAuth>
+                                }
+                            />
 
                             {/* Unauthorized page */}
+                            <Route
+                                path="/system-health"
+                                element={
+                                    <RequireAuth>
+                                        <Suspense fallback={<LoadingFallback />}>
+                                            <PageTransition>
+                                                <SystemHealth />
+                                            </PageTransition>
+                                        </Suspense>
+                                    </RequireAuth>
+                                }
+                            />
+
                             <Route
                                 path="/unauthorized"
                                 element={
@@ -241,12 +255,13 @@ function App() {
         <BrowserRouter>
             <ThemeProvider>
                 <SettingsProvider>
-                    <AuthProvider>
-                        <ConnectionsProvider>
-                            <DashboardWrapper />
-                            <Toaster />
-                        </ConnectionsProvider>
-                    </AuthProvider>
+                    <WeatherProvider>
+                        <AuthProvider>
+                            <ConnectionsProvider>
+                                <DashboardWrapper />
+                            </ConnectionsProvider>
+                        </AuthProvider>
+                    </WeatherProvider>
                 </SettingsProvider>
             </ThemeProvider>
         </BrowserRouter>

@@ -1,13 +1,19 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion as Motion } from 'framer-motion';
-import { AlertTriangle } from 'lucide-react';
 import { useSidebar } from '../shared/contexts/SidebarContext';
 import { useSensorData, useDashboardSensorData } from '../hooks/useSensorData';
+import { InfoBlock, InfoItem } from '../components/ui/InfoBlock';
+import { SensorLineChart, SensorAreaChart, MultiSensorChart } from '../components/ui/SensorCharts';
 import { Overview } from '../components/Overview';
 import { BoxDetail } from '../components/BoxDetail';
 import { Options } from '../components/Options';
-import { StaggeredContainer, StaggeredItem } from '../components/ui/PageTransition';
+import HeatmapView from './HeatmapView';
+import CorrelationAnalysis from './CorrelationAnalysis';
+import { StaggeredContainer, StaggeredItem, FadeIn, SlideIn } from '../components/ui/PageTransition';
 import {
+    getSensorUnit,
+    getSensorColor,
+    CHART_CONFIG,
     DEFAULT_TIME_RANGE_VALUE,
     DEFAULT_DATA_LIMIT,
     DEFAULT_REFRESH_INTERVAL
@@ -49,14 +55,14 @@ const Dashboard = () => {
     const {
         data: sensorData,
         groupedData,
+        sensorTypes,
         loading,
         isFetching,
-    error,
-    forbiddenBoxes = [],
-    refresh: refreshData
+        error,
+        refresh: refreshData
     } = isOverview ? overviewData :
             boxId ? boxData :
-                { data: [], groupedData: {}, loading: false, isFetching: false, error: null, forbiddenBoxes: [], refresh: () => { } };
+                { data: [], groupedData: {}, sensorTypes: [], loading: false, isFetching: false, error: null, refresh: () => { } };
 
     // Save fetch delay to localStorage
     useEffect(() => {
@@ -73,6 +79,13 @@ const Dashboard = () => {
 
     // Get chart colors from centralized config
     // Note: This duplicates CHART_CONFIG.colors logic but allows for dynamic sensor types
+    const chartColors = useMemo(() => {
+        return sensorTypes.reduce((colors, sensorType) => {
+            colors[sensorType] = getSensorColor(sensorType);
+            return colors;
+        }, {});
+    }, [sensorTypes]);
+
     // Render content based on active view
     const renderContent = () => {
         if (activeView === 'overview') {
@@ -90,6 +103,10 @@ const Dashboard = () => {
                     boxId={boxId}
                 />
             );
+        } else if (activeView === 'heatmap') {
+            return <HeatmapView />;
+        } else if (activeView === 'correlation') {
+            return <CorrelationAnalysis />;
         } else if (activeView === 'options') {
             return (
                 <Options
@@ -116,11 +133,7 @@ const Dashboard = () => {
 
     // Show error state
     if (error) {
-        const status = error?.response?.status;
-        const details = error?.response?.data?.error;
-        const errorMessage = status === 403
-            ? 'You do not have permission to view the requested data.'
-            : details || error?.message || error?.toString() || 'Unknown error occurred';
+        const errorMessage = error?.message || error?.toString() || 'Unknown error occurred';
         return (
             <div className="min-h-screen bg-background flex items-center justify-center">
                 <div className="text-center">
@@ -163,22 +176,6 @@ const Dashboard = () => {
                 )}
                 <StaggeredContainer delay={0.1}>
                     <StaggeredItem>
-                        {forbiddenBoxes.length > 0 && (
-                            <Motion.div
-                                className="mb-4 rounded-2xl border border-yellow-200 bg-yellow-50 p-4 text-sm text-yellow-800 dark:border-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-100"
-                                initial={{ opacity: 0, y: -10 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ duration: 0.2 }}
-                            >
-                                <div className="flex items-start gap-3">
-                                    <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
-                                    <p>
-                                        You do not have permission to view data for {forbiddenBoxes.join(', ')}.
-                                        Those boxes are hidden from the overview.
-                                    </p>
-                                </div>
-                            </Motion.div>
-                        )}
                         {renderContent()}
                     </StaggeredItem>
                 </StaggeredContainer>

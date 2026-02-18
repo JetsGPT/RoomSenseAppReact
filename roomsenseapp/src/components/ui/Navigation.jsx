@@ -1,7 +1,7 @@
-import { useId } from "react"
+import { useId, useState } from "react"
 import { useLocation, useNavigate, Link } from "react-router-dom"
 import { motion } from "framer-motion"
-import { HouseIcon, InboxIcon, SearchIcon, ZapIcon, Shield, Box, BarChart3, Download, Monitor, Map, Settings, Workflow } from "lucide-react"
+import { HouseIcon, InboxIcon, SearchIcon, ZapIcon, Shield, Box, BarChart3, Download, Monitor, Map, CloudSun, GitCompareArrows, Bell } from "lucide-react"
 import Time from "@/components/ui/Time"
 import Logo from "@/components/logo"
 import { Button } from "@/components/ui/button"
@@ -26,11 +26,12 @@ const navigationLinks = [
   { href: "/dashboard", label: "Dashboard", icon: HouseIcon },
   { href: "/floor-plan", label: "Floor Plan", icon: Map },
   { href: "/boxes", label: "My Boxes", icon: Box },
-  { href: "/automations", label: "Automations", icon: Workflow },
+  { href: "/weather", label: "Weather", icon: CloudSun },
+  { href: "/correlation", label: "Correlation", icon: GitCompareArrows },
   { href: "/kiosk", label: "Kiosk", icon: Monitor },
   { href: "/download", label: "Download", icon: Download },
+  { href: "/notifications", label: "Notifications", icon: Bell },
   { href: "/about-me", label: "About", icon: InboxIcon },
-  { href: "/settings", label: "Settings", icon: Settings },
   { href: "/admin", label: "Admin", icon: Shield },
   { href: "#", label: "Help", icon: ZapIcon },
 ]
@@ -40,6 +41,17 @@ export default function Component() {
   const location = useLocation()
   const navigate = useNavigate()
   const { activeView, setActiveView, sensorBoxes } = useSidebar()
+  const [open, setOpen] = useState(false)
+
+  const handleLinkClick = (href) => {
+    navigate(href)
+    setOpen(false)
+  }
+
+  const handleViewClick = (viewId) => {
+    setActiveView(viewId)
+    setOpen(false)
+  }
 
   return (
     <header className="border-b px-4 md:px-6">
@@ -48,7 +60,7 @@ export default function Component() {
         {/* Left side */}
         <div className="flex items-center gap-2">
           {/* Mobile menu trigger */}
-          <Popover>
+          <Popover open={open} onOpenChange={setOpen}>
             <PopoverTrigger asChild>
               <Button
                 className="group size-10 md:hidden border border-border/50 hover:border-border"
@@ -105,7 +117,7 @@ export default function Component() {
                           <Button
                             variant={isActive ? "default" : "ghost"}
                             className="w-full justify-start py-2.5 px-3 h-auto"
-                            onClick={() => navigate(link.href)}
+                            onClick={() => handleLinkClick(link.href)}
                           >
                             <Icon
                               size={18}
@@ -136,7 +148,7 @@ export default function Component() {
                         <Button
                           variant={activeView === 'overview' ? "default" : "ghost"}
                           className="w-full justify-start py-2.5 px-3 h-auto"
-                          onClick={() => setActiveView('overview')}
+                          onClick={() => handleViewClick('overview')}
                         >
                           <HouseIcon size={18} className="mr-3" />
                           <span className="font-medium">Overview</span>
@@ -154,7 +166,7 @@ export default function Component() {
                           <Button
                             variant={activeView === `box - ${boxId} ` ? "default" : "ghost"}
                             className="w-full justify-start py-2.5 px-3 h-auto"
-                            onClick={() => setActiveView(`box - ${boxId} `)}
+                            onClick={() => handleViewClick(`box-${boxId}`)}
                           >
                             <Box size={18} className="mr-3" />
                             <span className="font-medium">Box {boxId}</span>
@@ -171,7 +183,7 @@ export default function Component() {
                         <Button
                           variant={activeView === 'analytics' ? "default" : "ghost"}
                           className="w-full justify-start py-2.5 px-3 h-auto"
-                          onClick={() => setActiveView('analytics')}
+                          onClick={() => handleViewClick('analytics')}
                         >
                           <BarChart3 size={18} className="mr-3" />
                           <span className="font-medium">Analytics</span>

@@ -16,7 +16,6 @@ import { SensorPalette } from '../components/floor-plan/SensorPalette';
 import { FloorPlanList } from '../components/floor-plan/FloorPlanList';
 import { FloorSelector } from '../components/floor-plan/FloorSelector';
 import { useToast } from '../hooks/use-toast';
-import { floorPlanStorage } from '../services/floorPlanAPI';
 import {
     Save,
     FolderOpen,
@@ -90,6 +89,8 @@ function FloorPlanEditorContent() {
         newFloorPlan,
         autoSaveStatus,
         lastSaved,
+        isActive,
+        setIsActive,
     } = useFloorPlan();
 
     const [showSensorPalette, setShowSensorPalette] = useState(true);
@@ -99,15 +100,16 @@ function FloorPlanEditorContent() {
     // Load floor plan if ID is provided
     useEffect(() => {
         if (id) {
-            const loaded = loadFloorPlan(id);
-            if (!loaded) {
-                toast({
-                    title: 'Floor Plan Not Found',
-                    description: 'The requested floor plan could not be found.',
-                    variant: 'destructive',
-                });
-                navigate('/floor-plan');
-            }
+            loadFloorPlan(id).then(loaded => {
+                if (!loaded) {
+                    toast({
+                        title: 'Floor Plan Not Found',
+                        description: 'The requested floor plan could not be found.',
+                        variant: 'destructive',
+                    });
+                    navigate('/floor-plan');
+                }
+            });
         }
     }, [id, loadFloorPlan, toast, navigate]);
 
@@ -215,6 +217,16 @@ function FloorPlanEditorContent() {
                 </div>
 
                 <div className="floor-plan-header-actions">
+                    <label className="flex items-center gap-2 mr-4 cursor-pointer" title="Set as active floor plan">
+                        <input
+                            type="checkbox"
+                            checked={isActive}
+                            onChange={(e) => setIsActive(e.target.checked)}
+                            className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        />
+                        <span className="text-sm font-medium">Active Plan</span>
+                    </label>
+
                     <button
                         className="floor-plan-action-btn"
                         onClick={handleNew}

@@ -160,6 +160,6 @@ export const boxesAPI = {
 
 // Import sensors API
 export { sensorsAPI, sensorHelpers } from './sensorsAPI.js';
+export { notificationsAPI } from './notificationsAPI.js';
 
 export default api;
-

@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Button } from '../../components/ui/button';
 import { Separator } from '../../components/ui/separator';
 import { Card } from '../../components/ui/card';
-import { Home, Box, Settings } from 'lucide-react';
+import { Home, Box, Settings, Calendar, GitCompareArrows, Bell, Activity } from 'lucide-react';
 import { useSidebar } from '../contexts/SidebarContext';
+
 
 /**
  * Single responsive sidebar component
@@ -13,6 +15,8 @@ import { useSidebar } from '../contexts/SidebarContext';
 export function AppSidebar() {
     const { activeView, setActiveView, sensorBoxes, connections } = useSidebar();
     const [isMobileOpen, setIsMobileOpen] = useState(false);
+    const navigate = useNavigate();
+    const location = useLocation();
 
     // Dashboard views only
     const sidebarItems = [
@@ -34,11 +38,43 @@ export function AppSidebar() {
                 icon: Box,
                 description: technicalId ? `ID: ${technicalId}` : `Detailed view for ${displayName}`
             };
-        })
+        }),
+        {
+            id: 'heatmap',
+            label: 'Heatmap',
+            icon: Calendar,
+            description: 'Sensor history view'
+        },
+        {
+            id: 'correlation',
+            label: 'Correlation',
+            icon: GitCompareArrows,
+            description: 'Compare sensor metrics'
+        },
+        {
+            id: 'notifications',
+            label: 'Notifications',
+            icon: Bell,
+            description: 'Manage alert rules'
+        },
+        {
+            id: 'system-health',
+            label: 'System Health',
+            icon: Activity,
+            description: 'Device status monitor'
+        }
     ];
 
     const handleItemClick = (itemId) => {
-        setActiveView(itemId);
+        if (itemId === 'notifications') {
+            navigate('/notifications');
+        } else if (itemId === 'system-health') {
+            navigate('/system-health');
+        } else if (!location.pathname.startsWith('/dashboard')) {
+            navigate(`/dashboard?view=${itemId}`);
+        } else {
+            setActiveView(itemId);
+        }
         setIsMobileOpen(false); // Close mobile sidebar after selection
     };
 
@@ -47,7 +83,12 @@ export function AppSidebar() {
             <nav className="flex-1 p-4 space-y-2">
                 {sidebarItems.map((item, index) => {
                     const Icon = item.icon;
-                    const isActive = activeView === item.id;
+                    // Check pathname for top-level routes, otherwise use activeView query param
+                    const isRouteActive = (item.id === 'notifications' && location.pathname === '/notifications') ||
+                        (item.id === 'system-health' && location.pathname === '/system-health');
+                    const isViewActive = activeView === item.id && location.pathname.startsWith('/dashboard');
+
+                    const isActive = isRouteActive || isViewActive;
 
                     return (
                         <motion.div
@@ -116,7 +157,7 @@ export function AppSidebar() {
             {/* Mobile sidebar hidden - using top navigation menu instead */}
 
             {/* Desktop Sidebar */}
-            <Card className="hidden lg:flex flex-col w-64 h-screen fixed left-0 top-0 rounded-none border-r border-border bg-card shadow-lg z-40">
+            <Card className="hidden lg:flex flex-col w-64 h-screen border-r border-border bg-card shadow-lg z-40 rounded-l-none">
                 <div className="p-6 border-b border-border">
                     <h2 className="font-heading text-lg font-semibold text-foreground">
                         RoomSense

@@ -24,7 +24,12 @@ import {
     Wind,
     Plus,
     RotateCw,
+    Cloud,
+    Database,
+    WifiOff,
 } from 'lucide-react';
+import { floorPlanAPI } from '../../services/floorPlanAPI';
+import { useToast } from '../../hooks/use-toast';
 import '../../styles/floorplan.css';
 
 const CANVAS_ASPECT = 800 / 600; // 4:3 Aspect Ratio Correction
@@ -142,6 +147,7 @@ function ViewerSensor({ sensor, sensorData, onSensorClick, activeConnections, vi
 }
 
 export function FloorPlanViewer({ height = 300 }) {
+    const { toast } = useToast();
     const navigate = useNavigate();
     const { setActiveView } = useSidebar();
     const { activeConnections } = useConnections();
@@ -156,6 +162,7 @@ export function FloorPlanViewer({ height = 300 }) {
     const [viewTransform, setViewTransform] = useState({ scale: 1, offsetX: 0, offsetY: 0 });
     const [rotation, setRotation] = useState(0); // 0 or 90
     const [isAutoRotated, setIsAutoRotated] = useState(false);
+    const [dataSource, setDataSource] = useState('cloud'); // 'cloud' | 'local'
 
     // Callback ref to set up ResizeObserver when container is attached
     const setContainerRef = useCallback((node) => {
@@ -202,28 +209,81 @@ export function FloorPlanViewer({ height = 300 }) {
 
     // Load floor plans
     useEffect(() => {
-        const plans = floorPlanStorage.getAll();
-        setFloorPlans(plans);
+        let mounted = true;
 
-        // Select first plan with sensors
-        const planWithSensors = plans.find(p =>
-            (p.floors && p.floors.some(f => f.sensors?.length > 0)) ||
-            (p.sensors && p.sensors.length > 0)
-        );
-        if (planWithSensors) {
-            setSelectedPlanId(planWithSensors.id);
-            // Set first floor with sensors
-            if (planWithSensors.floors) {
-                const floorWithSensors = planWithSensors.floors.find(f => f.sensors?.length > 0);
-                setSelectedFloorId(floorWithSensors?.id || planWithSensors.floors[0]?.id);
+        const loadPlans = async () => {
+            try {
+                // Try API first
+                const apiPlans = await floorPlanAPI.getFloorPlans();
+                if (mounted) {
+                    setFloorPlans(apiPlans);
+                    setDataSource('cloud');
+                    selectActivePlan(apiPlans);
+                }
+            } catch (error) {
+                console.warn('Failed to load from API, falling back to local storage', error);
+                // Fallback to local storage
+                const localPlans = floorPlanStorage.getAll();
+                if (mounted) {
+                    setFloorPlans(localPlans);
+                    setDataSource('local');
+                    selectActivePlan(localPlans);
+
+                    toast({
+                        title: 'Offline Mode',
+                        description: 'Loaded floor plans from local storage.',
+                        variant: 'warning',
+                    });
+                }
             }
-        } else if (plans.length > 0) {
-            setSelectedPlanId(plans[0].id);
-            if (plans[0].floors) {
-                setSelectedFloorId(plans[0].floors[0]?.id);
+        };
+
+        loadPlans();
+
+        return () => {
+            mounted = false;
+        };
+    }, []);
+
+    const selectActivePlan = (plans) => {
+        // 1. Find explicit active plan
+        let plan = plans.find(p => p.isActive);
+
+        // 2. If no active plan, check if we have a saved ID in local state (optional, for persistence across reloads if not active)
+        // For now, consistent behavior: If no isActive, show nothing or first?
+        // User request: "Dashboard Overview Page, it says no floor plan yet" if none active?
+        // But also said "fallback... primary is db"
+        // Let's default to the *first* one if none are active to avoid broken UI for existing users,
+        // OR strictly follow "isActive" logic?
+        // Request says: "active is the thing that is new... have a fallback... responsive objects will now include isActive"
+        // "fix the issue... give a way somewhere to select which floor plan is active"
+        // "Dashboard... says no floor plan yet, fix the issue" -> implies currently it might show nothing.
+        // I will prioritise `isActive`. If none active, I will fallback to the first one ONLY if it comes from local storage (legacy),
+        // but ideally we want to encourage setting an active plan.
+        // Actually, let's try to find one with sensors if no active flag is set, to be nice.
+
+        if (!plan) {
+            plan = plans.find(p => p.isActive === true);
+        }
+
+        if (plan) {
+            setSelectedPlanId(plan.id);
+            if (plan.floors) {
+                // Try to find floor with sensors, else first
+                const floorWithSensors = plan.floors.find(f => f.sensors?.length > 0);
+                setSelectedFloorId(floorWithSensors?.id || plan.floors[0]?.id);
+            }
+        } else {
+            // Fallback for transition period: use first plan available if any
+            if (plans.length > 0) {
+                const first = plans[0];
+                setSelectedPlanId(first.id);
+                if (first.floors) {
+                    setSelectedFloorId(first.floors[0]?.id);
+                }
             }
         }
-    }, []);
+    };
 
 
 
@@ -432,6 +492,24 @@ export function FloorPlanViewer({ height = 300 }) {
                 <div className="floor-plan-viewer-title">
                     <MapIcon className="w-4 h-4" />
                     <span>{selectedPlan?.name || 'Floor Plan'}</span>
+
+                    {/* Data Source Indicator */}
+                    <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-medium border ${dataSource === 'cloud'
+                            ? 'bg-blue-500/10 text-blue-500 border-blue-500/20'
+                            : 'bg-orange-500/10 text-orange-500 border-orange-500/20'
+                        }`}>
+                        {dataSource === 'cloud' ? (
+                            <>
+                                <Database className="w-3 h-3" />
+                                <span>DB</span>
+                            </>
+                        ) : (
+                            <>
+                                <WifiOff className="w-3 h-3" />
+                                <span>Local</span>
+                            </>
+                        )}
+                    </div>
                 </div>
 
                 <div className="floor-plan-viewer-actions">
