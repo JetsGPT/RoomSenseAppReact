@@ -1,8 +1,61 @@
 /* =============================================
-   Notifications Page Styles
+   Notifications & Automations Page Styles
    ============================================= */
 
-/* Status indicator pulse */
+/* Page header layout */
+.notifications-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+@media (max-width: 640px) {
+    .notifications-header {
+        flex-direction: column;
+        align-items: stretch;
+    }
+}
+
+/* ── Tab bar ──────────────────────────────────── */
+.rules-tab-bar {
+    display: flex;
+    gap: 4px;
+    padding: 4px;
+    border-radius: 10px;
+    background: hsl(var(--muted));
+    width: fit-content;
+}
+
+.rules-tab {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    color: hsl(var(--muted-foreground));
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+
+.rules-tab:hover {
+    color: hsl(var(--foreground));
+    background: hsl(var(--background) / 0.5);
+}
+
+.rules-tab.active {
+    color: hsl(var(--foreground));
+    background: hsl(var(--background));
+    box-shadow: 0 1px 3px hsl(var(--foreground) / 0.08);
+}
+
+/* ── Status indicator pulse ───────────────────── */
 .notification-status-dot {
     display: inline-block;
     width: 10px;
@@ -45,7 +98,7 @@
     }
 }
 
-/* History section */
+/* ── History section ──────────────────────────── */
 .notification-history {
     max-height: 420px;
     overflow-y: auto;
@@ -65,7 +118,6 @@
     border-radius: 3px;
 }
 
-/* History entry row */
 .history-entry {
     display: flex;
     align-items: flex-start;
@@ -86,7 +138,7 @@
     padding-right: 8px;
 }
 
-/* Empty state */
+/* ── Empty state ──────────────────────────────── */
 .notification-empty {
     display: flex;
     flex-direction: column;
@@ -102,18 +154,74 @@
     opacity: 0.4;
 }
 
-/* Responsive grid for the page header */
-.notifications-header {
+/* ── Dialog: Provider toggle ──────────────────── */
+.provider-toggle {
     display: flex;
-    flex-wrap: wrap;
+    gap: 4px;
+    padding: 4px;
+    border-radius: 10px;
+    background: hsl(var(--muted));
+}
+
+.provider-toggle-btn {
+    flex: 1;
+    display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: center;
+    gap: 6px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    color: hsl(var(--muted-foreground));
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.provider-toggle-btn:hover {
+    color: hsl(var(--foreground));
+}
+
+.provider-toggle-btn.active {
+    color: hsl(var(--foreground));
+    background: hsl(var(--background));
+    box-shadow: 0 1px 3px hsl(var(--foreground) / 0.08);
+}
+
+/* ── Dialog: Webhook section ──────────────────── */
+.rule-webhook-section {
+    border: 1px solid hsl(var(--border));
+    border-radius: 12px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
     gap: 12px;
 }
 
-@media (max-width: 640px) {
-    .notifications-header {
-        flex-direction: column;
-        align-items: stretch;
-    }
+/* ── Dialog: JSON payload editor ──────────────── */
+.rule-payload-editor {
+    width: 100%;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px;
+    line-height: 1.5;
+    padding: 10px 12px;
+    border-radius: 8px;
+    background: hsl(var(--muted));
+    border: 1px solid hsl(var(--border));
+    color: hsl(var(--foreground));
+    resize: vertical;
+    min-height: 80px;
+    outline: none;
+    transition: border-color 0.2s ease;
+}
+
+.rule-payload-editor:focus {
+    border-color: hsl(var(--primary));
+    box-shadow: 0 0 0 2px hsl(var(--primary) / 0.15);
+}
+
+.rule-payload-editor::placeholder {
+    color: hsl(var(--muted-foreground) / 0.5);
 }

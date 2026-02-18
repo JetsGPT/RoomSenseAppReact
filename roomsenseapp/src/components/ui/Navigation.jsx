@@ -31,7 +31,6 @@ const navigationLinks = [
   { href: "/kiosk", label: "Kiosk", icon: Monitor },
   { href: "/download", label: "Download", icon: Download },
   { href: "/notifications", label: "Notifications", icon: Bell },
-  { href: "/automations", label: "Automations", icon: ZapIcon },
   { href: "/about-me", label: "About", icon: InboxIcon },
   { href: "/admin", label: "Admin", icon: Shield },
   { href: "#", label: "Help", icon: ZapIcon },
