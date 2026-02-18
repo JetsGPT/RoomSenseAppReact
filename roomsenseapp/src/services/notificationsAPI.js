@@ -74,6 +74,16 @@ export const notificationsAPI = {
         const response = await api.get('/notifications/history', { params });
         return response.data;
     },
+
+    /**
+     * Manually trigger (test) a notification rule
+     * @param {string|number} id - Rule ID
+     * @returns {Promise<Object>} Trigger result
+     */
+    async triggerRule(id) {
+        const response = await api.post(`/notifications/rules/${id}/trigger`);
+        return response.data;
+    },
 };
 
 export default notificationsAPI;

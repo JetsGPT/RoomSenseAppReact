@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { Button } from '../../components/ui/button';
 import { Separator } from '../../components/ui/separator';
 import { Card } from '../../components/ui/card';
-import { Home, Box, Settings, Calendar, GitCompareArrows, Bell, Activity } from 'lucide-react';
+import { Home, Box, Settings, Calendar, GitCompareArrows, Bell, Activity, Zap } from 'lucide-react';
 import { useSidebar } from '../contexts/SidebarContext';
 
 
@@ -58,6 +58,12 @@ export function AppSidebar() {
             description: 'Manage alert rules'
         },
         {
+            id: 'automations',
+            label: 'Automations',
+            icon: Zap,
+            description: 'Webhook triggers'
+        },
+        {
             id: 'system-health',
             label: 'System Health',
             icon: Activity,
@@ -68,6 +74,8 @@ export function AppSidebar() {
     const handleItemClick = (itemId) => {
         if (itemId === 'notifications') {
             navigate('/notifications');
+        } else if (itemId === 'automations') {
+            navigate('/automations');
         } else if (itemId === 'system-health') {
             navigate('/system-health');
         } else if (!location.pathname.startsWith('/dashboard')) {
@@ -85,6 +93,7 @@ export function AppSidebar() {
                     const Icon = item.icon;
                     // Check pathname for top-level routes, otherwise use activeView query param
                     const isRouteActive = (item.id === 'notifications' && location.pathname === '/notifications') ||
+                        (item.id === 'automations' && location.pathname === '/automations') ||
                         (item.id === 'system-health' && location.pathname === '/system-health');
                     const isViewActive = activeView === item.id && location.pathname.startsWith('/dashboard');
 
