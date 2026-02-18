@@ -11,6 +11,10 @@ import {
     CheckCircle2,
     XCircle,
     Clock,
+    Play,
+    Globe,
+    Lock,
+    Zap,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -31,7 +35,7 @@ import { RuleEditorDialog } from '@/components/notifications/RuleEditorDialog';
 import { StaggeredContainer, StaggeredItem } from '@/components/ui/PageTransition';
 import '@/styles/notifications.css';
 
-// ─── Metric display helpers ──────────────────────────────────────
+// ─── Constants ───────────────────────────────────────────────────
 const METRIC_LABELS = {
     temperature: 'Temperature',
     humidity: 'Humidity',
@@ -46,6 +50,19 @@ const METRIC_UNITS = {
     co2: 'ppm',
     voc: '',
     pm25: 'µg/m³',
+};
+
+const TABS = [
+    { id: 'all', label: 'All' },
+    { id: 'ntfy', label: 'Notifications', icon: Bell },
+    { id: 'webhook', label: 'Webhooks', icon: Globe },
+];
+
+const HTTP_METHOD_COLORS = {
+    POST: 'bg-green-500/15 text-green-400 border-green-500/30',
+    GET: 'bg-blue-500/15 text-blue-400 border-blue-500/30',
+    PUT: 'bg-yellow-500/15 text-yellow-400 border-yellow-500/30',
+    PATCH: 'bg-orange-500/15 text-orange-400 border-orange-500/30',
 };
 
 // ─── Component ───────────────────────────────────────────────────
@@ -66,6 +83,12 @@ export default function Notifications() {
     // Dialog state
     const [dialogOpen, setDialogOpen] = useState(false);
     const [editingRule, setEditingRule] = useState(null);
+
+    // Tab state
+    const [activeTab, setActiveTab] = useState('all');
+
+    // Test in progress
+    const [testingRuleId, setTestingRuleId] = useState(null);
 
     // ── Fetch helpers ─────────────────────────────────────────────
     const fetchStatus = useCallback(async () => {
@@ -104,19 +127,30 @@ export default function Notifications() {
         }
     }, []);
 
-    // Initial load
     useEffect(() => {
         fetchStatus();
         fetchRules();
         fetchHistory();
     }, [fetchStatus, fetchRules, fetchHistory]);
 
-    // ── Resolve sensor ID → display name ──────────────────────────
+    // ── Filtered data ─────────────────────────────────────────────
+    const filteredRules = activeTab === 'all'
+        ? rules
+        : rules.filter(r => (r.notification_provider || 'ntfy') === activeTab);
+
+    const filteredHistory = activeTab === 'all'
+        ? history
+        : history.filter(h => {
+            if (activeTab === 'webhook') {
+                return h.notification_provider === 'webhook' || h.notification_target?.startsWith('https://');
+            }
+            return (h.notification_provider || 'ntfy') === 'ntfy';
+        });
+
+    // ── Resolve sensor name ───────────────────────────────────────
     const sensorName = useCallback(
         (sensorId) => {
-            const conn = activeConnections.find(
-                (c) => c.address === sensorId
-            );
+            const conn = activeConnections.find((c) => c.address === sensorId);
             return conn?.name || conn?.address || sensorId || 'Unknown';
         },
         [activeConnections]
@@ -127,10 +161,10 @@ export default function Notifications() {
         try {
             if (editingRule) {
                 await notificationsAPI.updateRule(editingRule.id, formData);
-                toast({ title: 'Rule updated', description: 'Notification rule saved successfully.', variant: 'default' });
+                toast({ title: 'Rule updated', description: 'Rule saved successfully.' });
             } else {
                 await notificationsAPI.createRule(formData);
-                toast({ title: 'Rule created', description: 'New notification rule created.', variant: 'default' });
+                toast({ title: 'Rule created', description: 'New rule created.' });
             }
             fetchRules();
         } catch (err) {
@@ -139,14 +173,17 @@ export default function Notifications() {
                 description: err?.response?.data?.error || 'Failed to save rule.',
                 variant: 'destructive',
             });
-            throw err; // re-throw so the dialog stays open
+            throw err;
         }
     };
 
     const handleDeleteRule = async (rule) => {
         try {
             await notificationsAPI.deleteRule(rule.id);
-            toast({ title: 'Deleted', description: `Rule "${rule.name || METRIC_LABELS[rule.sensor_type] || rule.sensor_type}" removed.`, variant: 'default' });
+            toast({
+                title: 'Deleted',
+                description: `Rule "${rule.name || METRIC_LABELS[rule.sensor_type] || rule.sensor_type}" removed.`,
+            });
             fetchRules();
         } catch {
             toast({ title: 'Error', description: 'Failed to delete rule.', variant: 'destructive' });
@@ -164,48 +201,58 @@ export default function Notifications() {
         }
     };
 
-    const openCreate = () => {
-        setEditingRule(null);
-        setDialogOpen(true);
+    const handleTestRule = async (rule) => {
+        setTestingRuleId(rule.id);
+        try {
+            await notificationsAPI.triggerRule(rule.id);
+            toast({ title: 'Test sent', description: `Triggered: ${rule.name || rule.notification_target}` });
+            fetchHistory();
+        } catch (err) {
+            toast({
+                title: 'Test failed',
+                description: err?.response?.data?.error || 'Test failed.',
+                variant: 'destructive',
+            });
+        } finally {
+            setTestingRuleId(null);
+        }
     };
 
-    const openEdit = (rule) => {
-        setEditingRule(rule);
-        setDialogOpen(true);
+    const openCreate = () => { setEditingRule(null); setDialogOpen(true); };
+    const openEdit = (rule) => { setEditingRule(rule); setDialogOpen(true); };
+
+    // ── Helpers ────────────────────────────────────────────────────
+    const statusVariant = engineStatus?.running ? 'default' : engineStatus?.error ? 'destructive' : 'secondary';
+    const statusLabel = engineStatus?.running ? 'Running' : engineStatus?.error ? 'Error' : 'Stopped';
+    const statusDotClass = engineStatus?.running ? 'running' : engineStatus?.error ? 'error' : 'stopped';
+
+    const truncateUrl = (url, maxLen = 35) => {
+        if (!url) return '—';
+        try {
+            const u = new URL(url);
+            const display = u.hostname + u.pathname;
+            return display.length > maxLen ? display.substring(0, maxLen) + '…' : display;
+        } catch {
+            return url.length > maxLen ? url.substring(0, maxLen) + '…' : url;
+        }
     };
 
-    // ── Status badge helper ───────────────────────────────────────
-    const statusVariant = engineStatus?.running
-        ? 'default'
-        : engineStatus?.error
-            ? 'destructive'
-            : 'secondary';
-
-    const statusLabel = engineStatus?.running
-        ? 'Running'
-        : engineStatus?.error
-            ? 'Error'
-            : 'Stopped';
-
-    const statusDotClass = engineStatus?.running
-        ? 'running'
-        : engineStatus?.error
-            ? 'error'
-            : 'stopped';
+    const isWebhookRule = (rule) => rule.notification_provider === 'webhook';
 
     // ─── Render ──────────────────────────────────────────────────
     return (
-        <div className="p-4 md:p-6 lg:p-8 max-w-6xl mx-auto space-y-6 mt-6">
+        <div className="p-4 md:p-6 lg:p-8 max-w-6xl mx-auto mt-6">
             <StaggeredContainer>
                 {/* ── Page header ────────────────────────────────── */}
                 <StaggeredItem>
                     <div className="notifications-header">
                         <div>
-                            <h1 className="text-2xl font-bold tracking-tight text-foreground">
-                                Notifications
+                            <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
+                                <Bell size={22} />
+                                Notifications & Automations
                             </h1>
                             <p className="text-muted-foreground text-sm mt-1">
-                                Manage threshold rules and view notification history.
+                                Manage alert rules, webhook automations, and view activity history.
                             </p>
                         </div>
                         <Button onClick={openCreate} className="gap-2 flex items-center">
@@ -215,7 +262,31 @@ export default function Notifications() {
                     </div>
                 </StaggeredItem>
 
-                {/* ── Engine status banner ───────────────────────── */}
+                {/* ── Tab filter ────────────────────────────────── */}
+                <StaggeredItem>
+                    <div className="rules-tab-bar">
+                        {TABS.map((tab) => {
+                            const count = tab.id === 'all'
+                                ? rules.length
+                                : rules.filter(r => (r.notification_provider || 'ntfy') === tab.id).length;
+                            return (
+                                <button
+                                    key={tab.id}
+                                    className={`rules-tab ${activeTab === tab.id ? 'active' : ''}`}
+                                    onClick={() => setActiveTab(tab.id)}
+                                >
+                                    {tab.icon && <tab.icon size={14} />}
+                                    {tab.label}
+                                    <Badge variant="secondary" className="ml-1 text-[10px] px-1.5 py-0">
+                                        {count}
+                                    </Badge>
+                                </button>
+                            );
+                        })}
+                    </div>
+                </StaggeredItem>
+
+                {/* ── Engine status ─────────────────────────────── */}
                 <StaggeredItem>
                     <Card>
                         <CardContent className="flex items-center gap-3 py-4">
@@ -226,24 +297,24 @@ export default function Notifications() {
                                     <span className={`notification-status-dot ${statusDotClass}`} />
                                     <span className="font-medium text-sm">Rule Engine</span>
                                     <Badge variant={statusVariant}>{statusLabel}</Badge>
-                                    {engineStatus?.checkedAt && (
-                                        <span className="text-xs text-muted-foreground ml-auto hidden sm:inline">
-                                            Last check: {new Date(engineStatus.checkedAt).toLocaleTimeString()}
-                                        </span>
-                                    )}
+                                    <span className="text-xs text-muted-foreground ml-auto">
+                                        {filteredRules.length} rule{filteredRules.length !== 1 && 's'}
+                                    </span>
                                 </>
                             )}
                         </CardContent>
                     </Card>
                 </StaggeredItem>
 
-                {/* ── Rules table ────────────────────────────────── */}
+                {/* ── Rules table ───────────────────────────────── */}
                 <StaggeredItem>
                     <Card>
                         <CardHeader>
-                            <CardTitle className="text-lg">Active Rules</CardTitle>
+                            <CardTitle className="text-lg">Rules</CardTitle>
                             <CardDescription>
-                                {rules.length} rule{rules.length !== 1 && 's'} configured
+                                {activeTab === 'all' && 'All notification and webhook rules'}
+                                {activeTab === 'ntfy' && 'Push notification rules via ntfy'}
+                                {activeTab === 'webhook' && 'Webhook automation rules'}
                             </CardDescription>
                         </CardHeader>
                         <CardContent>
@@ -251,12 +322,12 @@ export default function Notifications() {
                                 <div className="flex justify-center py-8">
                                     <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                                 </div>
-                            ) : rules.length === 0 ? (
+                            ) : filteredRules.length === 0 ? (
                                 <div className="notification-empty">
                                     <BellOff size={48} />
                                     <p className="font-medium text-foreground mb-1">No rules yet</p>
                                     <p className="text-sm mb-4">
-                                        Create your first threshold rule to start receiving notifications.
+                                        Create your first rule to start receiving alerts or triggering webhooks.
                                     </p>
                                     <Button variant="outline" onClick={openCreate} className="gap-2 flex items-center">
                                         <Plus size={16} />
@@ -268,8 +339,8 @@ export default function Notifications() {
                                     <Table>
                                         <TableHeader>
                                             <TableRow>
+                                                <TableHead>Type</TableHead>
                                                 <TableHead>Sensor</TableHead>
-                                                <TableHead>Metric</TableHead>
                                                 <TableHead>Condition</TableHead>
                                                 <TableHead>Target</TableHead>
                                                 <TableHead className="text-center">Enabled</TableHead>
@@ -277,31 +348,80 @@ export default function Notifications() {
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
-                                            {rules.map((rule) => (
+                                            {filteredRules.map((rule) => (
                                                 <TableRow key={rule.id}>
-                                                    <TableCell className="font-medium">
-                                                        {sensorName(rule.sensor_id)}
-                                                    </TableCell>
+                                                    {/* Type badge */}
                                                     <TableCell>
-                                                        {METRIC_LABELS[rule.sensor_type] || rule.sensor_type}
+                                                        {isWebhookRule(rule) ? (
+                                                            <div className="flex items-center gap-1.5">
+                                                                <Badge
+                                                                    variant="outline"
+                                                                    className={`text-[10px] px-1.5 py-0 font-mono ${HTTP_METHOD_COLORS[rule.webhook_http_method || 'POST']}`}
+                                                                >
+                                                                    {rule.webhook_http_method || 'POST'}
+                                                                </Badge>
+                                                                {rule.webhook_auth_header && (
+                                                                    <Lock size={10} className="text-green-400" title="Authenticated" />
+                                                                )}
+                                                            </div>
+                                                        ) : (
+                                                            <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                                                                <Bell size={10} className="mr-1" />
+                                                                ntfy
+                                                            </Badge>
+                                                        )}
                                                     </TableCell>
+
+                                                    {/* Sensor + Metric */}
+                                                    <TableCell className="font-medium">
+                                                        <div>{sensorName(rule.sensor_id)}</div>
+                                                        <div className="text-xs text-muted-foreground">
+                                                            {METRIC_LABELS[rule.sensor_type] || rule.sensor_type}
+                                                        </div>
+                                                    </TableCell>
+
+                                                    {/* Condition */}
                                                     <TableCell>
                                                         <code className="text-xs bg-muted px-1.5 py-0.5 rounded">
                                                             {rule.condition} {rule.threshold}
                                                             {METRIC_UNITS[rule.sensor_type] || ''}
                                                         </code>
                                                     </TableCell>
-                                                    <TableCell className="text-muted-foreground text-sm">
-                                                        {rule.notification_target}
+
+                                                    {/* Target */}
+                                                    <TableCell className="text-muted-foreground text-sm max-w-[200px]">
+                                                        <span className="truncate block" title={rule.notification_target}>
+                                                            {isWebhookRule(rule)
+                                                                ? truncateUrl(rule.notification_target)
+                                                                : rule.notification_target}
+                                                        </span>
                                                     </TableCell>
+
+                                                    {/* Toggle */}
                                                     <TableCell className="text-center">
                                                         <Switch
                                                             checked={rule.is_enabled}
                                                             onCheckedChange={() => handleToggleRule(rule)}
                                                         />
                                                     </TableCell>
+
+                                                    {/* Actions */}
                                                     <TableCell className="text-right">
                                                         <div className="flex justify-end gap-1">
+                                                            {isWebhookRule(rule) && (
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="icon"
+                                                                    className="h-8 w-8"
+                                                                    onClick={() => handleTestRule(rule)}
+                                                                    disabled={testingRuleId === rule.id}
+                                                                    title="Test webhook"
+                                                                >
+                                                                    {testingRuleId === rule.id
+                                                                        ? <Loader2 size={14} className="animate-spin" />
+                                                                        : <Play size={14} />}
+                                                                </Button>
+                                                            )}
                                                             <Button
                                                                 variant="ghost"
                                                                 size="icon"
@@ -332,26 +452,26 @@ export default function Notifications() {
                     </Card>
                 </StaggeredItem>
 
-                {/* ── Notification history ───────────────────────── */}
+                {/* ── Activity history ──────────────────────────── */}
                 <StaggeredItem>
                     <Card>
                         <CardHeader>
-                            <CardTitle className="text-lg">Recent Notifications</CardTitle>
-                            <CardDescription>Last 20 notification events</CardDescription>
+                            <CardTitle className="text-lg">Recent Activity</CardTitle>
+                            <CardDescription>Last 20 notification and webhook events</CardDescription>
                         </CardHeader>
                         <CardContent>
                             {loadingHistory ? (
                                 <div className="flex justify-center py-8">
                                     <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                                 </div>
-                            ) : history.length === 0 ? (
+                            ) : filteredHistory.length === 0 ? (
                                 <div className="notification-empty">
                                     <Clock size={40} />
-                                    <p className="text-sm">No notification history yet.</p>
+                                    <p className="text-sm">No activity yet.</p>
                                 </div>
                             ) : (
                                 <div className="notification-history">
-                                    {history.map((entry, idx) => (
+                                    {filteredHistory.map((entry, idx) => (
                                         <motion.div
                                             key={entry.id || idx}
                                             className="history-entry"
@@ -359,7 +479,6 @@ export default function Notifications() {
                                             animate={{ opacity: 1, x: 0 }}
                                             transition={{ delay: idx * 0.03 }}
                                         >
-                                            {/* Icon */}
                                             <div className="mt-0.5">
                                                 {entry.status === 'sent' ? (
                                                     <CheckCircle2 size={16} className="text-green-500" />
@@ -369,8 +488,6 @@ export default function Notifications() {
                                                     <AlertTriangle size={16} className="text-yellow-500" />
                                                 )}
                                             </div>
-
-                                            {/* Details */}
                                             <div className="flex-1 min-w-0">
                                                 <div className="flex items-center gap-2 flex-wrap">
                                                     <span className="font-medium text-sm text-foreground">
@@ -379,15 +496,19 @@ export default function Notifications() {
                                                     <Badge variant="outline" className="text-xs">
                                                         {sensorName(entry.sensor_id)}
                                                     </Badge>
+                                                    {(entry.notification_provider === 'webhook' || entry.notification_target?.startsWith('https://')) && (
+                                                        <Globe size={12} className="text-muted-foreground" title="Webhook" />
+                                                    )}
                                                 </div>
                                                 <p className="text-xs text-muted-foreground mt-0.5 truncate">
                                                     Value: {entry.sensor_value}
                                                     {METRIC_UNITS[entry.sensor_type] ? ` ${METRIC_UNITS[entry.sensor_type]}` : ''}
-                                                    {entry.notification_target && ` → ${entry.notification_target}`}
+                                                    {entry.notification_target && ` → ${entry.notification_target.startsWith('https://')
+                                                            ? truncateUrl(entry.notification_target, 40)
+                                                            : entry.notification_target
+                                                        }`}
                                                 </p>
                                             </div>
-
-                                            {/* Timestamp */}
                                             <span className="text-xs text-muted-foreground whitespace-nowrap">
                                                 {entry.sent_at
                                                     ? new Date(entry.sent_at).toLocaleString()

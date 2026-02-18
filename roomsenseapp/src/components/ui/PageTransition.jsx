@@ -39,7 +39,7 @@ export function StaggeredContainer({ children, className = "", delay = 0.1 }) {
                     }
                 }
             }}
-            className={className}
+            className={`space-y-6 ${className}`}
         >
             {children}
         </motion.div>

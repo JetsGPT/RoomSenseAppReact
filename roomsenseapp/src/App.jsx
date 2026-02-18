@@ -29,6 +29,7 @@ const KioskView = lazy(() => import('./pages/KioskView'));
 const FloorPlanEditor = lazy(() => import('./pages/FloorPlanEditor'));
 const Weather = lazy(() => import('./pages/Weather'));
 const Notifications = lazy(() => import('./pages/Notifications'));
+
 const SystemHealth = lazy(() => import('./pages/SystemHealth'));
 
 // Loading fallback component
@@ -175,6 +176,7 @@ function AppContent() {
                                     </RequireAuth>
                                 }
                             />
+
 
                             {/* Unauthorized page */}
                             <Route

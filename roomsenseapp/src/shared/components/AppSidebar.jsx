@@ -55,7 +55,7 @@ export function AppSidebar() {
             id: 'notifications',
             label: 'Notifications',
             icon: Bell,
-            description: 'Manage alert rules'
+            description: 'Alerts & automations'
         },
         {
             id: 'system-health',
