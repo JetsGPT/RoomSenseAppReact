@@ -5,11 +5,12 @@ import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Input } from '../components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
-import { Server, Globe, TestTube, Save, RotateCcw, Shield, Database, Users, RefreshCw, Loader2, Key, Plus, Trash2, X } from 'lucide-react';
+import { Server, Globe, TestTube, Save, RotateCcw, Shield, Database, Users, RefreshCw, Loader2, Key, Plus, Trash2, X, Bot, Eye, EyeOff, CheckCircle } from 'lucide-react';
 import { useSettings } from '../contexts/SettingsContext';
 import { useAuth } from '../contexts/AuthContext';
 import { StaggeredContainer, StaggeredItem, FadeIn, SlideIn } from '../components/ui/PageTransition';
 import { authAPI } from '../services/api';
+import { settingsAPI } from '../services/aiAPI';
 import api from '../services/api';
 
 export function Admin() {
@@ -22,13 +23,13 @@ export function Admin() {
     const [connectionStatus, setConnectionStatus] = useState(null);
     const [isWritingTestData, setIsWritingTestData] = useState(false);
     const [testDataStatus, setTestDataStatus] = useState(null);
-    
+
     // User management state
     const [users, setUsers] = useState([]);
     const [isLoadingUsers, setIsLoadingUsers] = useState(false);
     const [usersError, setUsersError] = useState(null);
     const [updatingRoles, setUpdatingRoles] = useState(new Set());
-    
+
     // Roles and Permissions management state
     const [roles, setRoles] = useState([]);
     const [selectedRole, setSelectedRole] = useState(null);
@@ -38,13 +39,20 @@ export function Admin() {
     const [isSavingPermissions, setIsSavingPermissions] = useState(false);
     const [permissionsError, setPermissionsError] = useState(null);
     const [editingPermissions, setEditingPermissions] = useState([]);
-    
+
     // Role creation/deletion state
     const [newRoleName, setNewRoleName] = useState('');
     const [isCreatingRole, setIsCreatingRole] = useState(false);
     const [roleToDelete, setRoleToDelete] = useState(null);
     const [reassignToRole, setReassignToRole] = useState('');
     const [isDeletingRole, setIsDeletingRole] = useState(false);
+
+    // AI Settings state
+    const [geminiApiKey, setGeminiApiKey] = useState('');
+    const [showApiKey, setShowApiKey] = useState(false);
+    const [isSavingApiKey, setIsSavingApiKey] = useState(false);
+    const [apiKeyStatus, setApiKeyStatus] = useState(null);
+    const [existingKeyMasked, setExistingKeyMasked] = useState(null);
 
     // Update local state when settings change
     useEffect(() => {
@@ -57,10 +65,11 @@ export function Admin() {
         if (currentUser?.role === 'admin') {
             fetchUsers();
             fetchRoles();
+            fetchGeminiApiKey();
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [currentUser]);
-    
+
     // Fetch permissions when role is selected
     useEffect(() => {
         if (selectedRole) {
@@ -80,7 +89,7 @@ export function Admin() {
                 apiBaseUrl: localApiBaseUrl,
                 sensorsApiUrl: localSensorsApiUrl
             });
-            
+
             // Simulate save delay for better UX
             setTimeout(() => {
                 setIsSaving(false);
@@ -104,7 +113,7 @@ export function Admin() {
     const testConnection = async (url, type) => {
         setIsTestingConnection(true);
         setConnectionStatus(null);
-        
+
         try {
             const response = await fetch(`${url}/users/me`, {
                 method: 'GET',
@@ -113,7 +122,7 @@ export function Admin() {
                     'Content-Type': 'application/json',
                 },
             });
-            
+
             if (response.ok) {
                 setConnectionStatus({ type, status: 'success', message: 'Connection successful!' });
             } else {
@@ -129,7 +138,7 @@ export function Admin() {
     const writeTestData = async () => {
         setIsWritingTestData(true);
         setTestDataStatus(null);
-        
+
         try {
             const response = await api.get('/sensors/writeTestData');
             setTestDataStatus({ status: 'success', message: 'Test data written successfully!' });
@@ -159,7 +168,7 @@ export function Admin() {
         try {
             const updatedUser = await authAPI.updateUserRole(userId, newRole);
             // Update the user in the local state
-            setUsers(prevUsers => 
+            setUsers(prevUsers =>
                 prevUsers.map(u => u.id === userId ? updatedUser : u)
             );
         } catch (error) {
@@ -206,7 +215,7 @@ export function Admin() {
 
     const handleSavePermissions = async () => {
         if (!selectedRole) return;
-        
+
         setIsSavingPermissions(true);
         setPermissionsError(null);
         try {
@@ -252,7 +261,7 @@ export function Admin() {
             setPermissionsError('Role name is required');
             return;
         }
-        
+
         setIsCreatingRole(true);
         setPermissionsError(null);
         try {
@@ -269,7 +278,7 @@ export function Admin() {
 
     const handleDeleteRole = async () => {
         if (!roleToDelete) return;
-        
+
         setIsDeletingRole(true);
         setPermissionsError(null);
         try {
@@ -290,8 +299,52 @@ export function Admin() {
         }
     };
 
+    // AI Settings functions
+    const fetchGeminiApiKey = async () => {
+        try {
+            const setting = await settingsAPI.get('gemini_api_key');
+            setExistingKeyMasked(setting.value);
+        } catch (error) {
+            // Key not set yet — that's fine
+            setExistingKeyMasked(null);
+        }
+    };
+
+    const handleSaveApiKey = async () => {
+        if (!geminiApiKey.trim()) return;
+        setIsSavingApiKey(true);
+        setApiKeyStatus(null);
+        try {
+            await settingsAPI.set('gemini_api_key', geminiApiKey.trim(), {
+                is_sensitive: true,
+                description: 'Google Gemini API Key for AI Assistant'
+            });
+            setApiKeyStatus({ type: 'success', message: 'API key saved successfully! AI chat is now available.' });
+            setGeminiApiKey('');
+            await fetchGeminiApiKey();
+        } catch (error) {
+            setApiKeyStatus({ type: 'error', message: error.response?.data?.error || 'Failed to save API key' });
+        } finally {
+            setIsSavingApiKey(false);
+        }
+    };
+
+    const handleClearApiKey = async () => {
+        setIsSavingApiKey(true);
+        setApiKeyStatus(null);
+        try {
+            await settingsAPI.delete('gemini_api_key');
+            setApiKeyStatus({ type: 'success', message: 'API key removed. AI chat is now disabled.' });
+            setExistingKeyMasked(null);
+        } catch (error) {
+            setApiKeyStatus({ type: 'error', message: error.response?.data?.error || 'Failed to remove API key' });
+        } finally {
+            setIsSavingApiKey(false);
+        }
+    };
+
     return (
-        <motion.div 
+        <motion.div
             className="min-h-screen bg-background"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -302,7 +355,7 @@ export function Admin() {
                     <StaggeredItem>
                         {/* Header */}
                         <div className="mb-8">
-                            <motion.div 
+                            <motion.div
                                 className="flex items-center gap-3 mb-4"
                                 initial={{ opacity: 0, y: -20 }}
                                 animate={{ opacity: 1, y: 0 }}
@@ -311,7 +364,7 @@ export function Admin() {
                                 <Shield className="w-8 h-8 text-primary" />
                                 <h1 className="text-3xl font-bold text-foreground">Admin Panel</h1>
                             </motion.div>
-                            <motion.p 
+                            <motion.p
                                 className="text-muted-foreground text-lg"
                                 initial={{ opacity: 0, y: -10 }}
                                 animate={{ opacity: 1, y: 0 }}
@@ -381,7 +434,7 @@ export function Admin() {
                                 {/* API Endpoint Configuration */}
                                 <div className="space-y-4">
                                     <h3 className="text-lg font-medium text-foreground">Configure API Endpoints</h3>
-                                    
+
                                     <div className="space-y-4">
                                         <div>
                                             <label className="text-sm font-medium text-foreground mb-2 block">
@@ -419,16 +472,14 @@ export function Admin() {
 
                                 {/* Connection Status */}
                                 {connectionStatus && (
-                                    <div className={`p-3 rounded-md border ${
-                                        connectionStatus.status === 'success' 
-                                            ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800' 
+                                    <div className={`p-3 rounded-md border ${connectionStatus.status === 'success'
+                                            ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
                                             : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
-                                    }`}>
-                                        <p className={`text-sm ${
-                                            connectionStatus.status === 'success' 
-                                                ? 'text-green-800 dark:text-green-200' 
-                                                : 'text-red-800 dark:text-red-200'
                                         }`}>
+                                        <p className={`text-sm ${connectionStatus.status === 'success'
+                                                ? 'text-green-800 dark:text-green-200'
+                                                : 'text-red-800 dark:text-red-200'
+                                            }`}>
                                             {connectionStatus.type === 'auth' ? 'Auth API: ' : 'Sensors API: '}
                                             {connectionStatus.message}
                                         </p>
@@ -437,16 +488,14 @@ export function Admin() {
 
                                 {/* Test Data Status */}
                                 {testDataStatus && (
-                                    <div className={`p-3 rounded-md border ${
-                                        testDataStatus.status === 'success' 
-                                            ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800' 
+                                    <div className={`p-3 rounded-md border ${testDataStatus.status === 'success'
+                                            ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
                                             : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
-                                    }`}>
-                                        <p className={`text-sm ${
-                                            testDataStatus.status === 'success' 
-                                                ? 'text-green-800 dark:text-green-200' 
-                                                : 'text-red-800 dark:text-red-200'
                                         }`}>
+                                        <p className={`text-sm ${testDataStatus.status === 'success'
+                                                ? 'text-green-800 dark:text-green-200'
+                                                : 'text-red-800 dark:text-red-200'
+                                            }`}>
                                             Test Data: {testDataStatus.message}
                                         </p>
                                     </div>
@@ -580,7 +629,7 @@ export function Admin() {
                                                                 )}
                                                             </TableCell>
                                                             <TableCell>
-                                                                {user.created_at 
+                                                                {user.created_at
                                                                     ? new Date(user.created_at).toLocaleString()
                                                                     : 'N/A'}
                                                             </TableCell>
@@ -944,6 +993,104 @@ export function Admin() {
                                                     </p>
                                                 </div>
                                             )}
+                                        </div>
+                                    )}
+                                </CardContent>
+                            </Card>
+                        )}
+
+                        {/* AI Settings Section */}
+                        {currentUser?.role === 'admin' && (
+                            <Card className="mt-8">
+                                <CardHeader>
+                                    <CardTitle className="flex items-center gap-2">
+                                        <Bot className="w-5 h-5" />
+                                        AI Assistant Settings
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent className="space-y-4">
+                                    <p className="text-sm text-muted-foreground">
+                                        Configure the Gemini API key to enable the AI chat assistant (Sage).
+                                        Get a key from <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer" className="text-primary underline hover:no-underline">Google AI Studio</a>.
+                                    </p>
+
+                                    {/* Current key status */}
+                                    {existingKeyMasked && (
+                                        <div className="p-3 rounded-md border bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800">
+                                            <div className="flex items-center gap-2">
+                                                <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
+                                                <span className="text-sm text-green-800 dark:text-green-200 font-medium">API Key configured</span>
+                                            </div>
+                                            <p className="text-xs text-green-700 dark:text-green-300 mt-1 font-mono">
+                                                {existingKeyMasked}
+                                            </p>
+                                        </div>
+                                    )}
+
+                                    {/* API Key input */}
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-medium text-foreground block">
+                                            {existingKeyMasked ? 'Update API Key' : 'Enter Gemini API Key'}
+                                        </label>
+                                        <div className="flex gap-2">
+                                            <div className="relative flex-1">
+                                                <Input
+                                                    type={showApiKey ? 'text' : 'password'}
+                                                    value={geminiApiKey}
+                                                    onChange={(e) => setGeminiApiKey(e.target.value)}
+                                                    placeholder="AIzaSy..."
+                                                    disabled={isSavingApiKey}
+                                                    className="pr-10"
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setShowApiKey(!showApiKey)}
+                                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                                                    tabIndex={-1}
+                                                >
+                                                    {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                                </button>
+                                            </div>
+                                            <Button
+                                                onClick={handleSaveApiKey}
+                                                disabled={isSavingApiKey || !geminiApiKey.trim()}
+                                                size="sm"
+                                            >
+                                                {isSavingApiKey ? (
+                                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                                ) : (
+                                                    <>
+                                                        <Save className="w-4 h-4 mr-2" />
+                                                        Save
+                                                    </>
+                                                )}
+                                            </Button>
+                                            {existingKeyMasked && (
+                                                <Button
+                                                    onClick={handleClearApiKey}
+                                                    variant="destructive"
+                                                    size="sm"
+                                                    disabled={isSavingApiKey}
+                                                >
+                                                    <Trash2 className="w-4 h-4 mr-2" />
+                                                    Remove
+                                                </Button>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* Status message */}
+                                    {apiKeyStatus && (
+                                        <div className={`p-3 rounded-md border ${apiKeyStatus.type === 'success'
+                                            ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
+                                            : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
+                                            }`}>
+                                            <p className={`text-sm ${apiKeyStatus.type === 'success'
+                                                ? 'text-green-800 dark:text-green-200'
+                                                : 'text-red-800 dark:text-red-200'
+                                                }`}>
+                                                {apiKeyStatus.message}
+                                            </p>
                                         </div>
                                     )}
                                 </CardContent>

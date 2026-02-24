@@ -12,6 +12,7 @@ import Navigation from './components/ui/Navigation';
 import { AppSidebar } from './shared/components/AppSidebar';
 import { PageTransition } from './components/ui/PageTransition';
 import { ErrorBoundary } from './shared/components/ErrorBoundary';
+import AiChatbot from './components/AiChatbot';
 import { Loader2 } from 'lucide-react';
 import './App.css';
 import { useSensorData } from './hooks/useSensorData';
@@ -248,6 +249,7 @@ function AppContent() {
                     </AnimatePresence>
                 </div>
             </div>
+            <AiChatbot />
         </>
     );
 }
