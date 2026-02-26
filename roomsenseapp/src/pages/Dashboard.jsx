@@ -10,6 +10,7 @@ import { Options } from '../components/Options';
 import HeatmapView from './HeatmapView';
 import CorrelationAnalysis from './CorrelationAnalysis';
 import { StaggeredContainer, StaggeredItem, FadeIn, SlideIn } from '../components/ui/PageTransition';
+import { WidgetErrorBoundary } from '../components/WidgetErrorBoundary';
 import {
     getSensorUnit,
     getSensorColor,
@@ -90,30 +91,44 @@ const Dashboard = () => {
     const renderContent = () => {
         if (activeView === 'overview') {
             return (
-                <Overview
-                    sensorData={sensorData}
-                    groupedData={groupedData}
-                    onRefreshData={handleRefreshData}
-                />
+                <WidgetErrorBoundary name="Overview">
+                    <Overview
+                        sensorData={sensorData}
+                        groupedData={groupedData}
+                        onRefreshData={handleRefreshData}
+                    />
+                </WidgetErrorBoundary>
             );
         } else if (activeView.startsWith('box-')) {
             const boxId = activeView.replace('box-', '');
             return (
-                <BoxDetail
-                    boxId={boxId}
-                />
+                <WidgetErrorBoundary name="Box Detail">
+                    <BoxDetail
+                        boxId={boxId}
+                    />
+                </WidgetErrorBoundary>
             );
         } else if (activeView === 'heatmap') {
-            return <HeatmapView />;
+            return (
+                <WidgetErrorBoundary name="Heatmap">
+                    <HeatmapView />
+                </WidgetErrorBoundary>
+            );
         } else if (activeView === 'correlation') {
-            return <CorrelationAnalysis />;
+            return (
+                <WidgetErrorBoundary name="Correlation Analysis">
+                    <CorrelationAnalysis />
+                </WidgetErrorBoundary>
+            );
         } else if (activeView === 'options') {
             return (
-                <Options
-                    fetchDelay={fetchDelay}
-                    onFetchDelayChange={handleFetchDelayChange}
-                    onRefreshData={handleRefreshData}
-                />
+                <WidgetErrorBoundary name="Options">
+                    <Options
+                        fetchDelay={fetchDelay}
+                        onFetchDelayChange={handleFetchDelayChange}
+                        onRefreshData={handleRefreshData}
+                    />
+                </WidgetErrorBoundary>
             );
         }
         return null;

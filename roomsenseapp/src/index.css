@@ -18,6 +18,7 @@
 @import './styles/components.css';
 @import './styles/animations.css';
 @import './styles/gauge.css';
+@import './styles/live-gauge.css';
 @import './styles/comfort.css';
 
 /* ============================================

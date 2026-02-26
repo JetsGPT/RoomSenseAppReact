@@ -1,0 +1,23 @@
+{
+    "name": "RoomSense",
+    "short_name": "RoomSense",
+    "description": "Intelligent IoT sensor box for environmental monitoring.",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#ECF3E6",
+    "theme_color": "#79BC9E",
+    "icons": [
+        {
+            "src": "/icons/icon-192x192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "any maskable"
+        },
+        {
+            "src": "/icons/icon-512x512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "any maskable"
+        }
+    ]
+}

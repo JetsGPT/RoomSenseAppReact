@@ -1,0 +1,197 @@
+/* ============================================
+   LIVE GAUGE COMPONENT STYLES
+   ============================================ */
+
+/* ===== CONTAINER ===== */
+.live-gauge {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.35rem;
+    padding: var(--spacing-md);
+    background: var(--card);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border);
+    transition: box-shadow 0.3s ease, transform 0.3s ease;
+    overflow: hidden;
+    contain: layout style;
+}
+
+.live-gauge:hover {
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08),
+        0 0 20px rgba(121, 188, 158, 0.15);
+    transform: translateY(-3px);
+}
+
+/* ===== STATE MODIFIERS ===== */
+.live-gauge--stale {
+    opacity: 0.75;
+}
+
+.live-gauge--stale .live-gauge__chart {
+    filter: sepia(0.25);
+}
+
+.live-gauge--offline {
+    opacity: 0.5;
+}
+
+.live-gauge--offline .live-gauge__chart {
+    filter: grayscale(0.7);
+}
+
+/* ===== CHART CONTAINER ===== */
+.live-gauge__chart {
+    position: relative;
+    flex-shrink: 0;
+}
+
+.live-gauge__svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+.live-gauge__track {
+    opacity: 0.35;
+}
+
+.live-gauge__arc {
+    /* transition fallback for non-motion contexts */
+    transition: stroke 0.5s ease;
+    will-change: stroke-dashoffset, stroke;
+}
+
+/* ===== CENTER OVERLAY ===== */
+.live-gauge__center {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+}
+
+.live-gauge__value-wrap {
+    display: flex;
+    align-items: baseline;
+    gap: 0.15rem;
+}
+
+.live-gauge__value {
+    font-family: var(--font-display);
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--foreground);
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+}
+
+.live-gauge__unit {
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--muted-foreground);
+}
+
+.live-gauge__status {
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-top: 0.1rem;
+}
+
+/* ===== FOOTER ===== */
+.live-gauge__footer {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--foreground);
+}
+
+.live-gauge__label {
+    line-height: 1.2;
+}
+
+/* ===== LEGEND ===== */
+.live-gauge__legend {
+    display: flex;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.live-gauge__legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.65rem;
+    color: var(--muted-foreground);
+    white-space: nowrap;
+}
+
+.live-gauge__legend-dot {
+    width: 0.4rem;
+    height: 0.4rem;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+/* ===== COMPACT MODE ===== */
+.live-gauge--compact {
+    padding: var(--spacing-sm);
+}
+
+.live-gauge--compact .live-gauge__value {
+    font-size: 1.5rem;
+}
+
+.live-gauge--compact .live-gauge__footer {
+    font-size: 0.8rem;
+}
+
+.live-gauge--compact .live-gauge__legend {
+    gap: 0.4rem;
+}
+
+.live-gauge--compact .live-gauge__legend-item {
+    font-size: 0.6rem;
+}
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 640px) {
+    .live-gauge__value {
+        font-size: 1.6rem;
+    }
+
+    .live-gauge__legend {
+        gap: 0.4rem;
+    }
+}
+
+/* ===== DARK MODE ===== */
+[data-theme="dark"] .live-gauge,
+.dark .live-gauge {
+    background: var(--card);
+    border-color: var(--border);
+}
+
+[data-theme="dark"] .live-gauge:hover,
+.dark .live-gauge:hover {
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25),
+        0 0 20px rgba(121, 188, 158, 0.1);
+}
+
+/* ===== PERFORMANCE ===== */
+@media (prefers-reduced-motion: reduce) {
+
+    .live-gauge,
+    .live-gauge__arc {
+        animation: none !important;
+        transition: none !important;
+    }
+}

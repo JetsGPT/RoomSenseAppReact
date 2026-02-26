@@ -1,12 +1,13 @@
 import { useId, useState } from "react"
 import { useLocation, useNavigate, Link } from "react-router-dom"
 import { motion } from "framer-motion"
-import { HouseIcon, InboxIcon, SearchIcon, ZapIcon, Shield, Box, BarChart3, Download, Monitor, Map, CloudSun, GitCompareArrows, Bell } from "lucide-react"
+import { HouseIcon, InboxIcon, SearchIcon, ZapIcon, Shield, Box, BarChart3, Download, Monitor, Map, CloudSun, GitCompareArrows, Bell, LayoutDashboard, Cpu, Globe, Terminal, ShieldAlert } from "lucide-react"
 import Time from "@/components/ui/Time"
 import Logo from "@/components/logo"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import UserMenu from "@/components/user-menu"
+import NotificationBell from "@/components/NotificationBell"
 import ThemeSwitch from "@/components/ui/ThemeSwitch"
 import {
   NavigationMenu,
@@ -23,16 +24,19 @@ import { useSidebar } from "@/shared/contexts/SidebarContext"
 
 // Navigation links array to be used in both desktop and mobile menus
 const navigationLinks = [
-  { href: "/dashboard", label: "Dashboard", icon: HouseIcon },
+  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/floor-plan", label: "Floor Plan", icon: Map },
   { href: "/boxes", label: "My Boxes", icon: Box },
+  { href: "/remote-boxes", label: "Remote Boxes", icon: Globe },
+  { href: "/systemHealth", label: "System", icon: Cpu },
+  { href: "/proxy", label: "Proxy Tester", icon: Terminal },
   { href: "/weather", label: "Weather", icon: CloudSun },
   { href: "/correlation", label: "Correlation", icon: GitCompareArrows },
   { href: "/kiosk", label: "Kiosk", icon: Monitor },
   { href: "/download", label: "Download", icon: Download },
   { href: "/notifications", label: "Notifications", icon: Bell },
   { href: "/about-me", label: "About", icon: InboxIcon },
-  { href: "/admin", label: "Admin", icon: Shield },
+  { href: "/admin", label: "Admin", icon: ShieldAlert, requiredRole: 'admin' },
   { href: "#", label: "Help", icon: ZapIcon },
 ]
 
@@ -252,6 +256,12 @@ export default function Component() {
               whileTap={{ scale: 0.95 }}
             >
               <ThemeSwitch />
+            </motion.div>
+            <motion.div
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+            >
+              <NotificationBell />
             </motion.div>
             <motion.div
               initial={{ opacity: 0 }}

@@ -21,6 +21,12 @@ export default defineConfig({
         target: 'https://localhost:8081',
         changeOrigin: true,
         secure: false,
+      },
+      '/outside-api': {
+        target: 'https://localhost:8443',
+        changeOrigin: true,
+        secure: false,
+        rewrite: (path) => path.replace(/^\/outside-api/, '')
       }
     }
   },

@@ -5,6 +5,7 @@ import { Button } from './ui/button';
 import { InfoBlock } from './ui/InfoBlock';
 import { SensorLineChart, SensorAreaChart } from './ui/SensorCharts';
 import { IndoorOutdoorChart } from './ui/IndoorOutdoorChart';
+import { HistoryChart } from './ui/HistoryChart';
 import { SensorGauge, GaugeCustomizer } from './ui/SensorGauge';
 import { SensorDisplayGrid } from './ui/SensorDisplayGrid';
 import { RoomScore, TipsCard } from './ui/RoomScore';
@@ -296,6 +297,27 @@ export function BoxDetail({ boxId }) {
             return {};
         }
     }, [sortedBoxData]);
+
+    // Merge temperature + humidity into a single array for the HistoryChart
+    const historyChartData = useMemo(() => {
+        const tempData = dataBySensorType['temperature'] || [];
+        const humidData = dataBySensorType['humidity'] || [];
+        if (tempData.length === 0 && humidData.length === 0) return [];
+
+        const map = new Map();
+        tempData.forEach((d) => {
+            const ts = new Date(d.timestamp).getTime();
+            map.set(ts, { timestamp: ts, temperature: d.value });
+        });
+        humidData.forEach((d) => {
+            const ts = new Date(d.timestamp).getTime();
+            const existing = map.get(ts) || { timestamp: ts };
+            existing.humidity = d.value;
+            map.set(ts, existing);
+        });
+
+        return Array.from(map.values()).sort((a, b) => a.timestamp - b.timestamp);
+    }, [dataBySensorType]);
 
     const getChartDataForSensorType = useCallback(
         (sensorType) => dataBySensorType[sensorType] || [],
@@ -711,6 +733,16 @@ export function BoxDetail({ boxId }) {
             {/* Smart Tips */}
             {showTips && hasLatestReadings && (
                 <TipsCard readings={latestReadings} maxTips={3} />
+            )}
+
+            {/* 24h History — Temperature & Humidity */}
+            {historyChartData.length > 0 && (
+                <div>
+                    <h3 className="mb-3 text-base font-semibold text-foreground sm:mb-4 sm:text-lg">
+                        24h History
+                    </h3>
+                    <HistoryChart data={historyChartData} />
+                </div>
             )}
 
             <div>

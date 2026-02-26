@@ -16,6 +16,7 @@ import { useSidebar } from '../shared/contexts/SidebarContext';
 import { getSensorIcon, getSensorUnit, getSensorName } from '../config/sensorConfig';
 import { sensorHelpers } from '../services/sensorsAPI';
 import { AnimatePresence, motion } from 'framer-motion';
+import { WidgetErrorBoundary } from './WidgetErrorBoundary';
 
 /**
  * RoomCard Component
@@ -178,186 +179,198 @@ export function Overview({ sensorData, groupedData }) {
         <div className="space-y-6">
             {/* ===== HERO SECTION - Room Score ===== */}
             {showRoomScore && latestByType.length > 0 && (
-                <motion.div
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                >
-                    <RoomScore
-                        readings={latestByType}
-                        roomName="Your Home"
-                        size="large"
-                    />
-                </motion.div>
+                <WidgetErrorBoundary name="Room Score">
+                    <motion.div
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                    >
+                        <RoomScore
+                            readings={latestByType}
+                            roomName="Your Home"
+                            size="large"
+                        />
+                    </motion.div>
+                </WidgetErrorBoundary>
             )}
 
             {/* ===== LIVE NOW SECTION ===== */}
-            <div className="space-y-3 sm:space-y-4">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                        <Radio className="w-4 h-4 text-primary animate-pulse" />
-                        <h3 className="text-lg font-semibold">Live Now</h3>
-                        <div className="flex items-center gap-1 text-xs text-muted-foreground bg-muted px-2 py-1 rounded-full">
-                            <Clock className="w-3 h-3" />
-                            <span>{lastUpdate}</span>
+            <WidgetErrorBoundary name="Live Now">
+                <div className="space-y-3 sm:space-y-4">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                            <Radio className="w-4 h-4 text-primary animate-pulse" />
+                            <h3 className="text-lg font-semibold">Live Now</h3>
+                            <div className="flex items-center gap-1 text-xs text-muted-foreground bg-muted px-2 py-1 rounded-full">
+                                <Clock className="w-3 h-3" />
+                                <span>{lastUpdate}</span>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <DisplayModeSelector
+                                value={displayMode}
+                                onChange={handleDisplayModeChange}
+                                variant="buttons"
+                            />
+                            <Button
+                                type="button"
+                                size="sm"
+                                variant={showSettings ? 'secondary' : 'ghost'}
+                                onClick={() => setShowSettings(prev => !prev)}
+                            >
+                                <Settings2 className="h-4 w-4" />
+                            </Button>
                         </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                        <DisplayModeSelector
-                            value={displayMode}
-                            onChange={handleDisplayModeChange}
-                            variant="buttons"
-                        />
-                        <Button
-                            type="button"
-                            size="sm"
-                            variant={showSettings ? 'secondary' : 'ghost'}
-                            onClick={() => setShowSettings(prev => !prev)}
-                        >
-                            <Settings2 className="h-4 w-4" />
-                        </Button>
-                    </div>
-                </div>
 
-                {/* Settings Panel */}
-                <AnimatePresence>
-                    {showSettings && (
-                        <motion.div
-                            initial={{ opacity: 0, height: 0 }}
-                            animate={{ opacity: 1, height: 'auto' }}
-                            exit={{ opacity: 0, height: 0 }}
-                            className="overflow-hidden"
-                        >
-                            <div className="bg-card border border-border rounded-xl p-4 space-y-4">
-                                <div className="flex items-center justify-between">
-                                    <h4 className="font-semibold">Display Settings</h4>
-                                    <Button size="icon-sm" variant="ghost" onClick={() => setShowSettings(false)}>
-                                        <X className="h-4 w-4" />
-                                    </Button>
-                                </div>
-
-                                {/* Display Mode Grid */}
-                                <div>
-                                    <label className="text-sm text-muted-foreground mb-2 block">Display Style</label>
-                                    <DisplayModeSelector
-                                        value={displayMode}
-                                        onChange={handleDisplayModeChange}
-                                        variant="pills"
-                                    />
-                                </div>
-
-                                {/* Gauge Customizer (only for gauges mode) */}
-                                {displayMode === 'gauges' && (
-                                    <div>
-                                        <label className="text-sm text-muted-foreground mb-2 block">Gauge Styles</label>
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                            {availableSensorTypes.map(sensorType => (
-                                                <GaugeCustomizer
-                                                    key={sensorType}
-                                                    sensorType={sensorType}
-                                                    currentType={getGaugeTypeForSensor(sensorType)}
-                                                    onChange={handleGaugeTypeChange}
-                                                />
-                                            ))}
-                                        </div>
+                    {/* Settings Panel */}
+                    <AnimatePresence>
+                        {showSettings && (
+                            <motion.div
+                                initial={{ opacity: 0, height: 0 }}
+                                animate={{ opacity: 1, height: 'auto' }}
+                                exit={{ opacity: 0, height: 0 }}
+                                className="overflow-hidden"
+                            >
+                                <div className="bg-card border border-border rounded-xl p-4 space-y-4">
+                                    <div className="flex items-center justify-between">
+                                        <h4 className="font-semibold">Display Settings</h4>
+                                        <Button size="icon-sm" variant="ghost" onClick={() => setShowSettings(false)}>
+                                            <X className="h-4 w-4" />
+                                        </Button>
                                     </div>
-                                )}
 
-                                {/* Toggle Options */}
-                                <div className="flex flex-wrap gap-4">
-                                    <label className="flex items-center gap-2 text-sm">
-                                        <input
-                                            type="checkbox"
-                                            checked={showRoomScore}
-                                            onChange={(e) => updateSettings({ showRoomScore: e.target.checked })}
-                                            className="rounded"
+                                    {/* Display Mode Grid */}
+                                    <div>
+                                        <label className="text-sm text-muted-foreground mb-2 block">Display Style</label>
+                                        <DisplayModeSelector
+                                            value={displayMode}
+                                            onChange={handleDisplayModeChange}
+                                            variant="pills"
                                         />
-                                        Show Room Score
-                                    </label>
-                                    <label className="flex items-center gap-2 text-sm">
-                                        <input
-                                            type="checkbox"
-                                            checked={showTips}
-                                            onChange={(e) => updateSettings({ showTips: e.target.checked })}
-                                            className="rounded"
-                                        />
-                                        Show Tips
-                                    </label>
+                                    </div>
+
+                                    {/* Gauge Customizer (only for gauges mode) */}
+                                    {displayMode === 'gauges' && (
+                                        <div>
+                                            <label className="text-sm text-muted-foreground mb-2 block">Gauge Styles</label>
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                                {availableSensorTypes.map(sensorType => (
+                                                    <GaugeCustomizer
+                                                        key={sensorType}
+                                                        sensorType={sensorType}
+                                                        currentType={getGaugeTypeForSensor(sensorType)}
+                                                        onChange={handleGaugeTypeChange}
+                                                    />
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Toggle Options */}
+                                    <div className="flex flex-wrap gap-4">
+                                        <label className="flex items-center gap-2 text-sm">
+                                            <input
+                                                type="checkbox"
+                                                checked={showRoomScore}
+                                                onChange={(e) => updateSettings({ showRoomScore: e.target.checked })}
+                                                className="rounded"
+                                            />
+                                            Show Room Score
+                                        </label>
+                                        <label className="flex items-center gap-2 text-sm">
+                                            <input
+                                                type="checkbox"
+                                                checked={showTips}
+                                                onChange={(e) => updateSettings({ showTips: e.target.checked })}
+                                                className="rounded"
+                                            />
+                                            Show Tips
+                                        </label>
+                                    </div>
                                 </div>
-                            </div>
-                        </motion.div>
-                    )}
-                </AnimatePresence>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
 
-                {/* Sensor Display */}
-                <SensorDisplayGrid
-                    readings={latestByType}
-                    displayMode={displayMode}
-                    getGaugeTypeForSensor={getGaugeTypeForSensor}
-                />
-            </div>
+                    {/* Sensor Display */}
+                    <SensorDisplayGrid
+                        readings={latestByType}
+                        displayMode={displayMode}
+                        getGaugeTypeForSensor={getGaugeTypeForSensor}
+                    />
+                </div>
+            </WidgetErrorBoundary>
 
             {/* ===== TIPS SECTION ===== */}
             {showTips && latestByType.length > 0 && (
-                <TipsCard readings={latestByType} maxTips={3} />
+                <WidgetErrorBoundary name="Tips">
+                    <TipsCard readings={latestByType} maxTips={3} />
+                </WidgetErrorBoundary>
             )}
 
             {/* ===== FLOOR PLAN SECTION ===== */}
-            <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                    <MapIcon className="w-4 h-4 text-primary" />
-                    <h3 className="text-lg font-semibold">Floor Plan</h3>
+            <WidgetErrorBoundary name="Floor Plan">
+                <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                        <MapIcon className="w-4 h-4 text-primary" />
+                        <h3 className="text-lg font-semibold">Floor Plan</h3>
+                    </div>
+                    <FloorPlanViewer height={450} />
                 </div>
-                <FloorPlanViewer height={450} />
-            </div>
+            </WidgetErrorBoundary>
 
             {/* ===== ROOMS OVERVIEW ===== */}
-            <div className="space-y-3">
-                <h3 className="text-lg font-semibold">Your Rooms</h3>
-                <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-                    {Object.entries(groupedData).map(([boxId, readings]) => (
-                        <RoomCard
-                            key={boxId}
-                            boxId={boxId}
-                            readings={readings}
-                            displayMode={displayMode}
-                            onClick={() => setActiveView(`box-${boxId}`)}
-                        />
-                    ))}
+            <WidgetErrorBoundary name="Rooms">
+                <div className="space-y-3">
+                    <h3 className="text-lg font-semibold">Your Rooms</h3>
+                    <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+                        {Object.entries(groupedData).map(([boxId, readings]) => (
+                            <RoomCard
+                                key={boxId}
+                                boxId={boxId}
+                                readings={readings}
+                                displayMode={displayMode}
+                                onClick={() => setActiveView(`box-${boxId}`)}
+                            />
+                        ))}
+                    </div>
                 </div>
-            </div>
+            </WidgetErrorBoundary>
 
             {/* ===== QUICK TRENDS ===== */}
-            <div className="space-y-3 sm:space-y-4 pt-4 border-t border-border">
-                <div className="flex items-center justify-between gap-2">
-                    <h3 className="text-lg font-semibold">Trends</h3>
-                    <Button
-                        type="button"
-                        size="icon-sm"
-                        variant={showQuickTrendManager ? 'secondary' : 'ghost'}
-                        onClick={() => setShowQuickTrendManager((prev) => !prev)}
-                        className="shrink-0"
-                    >
-                        <PencilLine className="h-4 w-4" />
-                    </Button>
+            <WidgetErrorBoundary name="Trends">
+                <div className="space-y-3 sm:space-y-4 pt-4 border-t border-border">
+                    <div className="flex items-center justify-between gap-2">
+                        <h3 className="text-lg font-semibold">Trends</h3>
+                        <Button
+                            type="button"
+                            size="icon-sm"
+                            variant={showQuickTrendManager ? 'secondary' : 'ghost'}
+                            onClick={() => setShowQuickTrendManager((prev) => !prev)}
+                            className="shrink-0"
+                        >
+                            <PencilLine className="h-4 w-4" />
+                        </Button>
+                    </div>
+                    {showQuickTrendManager && (
+                        <SensorChartManager
+                            availableSensors={availableSensorTypes}
+                            selectedSensors={quickTrendSensorTypes}
+                            onChange={setQuickTrendSensorTypes}
+                            className="bg-background"
+                        />
+                    )}
+                    {quickTrendSensorTypes.length === 0 || quickTrendCharts.length === 0 ? (
+                        <div className="rounded-2xl border border-dashed border-border bg-muted/20 p-6 text-center text-sm text-muted-foreground">
+                            Select sensors to display trend charts.
+                        </div>
+                    ) : (
+                        <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2">
+                            {quickTrendCharts}
+                        </div>
+                    )}
                 </div>
-                {showQuickTrendManager && (
-                    <SensorChartManager
-                        availableSensors={availableSensorTypes}
-                        selectedSensors={quickTrendSensorTypes}
-                        onChange={setQuickTrendSensorTypes}
-                        className="bg-background"
-                    />
-                )}
-                {quickTrendSensorTypes.length === 0 || quickTrendCharts.length === 0 ? (
-                    <div className="rounded-2xl border border-dashed border-border bg-muted/20 p-6 text-center text-sm text-muted-foreground">
-                        Select sensors to display trend charts.
-                    </div>
-                ) : (
-                    <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2">
-                        {quickTrendCharts}
-                    </div>
-                )}
-            </div>
+            </WidgetErrorBoundary>
         </div>
     );
 }

@@ -446,6 +446,7 @@ export const DISPLAY_MODES = [
     { id: 'comfort', label: 'Comfort View', description: 'Easy to understand with tips', Icon: HeartPulse },
     { id: 'tiles', label: 'Status Tiles', description: 'Compact visual overview', Icon: Activity },
     { id: 'gauges', label: 'Gauges', description: 'Detailed dial displays', Icon: Gauge },
+    { id: 'live', label: 'Live Gauges', description: 'Radial bar with color zones', Icon: Activity },
     { id: 'simple', label: 'Simple Numbers', description: 'Clean minimal display', Icon: Activity }
 ];
 

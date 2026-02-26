@@ -156,6 +156,25 @@ export const boxesAPI = {
         const response = await api.delete(`/boxes/claim/${claimId}`);
         return response.data;
     },
+
+    getAssignments: async (boxId) => {
+        // Updated to use the new FastAPI endpoint
+        // Note: The FastAPI server runs on a different port than the main Node.js backend.
+        // Assuming the proxy or Vite config routes `/api` appropriately, or we use the specific FastAPI URL.
+        // We'll use the generic `api` instance which points to VITE_API_URL
+        const response = await api.get(`/boxes/${boxId}/assignments`);
+        return response.data;
+    },
+
+    assignBox: async (boxId, email) => {
+        const response = await api.post('/boxes/assign', { box_id: boxId, email });
+        return response.data;
+    },
+
+    revokeAssignment: async (boxId, email) => {
+        const response = await api.delete('/boxes/assign', { data: { box_id: boxId, email } });
+        return response.data;
+    }
 };
 
 // Import sensors API

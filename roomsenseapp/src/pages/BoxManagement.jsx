@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Wifi, WifiOff, Search, Plus, Trash2, Box, RefreshCw, Pencil, PackagePlus } from 'lucide-react';
+import { Loader2, Wifi, WifiOff, Search, Plus, Trash2, Box, RefreshCw, Pencil, PackagePlus, Users } from 'lucide-react';
 import { bleAPI, boxesAPI } from '@/services/api';
 import { useToast } from '@/hooks/use-toast';
 import { useConnections } from '@/contexts/ConnectionsContext';
@@ -11,6 +11,7 @@ import { StaggeredContainer, StaggeredItem, FadeIn } from '@/components/ui/PageT
 import { RenameDeviceDialog } from '@/components/RenameDeviceDialog';
 import { PairingDialog } from '@/components/PairingDialog';
 import { ClaimDeviceDialog } from '@/components/ClaimDeviceDialog';
+import { ShareDeviceDialog } from '@/components/ShareDeviceDialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -36,6 +37,10 @@ const BoxManagement = () => {
     const [claimedDevices, setClaimedDevices] = useState([]);
     const [isLoadingClaimed, setIsLoadingClaimed] = useState(true);
     const [unclaimingIds, setUnclaimingIds] = useState(new Set());
+
+    // Share Device State
+    const [shareDialogOpen, setShareDialogOpen] = useState(false);
+    const [deviceToShare, setDeviceToShare] = useState(null);
 
     const { toast } = useToast();
 
@@ -683,6 +688,18 @@ const BoxManagement = () => {
                                                         Claimed
                                                     </Badge>
                                                     <Button
+                                                        variant="outline"
+                                                        size="icon"
+                                                        onClick={() => {
+                                                            setDeviceToShare(device);
+                                                            setShareDialogOpen(true);
+                                                        }}
+                                                        className="flex-shrink-0"
+                                                        title="Share device"
+                                                    >
+                                                        <Users className="h-4 w-4" />
+                                                    </Button>
+                                                    <Button
                                                         variant="destructive"
                                                         size="icon"
                                                         onClick={() => handleUnclaimDevice(device.id, device.box_name || device.box_id)}
@@ -719,6 +736,13 @@ const BoxManagement = () => {
                 open={claimDialogOpen}
                 onOpenChange={setClaimDialogOpen}
                 onClaim={handleClaimDevice}
+            />
+
+            {/* Share Device Dialog */}
+            <ShareDeviceDialog
+                open={shareDialogOpen}
+                onOpenChange={setShareDialogOpen}
+                device={deviceToShare}
             />
 
             {/* PIN Entry Dialog */}

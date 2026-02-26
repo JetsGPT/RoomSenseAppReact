@@ -2,14 +2,15 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-route
 import { AnimatePresence } from 'framer-motion';
 import { lazy, Suspense, useMemo } from 'react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { OutsideServerProvider, useOutsideServer } from './contexts/OutsideServerContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { SettingsProvider } from './contexts/SettingsContext';
 import { WeatherProvider } from './contexts/WeatherContext';
 import { ConnectionsProvider, useConnections } from './contexts/ConnectionsContext';
 import { SidebarProvider } from './shared/contexts/SidebarContext';
 import { RequireAuth, RequireRole, PublicOnly } from './components/ProtectedRoute';
-import Navigation from './components/ui/Navigation';
 import { AppSidebar } from './shared/components/AppSidebar';
+import { BottomNav } from './components/ui/BottomNav';
 import { PageTransition } from './components/ui/PageTransition';
 import { ErrorBoundary } from './shared/components/ErrorBoundary';
 import { Loader2 } from 'lucide-react';
@@ -31,6 +32,10 @@ const Weather = lazy(() => import('./pages/Weather'));
 const Notifications = lazy(() => import('./pages/Notifications'));
 
 const SystemHealth = lazy(() => import('./pages/SystemHealth'));
+const NotFound = lazy(() => import('./pages/NotFound'));
+
+const RemoteBoxes = lazy(() => import('./pages/RemoteBoxes'));
+const ProxyTester = lazy(() => import('./pages/ProxyTester'));
 
 // Loading fallback component
 const LoadingFallback = () => (
@@ -38,6 +43,9 @@ const LoadingFallback = () => (
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
     </div>
 );
+
+// Navigation requires hooks that must be within a Router
+import { default as Navigation } from './components/ui/Navigation';
 
 function DashboardWrapper() {
     const { activeConnections } = useConnections();
@@ -72,7 +80,7 @@ function AppContent() {
             {shouldShowNavigation && <Navigation />}
             <div className="flex min-h-screen">
                 {shouldShowSidebar && <AppSidebar />}
-                <div className="flex-1">
+                <div className="flex-1 max-md:pb-20">
                     <AnimatePresence mode="wait">
                         <Routes location={location} key={location.pathname}>
                             {/* Public routes - redirects to dashboard if already logged in */}
@@ -178,7 +186,7 @@ function AppContent() {
                             />
 
 
-                            {/* Unauthorized page */}
+                            {/* Route requires Auth for System Health */}
                             <Route
                                 path="/system-health"
                                 element={
@@ -186,6 +194,32 @@ function AppContent() {
                                         <Suspense fallback={<LoadingFallback />}>
                                             <PageTransition>
                                                 <SystemHealth />
+                                            </PageTransition>
+                                        </Suspense>
+                                    </RequireAuth>
+                                }
+                            />
+
+                            {/* New OutsideServer Routes */}
+                            <Route
+                                path="/remote-boxes"
+                                element={
+                                    <RequireAuth>
+                                        <Suspense fallback={<LoadingFallback />}>
+                                            <PageTransition>
+                                                <RemoteBoxes />
+                                            </PageTransition>
+                                        </Suspense>
+                                    </RequireAuth>
+                                }
+                            />
+                            <Route
+                                path="/proxy"
+                                element={
+                                    <RequireAuth>
+                                        <Suspense fallback={<LoadingFallback />}>
+                                            <PageTransition>
+                                                <ProxyTester />
                                             </PageTransition>
                                         </Suspense>
                                     </RequireAuth>
@@ -242,31 +276,52 @@ function AppContent() {
                             {/* Default redirect */}
                             <Route path="/" element={<Navigate to="/about-me" replace />} />
 
-                            {/* 404 - could create a NotFound page later */}
-                            <Route path="*" element={<Navigate to="/about-me" replace />} />
+                            {/* 404 - Not Found */}
+                            <Route
+                                path="*"
+                                element={
+                                    <Suspense fallback={<LoadingFallback />}>
+                                        <PageTransition>
+                                            <NotFound />
+                                        </PageTransition>
+                                    </Suspense>
+                                }
+                            />
                         </Routes>
                     </AnimatePresence>
                 </div>
             </div>
+            {/* Show bottom navigation on mobile devices */}
+            {shouldShowNavigation && <BottomNav />}
         </>
     );
 }
 
 function App() {
+    // 24H time range data prefetch for overall optimization
+    const sensorsToPrefetch = [
+        "SHT-31_Temperature",
+        "SHT-31_Humidity",
+        "BME-680_Temperature",
+        "BME-680_Humidity"
+    ];
+
     return (
-        <BrowserRouter>
-            <ThemeProvider>
-                <SettingsProvider>
-                    <WeatherProvider>
-                        <AuthProvider>
-                            <ConnectionsProvider>
-                                <DashboardWrapper />
-                            </ConnectionsProvider>
-                        </AuthProvider>
-                    </WeatherProvider>
-                </SettingsProvider>
-            </ThemeProvider>
-        </BrowserRouter>
+        <ThemeProvider>
+            <AuthProvider>
+                <OutsideServerProvider>
+                    <ConnectionsProvider>
+                        <SettingsProvider>
+                            <WeatherProvider>
+                                <BrowserRouter>
+                                    <DashboardWrapper />
+                                </BrowserRouter>
+                            </WeatherProvider>
+                        </SettingsProvider>
+                    </ConnectionsProvider>
+                </OutsideServerProvider>
+            </AuthProvider>
+        </ThemeProvider>
     );
 }
 

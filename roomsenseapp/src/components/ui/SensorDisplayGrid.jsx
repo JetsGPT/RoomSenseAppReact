@@ -8,6 +8,7 @@
 import React, { memo } from 'react';
 import { ComfortCard, StatusTile, SimpleCard } from './ComfortCard';
 import { SensorGauge } from './SensorGauge';
+import { LiveGauge } from './LiveGauge';
 
 /**
  * Renders a grid of sensor readings based on the selected display mode.
@@ -92,6 +93,16 @@ const SensorDisplayItem = memo(function SensorDisplayItem({
                     value={value}
                     sensorType={sensor_type}
                     gaugeType={getGaugeTypeForSensor?.(sensor_type) || 'grafana'}
+                    timestamp={timestamp}
+                    compact={compactGauges}
+                />
+            );
+
+        case 'live':
+            return (
+                <LiveGauge
+                    value={value}
+                    sensorType={sensor_type}
                     timestamp={timestamp}
                     compact={compactGauges}
                 />

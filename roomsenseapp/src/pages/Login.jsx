@@ -2,20 +2,24 @@ import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { motion as Motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../contexts/AuthContext';
+import { useOutsideServer } from '../contexts/OutsideServerContext';
 import { Input } from '../components/ui/input';
 import { Button } from '../components/ui/button';
 import Time from '../components/ui/Time';
-import { User, Lock, Eye, EyeOff, Loader2 } from 'lucide-react';
+import { User, Lock, Eye, EyeOff, Loader2, Mail, Globe, Server } from 'lucide-react';
 
 const Login = () => {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
+    const [email, setEmail] = useState(''); // NEW for OutsideServer
+    const [connectionMode, setConnectionMode] = useState('local'); // 'local' | 'outside'
     const [isRegistering, setIsRegistering] = useState(false);
     const [localError, setLocalError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
 
-    const { login, register, checkAuth } = useAuth();
+    const { login, register } = useAuth();
+    const { outsideLogin, outsideRegister } = useOutsideServer();
     const navigate = useNavigate();
     const location = useLocation();
 
@@ -25,8 +29,20 @@ const Login = () => {
         e.preventDefault();
         setLocalError('');
 
-        if (!username || !password) {
-            setLocalError('Username and password are required');
+        if (connectionMode === 'local' && !username) {
+            setLocalError('Username is required for local server');
+            return;
+        }
+        if (connectionMode === 'outside' && !email) {
+            setLocalError('Email is required for Outside Server');
+            return;
+        }
+        if (connectionMode === 'outside' && isRegistering && !username) {
+            setLocalError('Username is required for Outside Server registration');
+            return;
+        }
+        if (!password) {
+            setLocalError('Password is required');
             return;
         }
 
@@ -34,10 +50,18 @@ const Login = () => {
 
         try {
             let result;
-            if (isRegistering) {
-                result = await register(username, password);
+            if (connectionMode === 'local') {
+                if (isRegistering) {
+                    result = await register(username, password);
+                } else {
+                    result = await login(username, password);
+                }
             } else {
-                result = await login(username, password);
+                if (isRegistering) {
+                    result = await outsideRegister(username, email, password);
+                } else {
+                    result = await outsideLogin(email, password);
+                }
             }
 
             if (result.success) {
@@ -74,10 +98,18 @@ const Login = () => {
         }
     };
 
-    const toggleMode = () => {
+    const toggleRegisterMode = () => {
         setIsRegistering((prev) => !prev);
         setLocalError('');
         setPassword('');
+        setEmail('');
+    };
+
+    const toggleMode = () => {
+        setConnectionMode((prev) => prev === 'local' ? 'outside' : 'local');
+        setLocalError('');
+        setPassword('');
+        setIsRegistering(false);
     };
 
 
@@ -103,8 +135,28 @@ const Login = () => {
                             <Time className="text-3xl font-semibold text-muted-foreground" showSeconds={true} />
                         </div>
                         <p className="text-sm text-muted-foreground md:text-base">
-                            {isRegistering ? 'Create a new account to access your smart spaces.' : 'Welcome back! Sign in to monitor and secure your rooms.'}
+                            {isRegistering ? 'Create a new account.' : 'Welcome back! Sign in to continue.'}
                         </p>
+                    </div>
+
+                    {/* Connection Mode Toggle */}
+                    <div className="flex bg-muted p-1 rounded-xl">
+                        <button
+                            type="button"
+                            onClick={() => connectionMode !== 'local' && toggleMode()}
+                            className={`flex flex-1 items-center justify-center gap-2 rounded-lg py-2 text-sm font-medium transition-all ${connectionMode === 'local' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                        >
+                            <Server className="h-4 w-4" />
+                            Local Box
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => connectionMode !== 'outside' && toggleMode()}
+                            className={`flex flex-1 items-center justify-center gap-2 rounded-lg py-2 text-sm font-medium transition-all ${connectionMode === 'outside' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                        >
+                            <Globe className="h-4 w-4" />
+                            Outside Server
+                        </button>
                     </div>
 
                     {localError && (
@@ -119,26 +171,51 @@ const Login = () => {
 
                     <form onSubmit={handleSubmit} className="space-y-6">
                         <div className="space-y-4">
-                            <div className="space-y-2">
-                                <label htmlFor="username" className="text-sm font-medium text-foreground">
-                                    Username
-                                </label>
-                                <div className="relative">
-                                    <div className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-muted-foreground">
-                                        <User className="h-4 w-4" />
+                            {(connectionMode === 'local' || (connectionMode === 'outside' && isRegistering)) && (
+                                <div className="space-y-2">
+                                    <label htmlFor="username" className="text-sm font-medium text-foreground">
+                                        Username
+                                    </label>
+                                    <div className="relative">
+                                        <div className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-muted-foreground">
+                                            <User className="h-4 w-4" />
+                                        </div>
+                                        <Input
+                                            type="text"
+                                            id="username"
+                                            value={username}
+                                            onChange={(e) => setUsername(e.target.value)}
+                                            disabled={isLoading}
+                                            autoComplete="username"
+                                            className="w-full pl-9"
+                                            placeholder="Enter your username"
+                                        />
                                     </div>
-                                    <Input
-                                        type="text"
-                                        id="username"
-                                        value={username}
-                                        onChange={(e) => setUsername(e.target.value)}
-                                        disabled={isLoading}
-                                        autoComplete="username"
-                                        className="w-full pl-9"
-                                        placeholder="Enter your username"
-                                    />
                                 </div>
-                            </div>
+                            )}
+
+                            {connectionMode === 'outside' && (
+                                <div className="space-y-2">
+                                    <label htmlFor="email" className="text-sm font-medium text-foreground">
+                                        Email
+                                    </label>
+                                    <div className="relative">
+                                        <div className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-muted-foreground">
+                                            <Mail className="h-4 w-4" />
+                                        </div>
+                                        <Input
+                                            type="email"
+                                            id="email"
+                                            value={email}
+                                            onChange={(e) => setEmail(e.target.value)}
+                                            disabled={isLoading}
+                                            autoComplete="email"
+                                            className="w-full pl-9"
+                                            placeholder="Enter your email address"
+                                        />
+                                    </div>
+                                </div>
+                            )}
 
                             <div className="space-y-2">
                                 <label htmlFor="password" className="text-sm font-medium text-foreground">
@@ -194,7 +271,7 @@ const Login = () => {
                                 type="button"
                                 size="lg"
                                 variant="outline"
-                                onClick={toggleMode}
+                                onClick={toggleRegisterMode}
                                 disabled={isLoading}
                                 className="w-full"
                             >

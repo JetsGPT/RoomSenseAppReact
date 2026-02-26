@@ -157,7 +157,7 @@ export function AppSidebar() {
             {/* Mobile sidebar hidden - using top navigation menu instead */}
 
             {/* Desktop Sidebar */}
-            <Card className="hidden lg:flex flex-col w-64 h-screen border-r border-border bg-card shadow-lg z-40 rounded-l-none">
+            <Card className="hidden md:flex flex-col w-64 h-screen border-r border-border bg-card shadow-lg z-40 rounded-l-none">
                 <div className="p-6 border-b border-border">
                     <h2 className="font-heading text-lg font-semibold text-foreground">
                         RoomSense
