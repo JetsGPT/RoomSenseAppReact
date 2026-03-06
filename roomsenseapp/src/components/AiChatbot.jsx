@@ -61,23 +61,29 @@ export default function AiChatbot() {
         try {
             const result = await aiAPI.chat(messageText, conversationHistory);
 
+            // Force response to string — the SDK may return non-string values
+            let responseText = result.response;
+            if (typeof responseText !== 'string') {
+                responseText = responseText?.text || responseText?.message || JSON.stringify(responseText) || 'No response received.';
+            }
+
             // Add AI response
-            const aiMsg = { id: Date.now() + 1, role: 'ai', text: result.response };
+            const aiMsg = { id: Date.now() + 1, role: 'ai', text: String(responseText) };
             setMessages(prev => [...prev, aiMsg]);
             setConversationHistory(result.conversationHistory || []);
         } catch (err) {
             console.error('[AiChatbot] Error:', err);
-            let errorMsg = err.response?.data?.error || 'Something went wrong. Please try again.';
-            if (err.response?.data?.details) {
-                errorMsg += ` (${err.response.data.details})`;
-            }
-            
+            let errorMsg;
             if (err.response?.status === 503) {
                 errorMsg = 'AI service is not configured yet. Ask your admin to set the Gemini API key in Settings.';
-            } else if (typeof errorMsg !== 'string') {
-                errorMsg = errorMsg.message || JSON.stringify(errorMsg);
+            } else {
+                const raw = err.response?.data?.error;
+                errorMsg = (typeof raw === 'string') ? raw : (raw?.message || JSON.stringify(raw) || 'Something went wrong.');
+                if (err.response?.data?.details) {
+                    errorMsg += ` (${String(err.response.data.details)})`;
+                }
             }
-            setError(errorMsg);
+            setError(String(errorMsg));
         } finally {
             setIsLoading(false);
         }
@@ -101,7 +107,8 @@ export default function AiChatbot() {
     // Simple markdown-like bold rendering (**text**)
     const renderText = (text) => {
         if (!text) return '';
-        const parts = text.split(/(\*\*[^*]+\*\*)/g);
+        const str = typeof text === 'string' ? text : String(text);
+        const parts = str.split(/(\*\*[^*]+\*\*)/g);
         return parts.map((part, i) => {
             if (part.startsWith('**') && part.endsWith('**')) {
                 return <strong key={i}>{part.slice(2, -2)}</strong>;
