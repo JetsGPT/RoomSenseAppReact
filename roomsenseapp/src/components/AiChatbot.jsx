@@ -67,9 +67,16 @@ export default function AiChatbot() {
             setConversationHistory(result.conversationHistory || []);
         } catch (err) {
             console.error('[AiChatbot] Error:', err);
-            const errorMsg = err.response?.status === 503
-                ? 'AI service is not configured yet. Ask your admin to set the Gemini API key in Settings.'
-                : err.response?.data?.error || 'Something went wrong. Please try again.';
+            let errorMsg = err.response?.data?.error || 'Something went wrong. Please try again.';
+            if (err.response?.data?.details) {
+                errorMsg += ` (${err.response.data.details})`;
+            }
+            
+            if (err.response?.status === 503) {
+                errorMsg = 'AI service is not configured yet. Ask your admin to set the Gemini API key in Settings.';
+            } else if (typeof errorMsg !== 'string') {
+                errorMsg = errorMsg.message || JSON.stringify(errorMsg);
+            }
             setError(errorMsg);
         } finally {
             setIsLoading(false);
