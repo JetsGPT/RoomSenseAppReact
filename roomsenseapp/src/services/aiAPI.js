@@ -4,14 +4,41 @@ export const aiAPI = {
     /**
      * Send a chat message to the AI
      * @param {string} message - User's message
-     * @param {Array} conversationHistory - Previous conversation turns
-     * @returns {Promise<{response: string, conversationHistory: Array}>}
+     * @param {string} [conversationId] - Optional conversation ID to continue
+     * @returns {Promise<{response: string, conversationHistory: Array, conversationId: string}>}
      */
-    chat: async (message, conversationHistory = []) => {
-        const response = await api.post('/ai/chat', {
-            message,
-            conversationHistory
-        });
+    chat: async (message, conversationId = null) => {
+        const body = { message };
+        if (conversationId) body.conversationId = conversationId;
+        const response = await api.post('/ai/chat', body);
+        return response.data;
+    },
+
+    /**
+     * List all conversations for the current user
+     * @returns {Promise<Array<{id, title, created_at, updated_at, message_count}>>}
+     */
+    listConversations: async () => {
+        const response = await api.get('/ai/conversations');
+        return response.data;
+    },
+
+    /**
+     * Get a single conversation with full messages
+     * @param {string} id - Conversation UUID
+     * @returns {Promise<{id, title, messages, conversation_history, created_at, updated_at}>}
+     */
+    getConversation: async (id) => {
+        const response = await api.get(`/ai/conversations/${id}`);
+        return response.data;
+    },
+
+    /**
+     * Delete a conversation
+     * @param {string} id - Conversation UUID
+     */
+    deleteConversation: async (id) => {
+        const response = await api.delete(`/ai/conversations/${id}`);
         return response.data;
     },
 
