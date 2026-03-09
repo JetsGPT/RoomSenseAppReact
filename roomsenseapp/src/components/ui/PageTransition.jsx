@@ -8,12 +8,12 @@ import { motion } from 'framer-motion';
 export function PageTransition({ children, className = "" }) {
     return (
         <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
             transition={{
-                duration: 0.3,
-                ease: "easeInOut"
+                duration: 0.15,
+                ease: "easeOut"
             }}
             className={className}
         >
@@ -25,7 +25,7 @@ export function PageTransition({ children, className = "" }) {
 /**
  * Staggered animation for lists and grids
  */
-export function StaggeredContainer({ children, className = "", delay = 0.1 }) {
+export function StaggeredContainer({ children, className = "", delay = 0.05 }) {
     return (
         <motion.div
             initial="hidden"
@@ -53,10 +53,10 @@ export function StaggeredItem({ children, className = "" }) {
     return (
         <motion.div
             variants={{
-                hidden: { opacity: 0, y: 20 },
+                hidden: { opacity: 0, y: 8 },
                 visible: { opacity: 1, y: 0 }
             }}
-            transition={{ duration: 0.3, ease: "easeOut" }}
+            transition={{ duration: 0.15, ease: "easeOut" }}
             className={className}
         >
             {children}

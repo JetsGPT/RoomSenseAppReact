@@ -6,6 +6,7 @@ import { SensorDisplayGrid } from './ui/SensorDisplayGrid';
 import { RoomScore, TipsCard, RoomScoreCompact } from './ui/RoomScore';
 import { DisplayModeSelector } from './ui/DisplayModeSelector';
 import { FloorPlanViewer } from './floor-plan/FloorPlanViewer';
+import { SystemHealthWidget } from './ui/SystemHealthWidget';
 import { Radio, Clock, Settings2, X, ChevronRight, PencilLine, Map as MapIcon } from 'lucide-react';
 import { Button } from './ui/button';
 import { SensorChartManager } from './SensorChartManager';
@@ -64,6 +65,69 @@ const RoomCard = memo(function RoomCard({ boxId, readings, displayMode, onClick 
                     <ChevronRight className="w-3 h-3" />
                 </div>
             </div>
+        </motion.div>
+    );
+});
+
+/**
+ * SensorStatusStrip Component
+ * Horizontal strip showing room-by-room comfort status
+ */
+const SensorStatusStrip = memo(function SensorStatusStrip({ groupedData, onRoomClick }) {
+    const { getComfortZone, calculateRoomScore, getScoreInfo } = useComfortZones();
+
+    const roomStatuses = useMemo(() => {
+        return Object.entries(groupedData).map(([boxId, readings]) => {
+            const latestReadings = sensorHelpers.getLatestReadings(readings);
+            const score = calculateRoomScore(latestReadings);
+            const scoreInfo = getScoreInfo(score);
+
+            // Get the "dominant" status from sensor readings
+            let statusLabel = scoreInfo.label;
+            const tempReading = latestReadings.find(r => r.sensor_type === 'temperature');
+            const humReading = latestReadings.find(r => r.sensor_type === 'humidity');
+
+            if (tempReading) {
+                const tempZone = getComfortZone('temperature', tempReading.value);
+                if (tempZone && tempZone.label !== 'Good') {
+                    statusLabel = tempZone.label;
+                }
+            }
+            if (humReading && statusLabel === scoreInfo.label) {
+                const humZone = getComfortZone('humidity', humReading.value);
+                if (humZone && humZone.label !== 'Good') {
+                    statusLabel = humZone.label;
+                }
+            }
+
+            return { boxId, score, scoreInfo, statusLabel };
+        });
+    }, [groupedData, calculateRoomScore, getScoreInfo, getComfortZone]);
+
+    if (roomStatuses.length === 0) return null;
+
+    return (
+        <motion.div
+            className="flex flex-wrap gap-2"
+            initial={{ opacity: 0, y: -5 }}
+            animate={{ opacity: 1, y: 0 }}
+        >
+            {roomStatuses.map(({ boxId, score, scoreInfo, statusLabel }) => (
+                <button
+                    key={boxId}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-all hover:shadow-sm cursor-pointer"
+                    style={{
+                        borderColor: scoreInfo.color + '40',
+                        backgroundColor: scoreInfo.color + '10',
+                        color: scoreInfo.color
+                    }}
+                    onClick={() => onRoomClick(boxId)}
+                >
+                    <span className="w-2 h-2 rounded-full" style={{ backgroundColor: scoreInfo.color }} />
+                    <span className="text-foreground font-medium">{boxId}</span>
+                    <span>{statusLabel}</span>
+                </button>
+            ))}
         </motion.div>
     );
 });
@@ -175,28 +239,25 @@ export function Overview({ sensorData, groupedData }) {
     }, [quickTrendSensorTypes, sensorData]);
 
     return (
-        <div className="space-y-6">
-            {/* ===== HERO SECTION - Room Score ===== */}
-            {showRoomScore && latestByType.length > 0 && (
-                <motion.div
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                >
-                    <RoomScore
-                        readings={latestByType}
-                        roomName="Your Home"
-                        size="large"
-                    />
-                </motion.div>
+        <div className="space-y-5">
+            {/* ===== SENSOR STATUS STRIP ===== */}
+            {Object.keys(groupedData).length > 0 && (
+                <SensorStatusStrip groupedData={groupedData} onRoomClick={(boxId) => setActiveView(`box-${boxId}`)} />
             )}
 
-            {/* ===== LIVE NOW SECTION ===== */}
+            {/* ===== COMPACT ROOM SCORE + LIVE HEADER ===== */}
             <div className="space-y-3 sm:space-y-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                        <Radio className="w-4 h-4 text-primary animate-pulse" />
-                        <h3 className="text-lg font-semibold">Live Now</h3>
-                        <div className="flex items-center gap-1 text-xs text-muted-foreground bg-muted px-2 py-1 rounded-full">
+                    <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2">
+                            <Radio className="w-4 h-4 text-primary animate-pulse" />
+                            <h3 className="text-lg font-semibold">Live Now</h3>
+                        </div>
+                        {/* Compact Room Score Badge */}
+                        {showRoomScore && latestByType.length > 0 && (
+                            <RoomScoreCompact readings={latestByType} className="ml-1" />
+                        )}
+                        <div className="flex items-center gap-1 text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
                             <Clock className="w-3 h-3" />
                             <span>{lastUpdate}</span>
                         </div>
@@ -296,9 +357,18 @@ export function Overview({ sensorData, groupedData }) {
                 />
             </div>
 
-            {/* ===== TIPS SECTION ===== */}
-            {showTips && latestByType.length > 0 && (
-                <TipsCard readings={latestByType} maxTips={3} />
+            {/* ===== TIPS + SYSTEM HEALTH (Two-column) ===== */}
+            {(showTips && latestByType.length > 0) && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <TipsCard readings={latestByType} maxTips={3} />
+                    <div className="bg-card border border-border rounded-2xl p-4">
+                        <h4 className="text-sm font-semibold mb-3 text-muted-foreground uppercase tracking-wider">System Overview</h4>
+                        <div className="text-xs text-muted-foreground">
+                            <p>{Object.keys(groupedData).length} rooms active</p>
+                            <p>{latestByType.length} sensor types reporting</p>
+                        </div>
+                    </div>
+                </div>
             )}
 
             {/* ===== FLOOR PLAN SECTION ===== */}

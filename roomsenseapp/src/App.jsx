@@ -60,21 +60,17 @@ function DashboardWrapper() {
 function AppContent() {
     const location = useLocation();
 
-    // Define routes where Navigation should NOT be shown
-    const hideNavigationRoutes = ['/login', '/unauthorized', '/kiosk'];
-    const shouldShowNavigation = !hideNavigationRoutes.includes(location.pathname);
-
-    // Define routes where Sidebar should be shown (dashboard-related pages)
-    const showSidebarRoutes = ['/dashboard', '/notifications', '/system-health'];
-    const shouldShowSidebar = showSidebarRoutes.includes(location.pathname);
+    // Define routes where Navigation and Sidebar should NOT be shown
+    const hideChrome = ['/login', '/unauthorized', '/kiosk'];
+    const shouldShowChrome = !hideChrome.includes(location.pathname);
 
     return (
         <>
-            {shouldShowNavigation && <Navigation />}
-            <div className="flex min-h-screen">
-                {shouldShowSidebar && <AppSidebar />}
-                <div className="flex-1">
-                    <AnimatePresence mode="wait">
+            {shouldShowChrome && <Navigation />}
+            <div className="flex" style={{ minHeight: shouldShowChrome ? 'calc(100vh - 48px)' : '100vh' }}>
+                {shouldShowChrome && <AppSidebar />}
+                <div className="flex-1 overflow-auto">
+                    <AnimatePresence>
                         <Routes location={location} key={location.pathname}>
                             {/* Public routes - redirects to dashboard if already logged in */}
                             <Route

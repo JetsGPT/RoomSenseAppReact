@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
 /**
@@ -31,7 +31,35 @@ export function SidebarProvider({ children, sensorBoxes = [], connections = [] }
     // Initialize activeView from URL or default to 'overview'
     const activeView = searchParams.get('view') || 'overview';
 
-    const [isCollapsed, setIsCollapsed] = useState(false);
+    // Persist collapsed state in localStorage
+    const [isCollapsed, setIsCollapsed] = useState(() => {
+        try {
+            const saved = localStorage.getItem('roomsense.sidebar.collapsed');
+            return saved === 'true';
+        } catch {
+            return false;
+        }
+    });
+
+    // Expanded sidebar groups
+    const [expandedGroups, setExpandedGroups] = useState(() => {
+        try {
+            const saved = localStorage.getItem('roomsense.sidebar.groups');
+            return saved ? JSON.parse(saved) : { sensors: true, analytics: false };
+        } catch {
+            return { sensors: true, analytics: false };
+        }
+    });
+
+    // Persist collapsed state
+    useEffect(() => {
+        localStorage.setItem('roomsense.sidebar.collapsed', String(isCollapsed));
+    }, [isCollapsed]);
+
+    // Persist expanded groups
+    useEffect(() => {
+        localStorage.setItem('roomsense.sidebar.groups', JSON.stringify(expandedGroups));
+    }, [expandedGroups]);
 
     /**
      * Handle view change
@@ -50,6 +78,16 @@ export function SidebarProvider({ children, sensorBoxes = [], connections = [] }
      */
     const toggleCollapsed = useCallback(() => {
         setIsCollapsed(prev => !prev);
+    }, []);
+
+    /**
+     * Toggle a sidebar group's expanded state
+     */
+    const toggleGroup = useCallback((groupName) => {
+        setExpandedGroups(prev => ({
+            ...prev,
+            [groupName]: !prev[groupName]
+        }));
     }, []);
 
     /**
@@ -75,10 +113,12 @@ export function SidebarProvider({ children, sensorBoxes = [], connections = [] }
         setActiveView: handleViewChange,
         isCollapsed,
         toggleCollapsed,
+        expandedGroups,
+        toggleGroup,
         getCurrentView,
         sensorBoxes,
         connections
-    }), [activeView, handleViewChange, isCollapsed, toggleCollapsed, getCurrentView, sensorBoxes, connections]);
+    }), [activeView, handleViewChange, isCollapsed, toggleCollapsed, expandedGroups, toggleGroup, getCurrentView, sensorBoxes, connections]);
 
 
     return (

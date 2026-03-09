@@ -1,15 +1,14 @@
 import {
-  BoltIcon,
-  BookOpenIcon,
-  Layers2Icon,
   LogOutIcon,
-  PinIcon,
-  UserPenIcon,
+  Shield,
+  Monitor,
+  Info,
+  Settings,
+  User,
 } from "lucide-react"
 import { useAuth } from "@/contexts/AuthContext"
 import { useNavigate } from "react-router-dom"
-
-
+import { useSidebar } from "@/shared/contexts/SidebarContext"
 
 import {
   Avatar,
@@ -30,7 +29,8 @@ import {
 export default function UserMenu() {
   const { logout, user } = useAuth();
   const navigate = useNavigate();
-  
+  const { setActiveView } = useSidebar();
+
   const handleLogout = async () => {
     await logout();
     navigate('/login');
@@ -39,57 +39,55 @@ export default function UserMenu() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" className="h-auto p-0 hover:bg-transparent">
-          <Avatar>
+        <Button variant="ghost" className="h-8 w-8 p-0 hover:bg-accent rounded-full">
+          <Avatar className="h-7 w-7">
             <AvatarImage src="." alt="Profile image" />
-            <AvatarFallback>RS</AvatarFallback>
+            <AvatarFallback className="text-xs">{user?.username?.slice(0, 2)?.toUpperCase() || 'RS'}</AvatarFallback>
           </Avatar>
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent className="max-w-64" align="end">
+      <DropdownMenuContent className="w-56" align="end">
         <DropdownMenuLabel className="flex min-w-0 flex-col">
           <span className="truncate text-sm font-medium text-foreground">
             {user?.username}
           </span>
           <span className={`truncate text-xs font-normal ${
-    user?.role === "admin" ? "text-red-500" : "text-muted-foreground"
-  }`}>
-            Role : {user?.role?.toUpperCase() || 'User'}
+            user?.role === "admin" ? "text-red-500" : "text-muted-foreground"
+          }`}>
+            Role: {user?.role?.toUpperCase() || 'User'}
           </span>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
-          <DropdownMenuItem>
-            <BoltIcon size={16} className="opacity-60" aria-hidden="true" />
-            <span>Option 1</span>
+          <DropdownMenuItem onClick={() => navigate('/admin')}>
+            <Shield size={16} className="opacity-60 mr-2" aria-hidden="true" />
+            <span>Admin Panel</span>
           </DropdownMenuItem>
-          <DropdownMenuItem>
-            <Layers2Icon size={16} className="opacity-60" aria-hidden="true" />
-            <span>Option 2</span>
+          <DropdownMenuItem onClick={() => navigate('/kiosk')}>
+            <Monitor size={16} className="opacity-60 mr-2" aria-hidden="true" />
+            <span>Kiosk Mode</span>
           </DropdownMenuItem>
-          <DropdownMenuItem>
-            <BookOpenIcon size={16} className="opacity-60" aria-hidden="true" />
-            <span>Option 3</span>
+          <DropdownMenuItem onClick={() => navigate('/about-me')}>
+            <Info size={16} className="opacity-60 mr-2" aria-hidden="true" />
+            <span>About</span>
           </DropdownMenuItem>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
-          <DropdownMenuItem>
-            <PinIcon size={16} className="opacity-60" aria-hidden="true" />
-            <span>Option 4</span>
-          </DropdownMenuItem>
-          <DropdownMenuItem>
-            <UserPenIcon size={16} className="opacity-60" aria-hidden="true" />
-            <span>Option 5</span>
+          <DropdownMenuItem onClick={() => {
+            navigate('/dashboard?view=options');
+            setActiveView('options');
+          }}>
+            <Settings size={16} className="opacity-60 mr-2" aria-hidden="true" />
+            <span>Settings</span>
           </DropdownMenuItem>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
-        <DropdownMenuItem>
-          <LogOutIcon size={16} className="opacity-60" aria-hidden="true" />
-          <span onClick={handleLogout}>Logout</span>
+        <DropdownMenuItem onClick={handleLogout}>
+          <LogOutIcon size={16} className="opacity-60 mr-2" aria-hidden="true" />
+          <span>Logout</span>
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   )
 }
-                                  
