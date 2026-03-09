@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { weatherAPI } from '../services/weatherAPI';
-import { useSettings } from './SettingsContext';
 
 const WeatherContext = createContext(null);
 
@@ -13,77 +12,109 @@ export const useWeather = () => {
 };
 
 export const WeatherProvider = ({ children }) => {
-    // Default location (Berlin) - could be moved to config
-    const DEFAULT_LAT = 52.52;
-    const DEFAULT_LON = 13.41;
-
-    const { settings } = useSettings();
-    const [location, setLocation] = useState({
-        latitude: settings?.location?.latitude || DEFAULT_LAT,
-        longitude: settings?.location?.longitude || DEFAULT_LON,
-        name: settings?.location?.name || 'Berlin'
+    const [location, setLocationState] = useState({
+        latitude: 52.52,
+        longitude: 13.41,
+        name: 'Berlin'
     });
 
     const [currentWeather, setCurrentWeather] = useState(null);
-    const [historicalData, setHistoricalData] = useState({}); // Cache by date range key
+    const [historicalData, setHistoricalData] = useState({});
     const [loading, setLoading] = useState(false);
+    const [locationLoading, setLocationLoading] = useState(true);
     const [error, setError] = useState(null);
 
-    // Verify user location on mount
+    // Load saved location from backend on mount
     useEffect(() => {
-        // If user has a custom location setting, use that
-        if (settings?.location?.latitude && settings?.location?.longitude) {
-            setLocation({
-                latitude: settings.location.latitude,
-                longitude: settings.location.longitude,
-                name: settings.location.name || 'Custom Location'
-            });
-            return;
-        }
+        const loadLocation = async () => {
+            try {
+                const loc = await weatherAPI.getLocation();
+                if (loc && loc.latitude && loc.longitude) {
+                    setLocationState(loc);
+                }
+            } catch (err) {
+                console.warn('[Weather] Could not load saved location:', err);
+            } finally {
+                setLocationLoading(false);
+            }
+        };
+        loadLocation();
+    }, []);
 
-        // Otherwise try to get actual position
-        if (navigator.geolocation) {
+    /**
+     * Update and persist the weather location.
+     * After saving, clears caches and refetches current weather.
+     */
+    const setLocation = useCallback(async (latitude, longitude, name) => {
+        try {
+            await weatherAPI.setLocation(latitude, longitude, name);
+            setLocationState({ latitude, longitude, name });
+            // Clear cached data so it refetches for the new location
+            setCurrentWeather(null);
+            setHistoricalData({});
+        } catch (err) {
+            console.error('[Weather] Failed to save location:', err);
+            throw err;
+        }
+    }, []);
+
+    /**
+     * Autodetect location using browser geolocation.
+     * Returns the detected coordinates, or throws if denied.
+     */
+    const autodetectLocation = useCallback(() => {
+        return new Promise((resolve, reject) => {
+            if (!navigator.geolocation) {
+                reject(new Error('Geolocation is not supported by your browser'));
+                return;
+            }
             navigator.geolocation.getCurrentPosition(
-                (position) => {
-                    setLocation({
-                        latitude: position.coords.latitude,
-                        longitude: position.coords.longitude,
-                        name: 'Current Location'
-                    });
+                async (position) => {
+                    const lat = position.coords.latitude;
+                    const lon = position.coords.longitude;
+                    try {
+                        await weatherAPI.setLocation(lat, lon, 'Current Location');
+                        setLocationState({ latitude: lat, longitude: lon, name: 'Current Location' });
+                        setCurrentWeather(null);
+                        setHistoricalData({});
+                        resolve({ latitude: lat, longitude: lon, name: 'Current Location' });
+                    } catch (err) {
+                        reject(err);
+                    }
                 },
-                (error) => {
-                    console.warn("Geolocation access denied or failed", error);
-                    // Fallback is already set in initial state (Berlin)
+                (err) => {
+                    reject(new Error('Location access denied'));
                 }
             );
-        }
-    }, [settings]);
+        });
+    }, []);
 
     const fetchCurrentWeather = useCallback(async () => {
         try {
             setLoading(true);
-            const data = await weatherAPI.getCurrent(location.latitude, location.longitude);
+            // Don't pass coordinates — backend reads the saved location
+            const data = await weatherAPI.getCurrent();
             setCurrentWeather(data);
             setError(null);
         } catch (err) {
-            console.error("Failed to fetch current weather", err);
-            setError("Failed to fetch weather data");
+            console.error('Failed to fetch current weather', err);
+            setError('Failed to fetch weather data');
         } finally {
             setLoading(false);
         }
     }, [location]);
 
-    // Fetch on mount and interval
+    // Fetch weather on mount and on location change, then every 15 min
     useEffect(() => {
+        if (locationLoading) return; // Wait for location to load first
         fetchCurrentWeather();
-        const interval = setInterval(fetchCurrentWeather, 15 * 60 * 1000); // 15 mins
+        const interval = setInterval(fetchCurrentWeather, 15 * 60 * 1000);
         return () => clearInterval(interval);
-    }, [fetchCurrentWeather]);
+    }, [fetchCurrentWeather, locationLoading]);
 
     /**
-     * Fetch historical weather for a specific range
-     * @param {string} startDate YYYY-MM-DD
-     * @param {string} endDate YYYY-MM-DD
+     * Fetch historical weather for a date range.
+     * Uses backend's saved location — no coordinates needed.
      */
     const getHistory = useCallback(async (startDate, endDate) => {
         const key = `${startDate}_${endDate}`;
@@ -93,16 +124,9 @@ export const WeatherProvider = ({ children }) => {
 
         try {
             setLoading(true);
-            const data = await weatherAPI.getHistorical(
-                location.latitude,
-                location.longitude,
-                startDate,
-                endDate
-            );
+            // Don't pass coordinates — backend reads the saved location
+            const data = await weatherAPI.getHistorical(null, null, startDate, endDate);
 
-            // Process data into chart-friendly format
-            // OpenMeteo returns { hourly: { time: [], temperature_2m: [] } }
-            // We want array of { timestamp, outdoor_temp, outdoor_humidity }
             const processed = [];
             if (data?.hourly?.time) {
                 data.hourly.time.forEach((t, i) => {
@@ -117,7 +141,7 @@ export const WeatherProvider = ({ children }) => {
             setHistoricalData(prev => ({ ...prev, [key]: processed }));
             return processed;
         } catch (err) {
-            console.error("Failed to fetch historical weather", err);
+            console.error('Failed to fetch historical weather', err);
             return [];
         } finally {
             setLoading(false);
@@ -126,9 +150,12 @@ export const WeatherProvider = ({ children }) => {
 
     const value = {
         location,
+        setLocation,
+        autodetectLocation,
         currentWeather,
         getHistory,
         loading,
+        locationLoading,
         error,
         refresh: fetchCurrentWeather
     };
