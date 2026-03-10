@@ -15,6 +15,18 @@ export const aiAPI = {
     },
 
     /**
+     * Analyze sensor and weather data to generate insights
+     * @param {Array} sensorData - Sensor data points
+     * @param {Array} weatherData - Weather data points
+     * @param {string} timeRange - Time range string
+     * @returns {Promise<{analysis: string}>}
+     */
+    analyze: async (sensorData, weatherData, timeRange) => {
+        const response = await api.post('/ai/analyze', { sensorData, weatherData, timeRange });
+        return response.data;
+    },
+
+    /**
      * List all conversations for the current user
      * @returns {Promise<Array<{id, title, created_at, updated_at, message_count}>>}
      */

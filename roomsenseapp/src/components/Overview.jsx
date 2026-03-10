@@ -17,6 +17,7 @@ import { useSidebar } from '../shared/contexts/SidebarContext';
 import { getSensorIcon, getSensorUnit, getSensorName } from '../config/sensorConfig';
 import { sensorHelpers } from '../services/sensorsAPI';
 import { AnimatePresence, motion } from 'framer-motion';
+import { AiInsights } from './AiInsights';
 
 /**
  * RoomCard Component
@@ -378,6 +379,11 @@ export function Overview({ sensorData, groupedData }) {
                     <h3 className="text-lg font-semibold">Floor Plan</h3>
                 </div>
                 <FloorPlanViewer height={450} />
+            </div>
+
+            {/* ===== AI INSIGHTS ===== */}
+            <div className="pt-2">
+                <AiInsights activeBoxes={Object.keys(groupedData)} />
             </div>
 
             {/* ===== ROOMS OVERVIEW ===== */}
