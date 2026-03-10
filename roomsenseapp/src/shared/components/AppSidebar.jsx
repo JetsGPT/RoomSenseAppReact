@@ -63,6 +63,13 @@ export function AppSidebar() {
         },
         {
             type: 'link',
+            id: 'box-management',
+            label: 'Box Management',
+            icon: Box,
+            href: '/boxes',
+        },
+        {
+            type: 'link',
             id: 'floor-plan',
             label: 'Floor Plan',
             icon: Map,

@@ -23,6 +23,7 @@ export default function Navigation() {
   const mobileNavItems = [
     { href: "/dashboard", label: "Dashboard", icon: Home },
     { href: "/dashboard?view=overview", label: "Sensors", icon: Box, isView: true },
+    { href: "/boxes", label: "Box Management", icon: Box },
     { href: "/floor-plan", label: "Floor Plan", icon: Map },
     { href: "/dashboard?view=heatmap", label: "Heatmap", icon: Calendar, isView: true },
     { href: "/dashboard?view=correlation", label: "Correlation", icon: GitCompareArrows, isView: true },
