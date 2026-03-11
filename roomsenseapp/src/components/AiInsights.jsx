@@ -7,6 +7,8 @@ import { sensorsAPI } from '../services/sensorsAPI';
 import { useWeather } from '../contexts/WeatherContext';
 
 const TIME_RANGES = [
+    { label: 'Last 1 Minute', value: '-1m', hours: 1 / 60 },
+    { label: 'Last 5 Minutes', value: '-5m', hours: 5 / 60 },
     { label: 'Last 12 Hours', value: '-12h', hours: 12 },
     { label: 'Last 24 Hours', value: '-24h', hours: 24 },
     { label: 'Last 7 Days', value: '-7d', hours: 168 }
@@ -14,7 +16,7 @@ const TIME_RANGES = [
 
 export function AiInsights({ activeBoxes = [] }) {
     const { getHistory } = useWeather();
-    const [timeRange, setTimeRange] = useState(TIME_RANGES[1]);
+    const [timeRange, setTimeRange] = useState(TIME_RANGES[3]);
     const [loading, setLoading] = useState(false);
     const [insights, setInsights] = useState(null);
     const [error, setError] = useState(null);
