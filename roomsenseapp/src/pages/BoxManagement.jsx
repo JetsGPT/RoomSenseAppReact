@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Wifi, WifiOff, Search, Plus, Trash2, Box, RefreshCw, Pencil } from 'lucide-react';
+import { Loader2, Wifi, WifiOff, Search, Plus, Trash2, Box, RefreshCw, Pencil, Clock } from 'lucide-react';
 import { bleAPI } from '@/services/api';
 import { useToast } from '@/hooks/use-toast';
 import { useConnections } from '@/contexts/ConnectionsContext';
@@ -23,6 +23,8 @@ const BoxManagement = () => {
     const [disconnectingDevices, setDisconnectingDevices] = useState(new Set());
     const [renameDialogOpen, setRenameDialogOpen] = useState(false);
     const [deviceToRename, setDeviceToRename] = useState(null);
+    const [knownDevices, setKnownDevices] = useState([]);
+    const [isLoadingKnown, setIsLoadingKnown] = useState(false);
 
     // Pairing State
     const [pinDialogOpen, setPinDialogOpen] = useState(false);
@@ -34,9 +36,25 @@ const BoxManagement = () => {
     // Fetch active connections on mount is handled by context, but we can refresh to be sure
     useEffect(() => {
         refreshConnections(true);
+        fetchKnownDevices();
     }, [refreshConnections]);
 
-    const fetchActiveConnections = () => refreshConnections();
+    const fetchActiveConnections = () => {
+        refreshConnections();
+        fetchKnownDevices();
+    };
+
+    const fetchKnownDevices = async () => {
+        setIsLoadingKnown(true);
+        try {
+            const devices = await bleAPI.getKnownDevices();
+            setKnownDevices(devices || []);
+        } catch (error) {
+            console.error('Failed to fetch known devices:', error);
+        } finally {
+            setIsLoadingKnown(false);
+        }
+    };
 
     const handleScan = async () => {
         setIsScanning(true);
@@ -72,7 +90,7 @@ const BoxManagement = () => {
         let isOpeningPinDialog = false;
 
         try {
-            const maxDuration = 45000; // Increased to 45s to accommodate extended timeouts
+            const maxDuration = 60000; // Increased to 60s to accommodate extended timeouts
             const startTime = Date.now();
 
             while (Date.now() - startTime < maxDuration) {
@@ -104,7 +122,9 @@ const BoxManagement = () => {
 
                 // Scenario C: Converting Timeout (Backend sends explicit timeout status now)
                 if (response.status === 'timeout') {
-                    throw new Error("Connection timed out (backend reported timeout).");
+                    // The backend long-poll completed without state change.
+                    // The background task is still trying, so we just loop around and poll again.
+                    continue;
                 }
 
                 // Scenario D: Connecting (Intermediate State)
@@ -303,6 +323,7 @@ const BoxManagement = () => {
     const handleDisconnect = async (address, name) => {
         setDisconnectingDevices(prev => new Set(prev).add(address));
         try {
+            // Provide forget=false explicitly, backend disconnect handles the rest
             await bleAPI.disconnectDevice(address);
             toast({
                 title: "Disconnected",
@@ -315,6 +336,31 @@ const BoxManagement = () => {
             toast({
                 title: "Disconnect Failed",
                 description: error.message || "Failed to disconnect from device",
+                variant: "destructive",
+            });
+        } finally {
+            setDisconnectingDevices(prev => {
+                const newSet = new Set(prev);
+                newSet.delete(address);
+                return newSet;
+            });
+        }
+    };
+
+    const handleForget = async (address, name) => {
+        setDisconnectingDevices(prev => new Set(prev).add(address));
+        try {
+            await bleAPI.forgetDevice(address);
+            toast({
+                title: "Device Forgotten",
+                description: `${name || address} has been forgotten and will no longer auto-connect.`,
+            });
+            await fetchActiveConnections();
+        } catch (error) {
+            console.error('Forget failed:', error);
+            toast({
+                title: "Failed",
+                description: error.message || "Failed to forget device",
                 variant: "destructive",
             });
         } finally {
@@ -546,6 +592,114 @@ const BoxManagement = () => {
                                         </div>
                                     )}
                                 </div>
+                            </CardContent>
+                        </Card>
+
+                        {/* Known Devices History Card */}
+                        <Card className="lg:col-span-2">
+                            <CardHeader>
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <CardTitle className="flex items-center gap-2">
+                                            <Clock className="h-5 w-5" />
+                                            Known Devices History
+                                        </CardTitle>
+                                        <CardDescription>
+                                            Previously connected devices that will auto-reconnect
+                                        </CardDescription>
+                                    </div>
+                                    <Button
+                                        variant="outline"
+                                        size="icon"
+                                        onClick={fetchKnownDevices}
+                                        disabled={isLoadingKnown}
+                                    >
+                                        <RefreshCw className={`h-4 w-4 ${isLoadingKnown ? 'animate-spin' : ''}`} />
+                                    </Button>
+                                </div>
+                            </CardHeader>
+                            <CardContent>
+                                {isLoadingKnown ? (
+                                    <div className="flex items-center justify-center py-12">
+                                        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                                    </div>
+                                ) : knownDevices.length === 0 ? (
+                                    <div className="text-center py-12">
+                                        <Clock className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                                        <p className="text-muted-foreground">No paired devices found</p>
+                                        <p className="text-sm text-muted-foreground mt-1">
+                                            Devices you pair with will appear here automatically.
+                                        </p>
+                                    </div>
+                                ) : (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                        <AnimatePresence>
+                                            {knownDevices.map((device, index) => {
+                                                const isAlreadyConnected = activeConnections.some(
+                                                    conn => conn.address === device.address
+                                                );
+                                                return (
+                                                    <motion.div
+                                                        key={device.address}
+                                                        layout
+                                                        initial={{ opacity: 0, scale: 0.95 }}
+                                                        animate={{ opacity: 1, scale: 1 }}
+                                                        exit={{ opacity: 0, scale: 0.95 }}
+                                                        className="flex flex-col p-4 rounded-lg border bg-card hover:bg-accent/30 transition-colors"
+                                                    >
+                                                        <div className="flex items-start justify-between mb-3">
+                                                            <div className="flex items-center gap-3">
+                                                                <div className="p-2 rounded-full bg-slate-500/10 flex-shrink-0">
+                                                                    <Box className="h-5 w-5 text-slate-500" />
+                                                                </div>
+                                                                <div className="min-w-0 flex-1">
+                                                                    <p className="font-medium truncate">{device.name || 'Unknown Device'}</p>
+                                                                    <p className="text-xs text-muted-foreground truncate">{device.address}</p>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        
+                                                        <div className="flex items-center justify-between mt-auto pt-3 border-t">
+                                                                {isAlreadyConnected ? (
+                                                                    <Badge variant="success" className="bg-green-500/10 text-green-700 dark:text-green-400">
+                                                                        Connected
+                                                                    </Badge>
+                                                                ) : (
+                                                                    <Button
+                                                                        variant="outline"
+                                                                        size="sm"
+                                                                        onClick={() => handleConnect(device.address, device.name)}
+                                                                        disabled={connectingDevices.has(device.address)}
+                                                                    >
+                                                                        {connectingDevices.has(device.address) ? (
+                                                                            <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                                                                        ) : (
+                                                                            <Wifi className="mr-2 h-3 w-3" />
+                                                                        )}
+                                                                        Connect
+                                                                    </Button>
+                                                                )}
+                                                            
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                className="text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                                                                onClick={() => handleForget(device.address, device.name)}
+                                                                disabled={disconnectingDevices.has(device.address)}
+                                                            >
+                                                                {disconnectingDevices.has(device.address) ? (
+                                                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                                                ) : (
+                                                                    "Forget"
+                                                                )}
+                                                            </Button>
+                                                        </div>
+                                                    </motion.div>
+                                                );
+                                            })}
+                                        </AnimatePresence>
+                                    </div>
+                                )}
                             </CardContent>
                         </Card>
                     </div>

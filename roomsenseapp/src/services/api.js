@@ -128,6 +128,16 @@ export const bleAPI = {
         const response = await api.patch(`/devices/connect/${address.toUpperCase()}`, { display_name });
         return response.data;
     },
+
+    getKnownDevices: async () => {
+        const response = await api.get('/devices/known_devices');
+        return response.data;
+    },
+
+    forgetDevice: async (address) => {
+        const response = await api.delete(`/devices/known_devices/${address.toUpperCase()}`);
+        return response.data;
+    },
 };
 
 // Import sensors API

@@ -170,7 +170,7 @@ export function AiInsights({ activeBoxes = [] }) {
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -10 }}
-                        className="prose prose-sm dark:prose-invert max-w-none prose-p:leading-relaxed prose-li:my-0 mt-4 px-2"
+                        className="prose prose-sm dark:prose-invert max-w-none prose-p:leading-relaxed prose-li:my-0 mt-4 px-2 max-h-[400px] overflow-y-auto pr-2"
                     >
                         {renderMarkdown(insights)}
                     </Motion.div>
