@@ -32,7 +32,7 @@ const Weather = lazy(() => import('./pages/Weather'));
 const Notifications = lazy(() => import('./pages/Notifications'));
 
 const SystemHealth = lazy(() => import('./pages/SystemHealth'));
-const NotFound = lazy(() => import('./pages/NotFound'));
+
 
 const RemoteBoxes = lazy(() => import('./pages/RemoteBoxes'));
 const ProxyTester = lazy(() => import('./pages/ProxyTester'));
@@ -276,17 +276,8 @@ function AppContent() {
                             {/* Default redirect */}
                             <Route path="/" element={<Navigate to="/about-me" replace />} />
 
-                            {/* 404 - Not Found */}
-                            <Route
-                                path="*"
-                                element={
-                                    <Suspense fallback={<LoadingFallback />}>
-                                        <PageTransition>
-                                            <NotFound />
-                                        </PageTransition>
-                                    </Suspense>
-                                }
-                            />
+                            {/* 404 - Not Found (redirect to home) */}
+                            <Route path="*" element={<Navigate to="/" replace />} />
                         </Routes>
                     </AnimatePresence>
                 </div>
@@ -308,19 +299,19 @@ function App() {
 
     return (
         <ThemeProvider>
-            <AuthProvider>
-                <OutsideServerProvider>
-                    <ConnectionsProvider>
-                        <SettingsProvider>
-                            <WeatherProvider>
-                                <BrowserRouter>
+            <BrowserRouter>
+                <AuthProvider>
+                    <OutsideServerProvider>
+                        <ConnectionsProvider>
+                            <SettingsProvider>
+                                <WeatherProvider>
                                     <DashboardWrapper />
-                                </BrowserRouter>
-                            </WeatherProvider>
-                        </SettingsProvider>
-                    </ConnectionsProvider>
-                </OutsideServerProvider>
-            </AuthProvider>
+                                </WeatherProvider>
+                            </SettingsProvider>
+                        </ConnectionsProvider>
+                    </OutsideServerProvider>
+                </AuthProvider>
+            </BrowserRouter>
         </ThemeProvider>
     );
 }
