@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { authAPI } from '../services/api';
+import { setupAPI } from '../services/setupAPI';
 import { DEV_MODE, DEV_USER } from '../config/devConfig';
 
 const AuthContext = createContext(null);
@@ -9,11 +10,22 @@ export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [isSetupCompleted, setIsSetupCompleted] = useState(null);
     const location = useLocation();
 
     // Check if user is already logged in on mount
     useEffect(() => {
         const initAuth = async () => {
+            // Check setup status first
+            try {
+                const setupRes = await setupAPI.getStatus();
+                setIsSetupCompleted(setupRes.completed);
+            } catch(e) {
+                console.warn('[AuthContext] Failed to get setup status', e);
+                // Fail-safe to avoid soft locks
+                setIsSetupCompleted(true);
+            }
+
             // DEV MODE: Skip authentication, use mock user
             if (DEV_MODE) {
                 console.log('[DEV MODE] Bypassing authentication, using mock user');
@@ -163,6 +175,8 @@ export const AuthProvider = ({ children }) => {
         user,
         loading,
         error,
+        isSetupCompleted,
+        setIsSetupCompleted,
         login,
         register,
         logout,

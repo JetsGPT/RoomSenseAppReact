@@ -7,7 +7,7 @@ import { SettingsProvider } from './contexts/SettingsContext';
 import { WeatherProvider } from './contexts/WeatherContext';
 import { ConnectionsProvider, useConnections } from './contexts/ConnectionsContext';
 import { SidebarProvider } from './shared/contexts/SidebarContext';
-import { RequireAuth, RequireRole, PublicOnly } from './components/ProtectedRoute';
+import { RequireAuth, RequireRole, PublicOnly, RequireSetup } from './components/ProtectedRoute';
 import Navigation from './components/ui/Navigation';
 import { AppSidebar } from './shared/components/AppSidebar';
 import { PageTransition } from './components/ui/PageTransition';
@@ -32,6 +32,7 @@ const Weather = lazy(() => import('./pages/Weather'));
 const Notifications = lazy(() => import('./pages/Notifications'));
 
 const SystemHealth = lazy(() => import('./pages/SystemHealth'));
+const Setup = lazy(() => import('./pages/Setup'));
 
 // Loading fallback component
 const LoadingFallback = () => (
@@ -91,11 +92,13 @@ function AppContent() {
                                 path="/about-me"
                                 element={
                                     <RequireAuth>
-                                        <Suspense fallback={<LoadingFallback />}>
-                                            <PageTransition>
-                                                <AboutMe />
-                                            </PageTransition>
-                                        </Suspense>
+                                        <RequireSetup>
+                                            <Suspense fallback={<LoadingFallback />}>
+                                                <PageTransition>
+                                                    <AboutMe />
+                                                </PageTransition>
+                                            </Suspense>
+                                        </RequireSetup>
                                     </RequireAuth>
                                 }
                             />
@@ -103,11 +106,13 @@ function AppContent() {
                                 path="/weather"
                                 element={
                                     <RequireAuth>
-                                        <Suspense fallback={<LoadingFallback />}>
-                                            <PageTransition>
-                                                <Weather />
-                                            </PageTransition>
-                                        </Suspense>
+                                        <RequireSetup>
+                                            <Suspense fallback={<LoadingFallback />}>
+                                                <PageTransition>
+                                                    <Weather />
+                                                </PageTransition>
+                                            </Suspense>
+                                        </RequireSetup>
                                     </RequireAuth>
                                 }
                             />
@@ -115,11 +120,13 @@ function AppContent() {
                                 path="/dashboard"
                                 element={
                                     <RequireAuth>
-                                        <Suspense fallback={<LoadingFallback />}>
-                                            <PageTransition>
-                                                <Dashboard />
-                                            </PageTransition>
-                                        </Suspense>
+                                        <RequireSetup>
+                                            <Suspense fallback={<LoadingFallback />}>
+                                                <PageTransition>
+                                                    <Dashboard />
+                                                </PageTransition>
+                                            </Suspense>
+                                        </RequireSetup>
                                     </RequireAuth>
                                 }
                             />
@@ -127,13 +134,15 @@ function AppContent() {
                                 path="/admin"
                                 element={
                                     <RequireAuth>
-                                        <RequireRole roles={['admin']}>
-                                            <Suspense fallback={<LoadingFallback />}>
-                                                <PageTransition>
-                                                    <Admin />
-                                                </PageTransition>
-                                            </Suspense>
-                                        </RequireRole>
+                                        <RequireSetup>
+                                            <RequireRole roles={['admin']}>
+                                                <Suspense fallback={<LoadingFallback />}>
+                                                    <PageTransition>
+                                                        <Admin />
+                                                    </PageTransition>
+                                                </Suspense>
+                                            </RequireRole>
+                                        </RequireSetup>
                                     </RequireAuth>
                                 }
                             />
@@ -141,11 +150,13 @@ function AppContent() {
                                 path="/boxes"
                                 element={
                                     <RequireAuth>
-                                        <Suspense fallback={<LoadingFallback />}>
-                                            <PageTransition>
-                                                <BoxManagement />
-                                            </PageTransition>
-                                        </Suspense>
+                                        <RequireSetup>
+                                            <Suspense fallback={<LoadingFallback />}>
+                                                <PageTransition>
+                                                    <BoxManagement />
+                                                </PageTransition>
+                                            </Suspense>
+                                        </RequireSetup>
                                     </RequireAuth>
                                 }
                             />
@@ -153,11 +164,13 @@ function AppContent() {
                                 path="/download"
                                 element={
                                     <RequireAuth>
-                                        <Suspense fallback={<LoadingFallback />}>
-                                            <PageTransition>
-                                                <Download />
-                                            </PageTransition>
-                                        </Suspense>
+                                        <RequireSetup>
+                                            <Suspense fallback={<LoadingFallback />}>
+                                                <PageTransition>
+                                                    <Download />
+                                                </PageTransition>
+                                            </Suspense>
+                                        </RequireSetup>
                                     </RequireAuth>
                                 }
                             />
@@ -165,11 +178,13 @@ function AppContent() {
                                 path="/notifications"
                                 element={
                                     <RequireAuth>
-                                        <Suspense fallback={<LoadingFallback />}>
-                                            <PageTransition>
-                                                <Notifications />
-                                            </PageTransition>
-                                        </Suspense>
+                                        <RequireSetup>
+                                            <Suspense fallback={<LoadingFallback />}>
+                                                <PageTransition>
+                                                    <Notifications />
+                                                </PageTransition>
+                                            </Suspense>
+                                        </RequireSetup>
                                     </RequireAuth>
                                 }
                             />
@@ -180,11 +195,13 @@ function AppContent() {
                                 path="/system-health"
                                 element={
                                     <RequireAuth>
-                                        <Suspense fallback={<LoadingFallback />}>
-                                            <PageTransition>
-                                                <SystemHealth />
-                                            </PageTransition>
-                                        </Suspense>
+                                        <RequireSetup>
+                                            <Suspense fallback={<LoadingFallback />}>
+                                                <PageTransition>
+                                                    <SystemHealth />
+                                                </PageTransition>
+                                            </Suspense>
+                                        </RequireSetup>
                                     </RequireAuth>
                                 }
                             />
@@ -205,9 +222,11 @@ function AppContent() {
                                 path="/kiosk"
                                 element={
                                     <RequireAuth>
-                                        <Suspense fallback={<LoadingFallback />}>
-                                            <KioskView />
-                                        </Suspense>
+                                        <RequireSetup>
+                                            <Suspense fallback={<LoadingFallback />}>
+                                                <KioskView />
+                                            </Suspense>
+                                        </RequireSetup>
                                     </RequireAuth>
                                 }
                             />
@@ -217,9 +236,11 @@ function AppContent() {
                                 path="/floor-plan"
                                 element={
                                     <RequireAuth>
-                                        <Suspense fallback={<LoadingFallback />}>
-                                            <FloorPlanEditor />
-                                        </Suspense>
+                                        <RequireSetup>
+                                            <Suspense fallback={<LoadingFallback />}>
+                                                <FloorPlanEditor />
+                                            </Suspense>
+                                        </RequireSetup>
                                     </RequireAuth>
                                 }
                             />
@@ -229,8 +250,24 @@ function AppContent() {
                                 path="/floor-plan/:id"
                                 element={
                                     <RequireAuth>
+                                        <RequireSetup>
+                                            <Suspense fallback={<LoadingFallback />}>
+                                                <FloorPlanEditor />
+                                            </Suspense>
+                                        </RequireSetup>
+                                    </RequireAuth>
+                                }
+                            />
+
+                            {/* Guided Setup Flow */}
+                            <Route
+                                path="/setup"
+                                element={
+                                    <RequireAuth>
                                         <Suspense fallback={<LoadingFallback />}>
-                                            <FloorPlanEditor />
+                                            <PageTransition>
+                                                <Setup />
+                                            </PageTransition>
                                         </Suspense>
                                     </RequireAuth>
                                 }

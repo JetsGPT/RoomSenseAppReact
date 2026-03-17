@@ -67,3 +67,24 @@ export const PublicOnly = ({ children }) => {
     return children;
 };
 
+/**
+ * RequireSetup - Protects all routes from being accessed before the Guided Setup is completed.
+ * Forces the user into the /setup flow if the backend DB flag is false.
+ */
+export const RequireSetup = ({ children }) => {
+    const { isSetupCompleted, loading } = useAuth();
+    const location = useLocation();
+
+    // If still parsing DB status
+    if (loading || isSetupCompleted === null) {
+        return <div className="flex items-center justify-center min-h-screen">Loading System Configuration...</div>;
+    }
+
+    // Force redirection if Guided Setup hasn't run yet
+    if (isSetupCompleted === false) {
+        return <Navigate to="/setup" state={{ from: location }} replace />;
+    }
+
+    return children;
+};
+

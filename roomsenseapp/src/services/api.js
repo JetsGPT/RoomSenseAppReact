@@ -140,6 +140,29 @@ export const bleAPI = {
     },
 };
 
+// System Settings API
+export const settingsAPI = {
+    getAll: async () => {
+        const response = await api.get('/settings');
+        return response.data;
+    },
+
+    get: async (key) => {
+        const response = await api.get(`/settings/${key}`);
+        return response.data;
+    },
+
+    update: async (key, value, description = null, is_sensitive = false) => {
+        const response = await api.put(`/settings/${key}`, { value, description, is_sensitive });
+        return response.data;
+    },
+
+    delete: async (key) => {
+        const response = await api.delete(`/settings/${key}`);
+        return response.data;
+    },
+};
+
 // Import sensors API
 export { sensorsAPI, sensorHelpers } from './sensorsAPI.js';
 export { notificationsAPI } from './notificationsAPI.js';
