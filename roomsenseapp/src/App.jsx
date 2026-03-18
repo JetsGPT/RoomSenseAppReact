@@ -1,13 +1,13 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
 import { lazy, Suspense, useMemo } from 'react';
-import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { AuthProvider } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { SettingsProvider } from './contexts/SettingsContext';
 import { WeatherProvider } from './contexts/WeatherContext';
 import { ConnectionsProvider, useConnections } from './contexts/ConnectionsContext';
 import { SidebarProvider } from './shared/contexts/SidebarContext';
-import { RequireAuth, RequireRole, PublicOnly, RequireSetup } from './components/ProtectedRoute';
+import { RequireAuth, RequireRole, PublicOnly, RequireSetup, SetupOnly } from './components/ProtectedRoute';
 import Navigation from './components/ui/Navigation';
 import { AppSidebar } from './shared/components/AppSidebar';
 import { PageTransition } from './components/ui/PageTransition';
@@ -15,8 +15,6 @@ import { ErrorBoundary } from './shared/components/ErrorBoundary';
 import AiChatbot from './components/AiChatbot';
 import { Loader2 } from 'lucide-react';
 import './App.css';
-import { useSensorData } from './hooks/useSensorData';
-import { DEFAULT_TIME_RANGE_VALUE, DATA_LIMITS, DEFAULT_REFRESH_INTERVAL } from './config/sensorConfig';
 
 // Lazy load pages
 const Login = lazy(() => import('./pages/Login'));
@@ -30,11 +28,9 @@ const KioskView = lazy(() => import('./pages/KioskView'));
 const FloorPlanEditor = lazy(() => import('./pages/FloorPlanEditor'));
 const Weather = lazy(() => import('./pages/Weather'));
 const Notifications = lazy(() => import('./pages/Notifications'));
-
 const SystemHealth = lazy(() => import('./pages/SystemHealth'));
 const Setup = lazy(() => import('./pages/Setup'));
 
-// Loading fallback component
 const LoadingFallback = () => (
     <div className="flex items-center justify-center min-h-screen">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -43,11 +39,7 @@ const LoadingFallback = () => (
 
 function DashboardWrapper() {
     const { activeConnections } = useConnections();
-
-    // Map active connections to the format expected by SidebarProvider (array of IDs/names)
-    // Memoize to prevent unnecessary re-renders of SidebarProvider
     const sensorBoxes = useMemo(() => activeConnections.map(conn => conn.name || conn.address), [activeConnections]);
-
 
     return (
         <SidebarProvider sensorBoxes={sensorBoxes} connections={activeConnections}>
@@ -61,8 +53,7 @@ function DashboardWrapper() {
 function AppContent() {
     const location = useLocation();
 
-    // Define routes where Navigation and Sidebar should NOT be shown
-    const hideChrome = ['/login', '/unauthorized', '/kiosk'];
+    const hideChrome = ['/login', '/setup', '/unauthorized', '/kiosk'];
     const shouldShowChrome = !hideChrome.includes(location.pathname);
 
     return (
@@ -73,7 +64,6 @@ function AppContent() {
                 <div className="flex-1 overflow-auto">
                     <AnimatePresence>
                         <Routes location={location} key={location.pathname}>
-                            {/* Public routes - redirects to dashboard if already logged in */}
                             <Route
                                 path="/login"
                                 element={
@@ -87,7 +77,6 @@ function AppContent() {
                                 }
                             />
 
-                            {/* Protected routes - requires authentication */}
                             <Route
                                 path="/about-me"
                                 element={
@@ -188,9 +177,6 @@ function AppContent() {
                                     </RequireAuth>
                                 }
                             />
-
-
-                            {/* Unauthorized page */}
                             <Route
                                 path="/system-health"
                                 element={
@@ -205,7 +191,6 @@ function AppContent() {
                                     </RequireAuth>
                                 }
                             />
-
                             <Route
                                 path="/unauthorized"
                                 element={
@@ -216,8 +201,6 @@ function AppContent() {
                                     </Suspense>
                                 }
                             />
-
-                            {/* Kiosk Mode - Fullscreen display for wall-mounted tablets */}
                             <Route
                                 path="/kiosk"
                                 element={
@@ -230,8 +213,6 @@ function AppContent() {
                                     </RequireAuth>
                                 }
                             />
-
-                            {/* Floor Plan Editor - Create new floor plans */}
                             <Route
                                 path="/floor-plan"
                                 element={
@@ -244,8 +225,6 @@ function AppContent() {
                                     </RequireAuth>
                                 }
                             />
-
-                            {/* Floor Plan Editor - Edit existing floor plan */}
                             <Route
                                 path="/floor-plan/:id"
                                 element={
@@ -258,31 +237,25 @@ function AppContent() {
                                     </RequireAuth>
                                 }
                             />
-
-                            {/* Guided Setup Flow */}
                             <Route
                                 path="/setup"
                                 element={
-                                    <RequireAuth>
+                                    <SetupOnly>
                                         <Suspense fallback={<LoadingFallback />}>
                                             <PageTransition>
                                                 <Setup />
                                             </PageTransition>
                                         </Suspense>
-                                    </RequireAuth>
+                                    </SetupOnly>
                                 }
                             />
-
-                            {/* Default redirect */}
                             <Route path="/" element={<Navigate to="/about-me" replace />} />
-
-                            {/* 404 - could create a NotFound page later */}
                             <Route path="*" element={<Navigate to="/about-me" replace />} />
                         </Routes>
                     </AnimatePresence>
                 </div>
             </div>
-            <AiChatbot />
+            {shouldShowChrome && <AiChatbot />}
         </>
     );
 }

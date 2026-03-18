@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { motion as Motion, AnimatePresence } from 'framer-motion';
+import { motion as Motion } from 'framer-motion';
 import { useAuth } from '../contexts/AuthContext';
 import { Input } from '../components/ui/input';
 import { Button } from '../components/ui/button';
@@ -15,11 +15,11 @@ const Login = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
 
-    const { login, register, checkAuth } = useAuth();
+    const { login, register } = useAuth();
     const navigate = useNavigate();
     const location = useLocation();
 
-    const from = location.state?.from?.pathname || '/dashboard';
+    const from = location.state?.from?.pathname;
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -33,15 +33,16 @@ const Login = () => {
         setIsLoading(true);
 
         try {
-            let result;
-            if (isRegistering) {
-                result = await register(username, password);
-            } else {
-                result = await login(username, password);
-            }
+            const result = isRegistering
+                ? await register(username, password)
+                : await login(username, password);
 
             if (result.success) {
-                navigate(from, { replace: true });
+                const destination = result.setupCompleted === false
+                    ? '/setup'
+                    : (from || '/dashboard');
+
+                navigate(destination, { replace: true });
             } else {
                 setLocalError(result.error || 'Authentication failed');
             }
@@ -79,8 +80,6 @@ const Login = () => {
         setLocalError('');
         setPassword('');
     };
-
-
 
     return (
         <Motion.div
@@ -200,7 +199,6 @@ const Login = () => {
                             >
                                 {isRegistering ? 'Back to Sign In' : 'Create Account'}
                             </Button>
-
                         </div>
                     </form>
                 </div>
@@ -210,4 +208,3 @@ const Login = () => {
 };
 
 export default Login;
-

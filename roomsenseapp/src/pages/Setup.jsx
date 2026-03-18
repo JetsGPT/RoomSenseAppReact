@@ -1,393 +1,524 @@
-import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { 
-    Settings, 
-    Database, 
-    Wifi, 
-    CheckCircle, 
-    Download, 
-    ChevronRight, 
-    ChevronLeft,
-    Shield,
+import { useEffect, useMemo, useState } from 'react';
+import { AnimatePresence, motion as Motion } from 'framer-motion';
+import {
     AlertTriangle,
-    Compass,
+    CheckCircle2,
+    ChevronLeft,
+    ChevronRight,
     CloudSun,
-    ExternalLink
+    Compass,
+    Copy,
+    Database,
+    Download,
+    Loader2,
+    MapPin,
+    Search,
+    Shield,
+    Sparkles,
+    Wifi
 } from 'lucide-react';
-import { useAuth } from '../contexts/AuthContext';
-import { setupAPI } from '../services/setupAPI';
-import { settingsAPI } from '../services/api';
-import { useWeather } from '../contexts/WeatherContext';
 import { useNavigate } from 'react-router-dom';
+import { Badge } from '../components/ui/badge';
+import { Button } from '../components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
+import { Input } from '../components/ui/input';
+import { useAuth } from '../contexts/AuthContext';
+import { useWeather } from '../contexts/WeatherContext';
+import { settingsAPI } from '../services/api';
+import { setupAPI } from '../services/setupAPI';
+import { weatherAPI } from '../services/weatherAPI';
 
 const STEPS = [
-    { title: 'Welcome', icon: Compass, id: 'welcome' },
-    { title: 'Settings', icon: CloudSun, id: 'settings' },
-    { title: 'Sensors', icon: Wifi, id: 'sensors' },
-    { title: 'Security', icon: Shield, id: 'security' },
-    { title: 'Finish', icon: CheckCircle, id: 'finish' }
+    { id: 'welcome', title: 'Welcome', icon: Compass, note: 'Local-first onboarding' },
+    { id: 'settings', title: 'Core Settings', icon: CloudSun, note: 'Weather and AI' },
+    { id: 'devices', title: 'Sensors', icon: Wifi, note: 'Hardware prep' },
+    { id: 'security', title: 'Security', icon: Shield, note: 'One-time credentials' },
+    { id: 'finish', title: 'Finish', icon: CheckCircle2, note: 'Final confirmation' }
 ];
 
+const getErrorMessage = (err, fallback) => {
+    if (err.response) {
+        return err.response.data?.error || err.response.data?.message || fallback;
+    }
+    if (err.request) {
+        return 'No response from the server. Check the RoomSense service and try again.';
+    }
+    return err.message || fallback;
+};
+
+const formatLocation = (location) => [location?.name, location?.admin1, location?.country || location?.countryCode].filter(Boolean).join(', ');
+
+const ShellCard = ({ title, description, children }) => (
+    <Card className="border-slate-200/80">
+        <CardHeader>
+            <CardTitle className="text-xl">{title}</CardTitle>
+            {description && <CardDescription>{description}</CardDescription>}
+        </CardHeader>
+        <CardContent className="space-y-4">{children}</CardContent>
+    </Card>
+);
+
 export default function Setup() {
-    const { setIsSetupCompleted } = useAuth();
-    const { refreshWeather } = useWeather();
+    const { user, setIsSetupCompleted, refreshSetupStatus } = useAuth();
+    const { refresh: refreshWeather } = useWeather();
     const navigate = useNavigate();
-    
-    const [currentStep, setCurrentStep] = useState(0);
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState(null);
-    
-    // Step 2: Settings
-    const [weatherLocation, setWeatherLocation] = useState('Vienna, AT');
+
+    const [step, setStep] = useState(0);
+    const [bootstrapping, setBootstrapping] = useState(true);
+    const [busy, setBusy] = useState('');
+    const [error, setError] = useState('');
+    const [notice, setNotice] = useState('');
+
+    const [weatherQuery, setWeatherQuery] = useState('');
+    const [selectedLocation, setSelectedLocation] = useState(null);
+    const [locationResults, setLocationResults] = useState([]);
+    const [hasExistingGeminiKey, setHasExistingGeminiKey] = useState(false);
     const [geminiKey, setGeminiKey] = useState('');
-    
-    // Step 4: Security
+
     const [credentials, setCredentials] = useState('');
-    const [certDownloaded, setCertDownloaded] = useState(false);
-    const [credsSaved, setCredsSaved] = useState(false);
+    const [credentialsLoaded, setCredentialsLoaded] = useState(false);
+    const [credentialsCopied, setCredentialsCopied] = useState(false);
+    const [certificateDownloaded, setCertificateDownloaded] = useState(false);
+    const [credentialsConfirmed, setCredentialsConfirmed] = useState(false);
+    const [certificateConfirmed, setCertificateConfirmed] = useState(false);
+
+    const isAdmin = user?.role === 'admin';
+    const locationLabel = useMemo(() => formatLocation(selectedLocation), [selectedLocation]);
+    const currentStep = STEPS[step];
+    const navLocked = busy === 'save' || busy === 'credentials' || busy === 'complete';
 
     useEffect(() => {
-        // Fetch existing settings if any
-        const loadSettings = async () => {
+        let active = true;
+
+        const load = async () => {
+            setBootstrapping(true);
             try {
-                const settings = await settingsAPI.getAll();
-                const loc = settings.find(s => s.key === 'weather_location')?.value;
-                if (loc) setWeatherLocation(loc);
-                const key = settings.find(s => s.key === 'gemini_api_key')?.value;
-                if (key) setGeminiKey(key);
+                const [location, geminiSetting] = await Promise.all([
+                    weatherAPI.getLocation(),
+                    isAdmin ? settingsAPI.get('gemini_api_key').catch((err) => err.response?.status === 404 ? null : Promise.reject(err)) : Promise.resolve(null)
+                ]);
+
+                if (!active) {
+                    return;
+                }
+
+                if (location) {
+                    setSelectedLocation(location);
+                    setWeatherQuery(formatLocation(location));
+                }
+
+                setHasExistingGeminiKey(Boolean(geminiSetting?.value));
             } catch (err) {
-                console.warn('[Setup] Failed to load initial settings', err);
+                if (active) {
+                    setError(getErrorMessage(err, 'Failed to load setup state.'));
+                }
+            } finally {
+                if (active) {
+                    setBootstrapping(false);
+                }
             }
         };
-        loadSettings();
-    }, []);
 
-    const fetchCredentials = async () => {
-        setLoading(true);
-        try {
-            const data = await setupAPI.getCredentials();
-            setCredentials(data);
-        } catch (err) {
-            console.error('[Setup] Failed to fetch credentials', err);
-            setError('Could not load system credentials. They might have been deleted already.');
-        } finally {
-            setLoading(false);
+        load();
+        return () => {
+            active = false;
+        };
+    }, [isAdmin]);
+
+    useEffect(() => {
+        if (step !== 3 || credentialsLoaded) {
+            return;
         }
-    };
 
-    const handleNext = () => {
-        if (currentStep < STEPS.length - 1) {
-            setCurrentStep(prev => prev + 1);
-            if (STEPS[currentStep + 1].id === 'security') {
-                fetchCredentials();
+        const loadCredentials = async () => {
+            setBusy('credentials');
+            try {
+                const data = await setupAPI.getCredentials();
+                setCredentials(data);
+            } catch (err) {
+                setError(getErrorMessage(err, 'Failed to load the temporary credentials file.'));
+            } finally {
+                setCredentialsLoaded(true);
+                setBusy('');
             }
-        }
-    };
+        };
 
-    const handleBack = () => {
-        if (currentStep > 0) {
-            setCurrentStep(prev => prev - 1);
+        loadCredentials();
+    }, [step, credentialsLoaded]);
+
+    const searchLocations = async () => {
+        const query = weatherQuery.trim();
+        if (query.length < 2) {
+            setError('Enter at least two characters to search for a weather location.');
+            return;
+        }
+
+        setBusy('search');
+        setError('');
+        setNotice('');
+        try {
+            const results = await weatherAPI.geocode(query);
+            setLocationResults(results);
+            if (results.length === 0) {
+                setNotice('No matching locations were found.');
+            }
+        } catch (err) {
+            setError(getErrorMessage(err, 'Failed to search for locations.'));
+        } finally {
+            setBusy('');
         }
     };
 
     const saveSettings = async () => {
-        setLoading(true);
+        if (!selectedLocation) {
+            setError('Choose a weather location before continuing.');
+            return;
+        }
+
+        setBusy('save');
+        setError('');
+        setNotice('');
         try {
-            await settingsAPI.update('weather_location', weatherLocation);
-            if (geminiKey) {
-                await settingsAPI.update('gemini_api_key', geminiKey);
+            await weatherAPI.setLocation(selectedLocation.latitude, selectedLocation.longitude, formatLocation(selectedLocation));
+            if (isAdmin && geminiKey.trim()) {
+                await settingsAPI.update('gemini_api_key', geminiKey.trim(), 'Google Gemini API key for RoomSense AI features', true);
+                setGeminiKey('');
+                setHasExistingGeminiKey(true);
             }
-            refreshWeather();
-            handleNext();
+            await refreshWeather();
+            setNotice('Core settings saved.');
+            setStep((current) => Math.min(current + 1, STEPS.length - 1));
         } catch (err) {
-            setError('Failed to save settings. Please try again.');
+            setError(getErrorMessage(err, 'Failed to save setup settings.'));
         } finally {
-            setLoading(false);
+            setBusy('');
         }
     };
 
-    const downloadCert = () => {
-        window.open('/api/setup/certificate', '_blank');
-        setCertDownloaded(true);
+    const copyCredentials = async () => {
+        if (!credentials) {
+            return;
+        }
+        try {
+            await navigator.clipboard.writeText(credentials);
+            setCredentialsCopied(true);
+            setNotice('Credentials copied to the clipboard.');
+        } catch {
+            setError('Clipboard access failed. Copy the credentials manually from the text area.');
+        }
+    };
+
+    const retryCredentials = async () => {
+        setBusy('credentials');
+        setError('');
+        try {
+            const data = await setupAPI.getCredentials();
+            setCredentials(data);
+        } catch (err) {
+            setError(getErrorMessage(err, 'Failed to reload the temporary credentials file.'));
+        } finally {
+            setBusy('');
+        }
+    };
+
+    const downloadCertificate = () => {
+        window.open(setupAPI.getCertificateDownloadUrl(), '_blank', 'noopener,noreferrer');
+        setCertificateDownloaded(true);
+        setNotice('Certificate download started in a new tab.');
     };
 
     const completeSetup = async () => {
-        setLoading(true);
+        if (!credentialsConfirmed || !certificateConfirmed) {
+            return;
+        }
+
+        setBusy('complete');
+        setError('');
         try {
             await setupAPI.completeSetup();
             setIsSetupCompleted(true);
-            navigate('/dashboard');
+            await refreshSetupStatus({ silent: true });
+            navigate('/dashboard', { replace: true });
         } catch (err) {
-            setError('Failed to finalize setup. Please check connection.');
+            setError(getErrorMessage(err, 'Failed to finalize setup.'));
         } finally {
-            setLoading(false);
+            setBusy('');
         }
     };
 
-    return (
-        <div className="min-h-screen bg-neutral-50 flex items-center justify-center p-4">
-            <motion.div 
-                className="max-w-2xl w-full bg-white rounded-3xl shadow-xl overflow-hidden flex flex-col md:flex-row"
-                initial={{ opacity: 0, y: 30 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5 }}
-            >
-                {/* Sidebar Navigation */}
-                <div className="w-full md:w-64 bg-neutral-900 p-8 text-white">
-                    <div className="flex items-center gap-3 mb-10">
-                        <div className="w-8 h-8 rounded-lg bg-emerald-500 flex items-center justify-center">
-                            <Compass className="text-white" size={18} />
+    const next = () => {
+        setError('');
+        setNotice('');
+        if (step === 1) {
+            saveSettings();
+            return;
+        }
+        if (step === STEPS.length - 1) {
+            completeSetup();
+            return;
+        }
+        setStep((current) => Math.min(current + 1, STEPS.length - 1));
+    };
+
+    const renderBody = () => {
+        if (currentStep.id === 'welcome') {
+            return (
+                <div className="grid gap-4 md:grid-cols-3">
+                    <ShellCard title={<span className="flex items-center gap-2"><CloudSun className="h-5 w-5 text-primary" />Weather-aware</span>} description="Outdoor conditions feed comfort scoring and mold insights." />
+                    <ShellCard title={<span className="flex items-center gap-2"><Wifi className="h-5 w-5 text-primary" />Sensor ready</span>} description="Finish setup first, then pair sensors from the unlocked dashboard." />
+                    <ShellCard title={<span className="flex items-center gap-2"><Shield className="h-5 w-5 text-primary" />Secure by default</span>} description="Credentials and certificate are handled once, then removed." />
+                </div>
+            );
+        }
+
+        if (currentStep.id === 'settings') {
+            return (
+                <div className="grid gap-6 xl:grid-cols-[1.2fr,0.8fr]">
+                    <ShellCard title="Weather Location" description="Search for the city or region this server should use for outdoor comparisons.">
+                        <div className="flex flex-col gap-3 sm:flex-row">
+                            <Input
+                                value={weatherQuery}
+                                onChange={(event) => {
+                                    setWeatherQuery(event.target.value);
+                                    if (selectedLocation && event.target.value !== locationLabel) {
+                                        setSelectedLocation(null);
+                                    }
+                                }}
+                                onKeyDown={(event) => {
+                                    if (event.key === 'Enter') {
+                                        event.preventDefault();
+                                        searchLocations();
+                                    }
+                                }}
+                                placeholder="Vienna, AT"
+                                disabled={busy === 'save'}
+                            />
+                            <Button type="button" variant="outline" onClick={searchLocations} disabled={busy === 'search' || busy === 'save'}>
+                                {busy === 'search' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                                Search
+                            </Button>
                         </div>
-                        <span className="font-bold text-lg tracking-tight">RoomSense</span>
-                    </div>
-                    
-                    <nav className="space-y-4">
-                        {STEPS.map((step, idx) => {
-                            const Icon = step.icon;
-                            const isActive = currentStep === idx;
-                            const isPast = currentStep > idx;
-                            
-                            return (
-                                <div key={step.id} className="flex items-center gap-3 relative">
-                                    <div className={`
-                                        w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all
-                                        ${isActive ? 'bg-emerald-500 text-white ring-4 ring-emerald-500/20' : 
-                                          isPast ? 'bg-neutral-700 text-emerald-400' : 'bg-neutral-800 text-neutral-500'}
-                                    `}>
-                                        {isPast ? <CheckCircle size={14} /> : idx + 1}
+                        <div className="rounded-2xl border border-slate-200/80 bg-slate-50/70 p-4 text-sm text-slate-700">
+                            {selectedLocation ? <span><Badge variant="success">Selected</Badge> <span className="ml-2">{locationLabel}</span></span> : 'Select a result below or keep the current saved location.'}
+                        </div>
+                        {locationResults.length > 0 && (
+                            <div className="space-y-2">
+                                {locationResults.map((location) => {
+                                    const label = formatLocation(location);
+                                    return (
+                                        <button
+                                            key={`${location.latitude}-${location.longitude}-${label}`}
+                                            type="button"
+                                            className="flex w-full items-center justify-between rounded-xl border border-slate-200/80 px-3 py-3 text-left hover:border-primary/30 hover:bg-primary/5"
+                                            onClick={() => {
+                                                setSelectedLocation(location);
+                                                setWeatherQuery(label);
+                                                setLocationResults([]);
+                                                setNotice('Weather location selected.');
+                                            }}
+                                        >
+                                            <div>
+                                                <div className="font-medium text-slate-900">{label}</div>
+                                                <div className="text-xs text-slate-500">{location.latitude}, {location.longitude}</div>
+                                            </div>
+                                            <ChevronRight className="h-4 w-4 text-slate-400" />
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </ShellCard>
+
+                    <ShellCard title="Gemini API Key" description="Optional. Enable AI summaries and chat after setup.">
+                        {isAdmin ? (
+                            <>
+                                {hasExistingGeminiKey && (
+                                    <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
+                                        A Gemini API key is already configured. Leave the field empty to keep it.
                                     </div>
-                                    <span className={`text-sm font-medium ${isActive ? 'text-white' : 'text-neutral-500'}`}>
-                                        {step.title}
-                                    </span>
+                                )}
+                                <Input type="password" value={geminiKey} onChange={(event) => setGeminiKey(event.target.value)} placeholder="AIzaSy..." disabled={busy === 'save'} />
+                            </>
+                        ) : (
+                            <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+                                Only admin users can manage the Gemini API key. Setup can still be completed without it.
+                            </div>
+                        )}
+                    </ShellCard>
+                </div>
+            );
+        }
+
+        if (currentStep.id === 'devices') {
+            return (
+                <div className="grid gap-4 lg:grid-cols-2">
+                    <ShellCard title="Before You Continue" description="Power on the first RoomSense sensor and keep it within range of this server.">
+                        <p className="text-sm text-slate-700">The setup flow no longer jumps into `/boxes` because that route stays locked until setup finishes.</p>
+                        <p className="text-sm text-slate-700">After setup, open Device Pairing from the sidebar and connect sensors with the full app available.</p>
+                    </ShellCard>
+                    <Card className="border-slate-200/80 bg-slate-950 text-white">
+                        <CardHeader>
+                            <CardTitle className="text-xl">Recommended Flow</CardTitle>
+                            <CardDescription className="text-slate-300">Finish setup, land on the dashboard, then pair hardware.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-2 text-sm text-slate-200">
+                            <p>1. Save the security material on the next step.</p>
+                            <p>2. Finalize setup.</p>
+                            <p>3. Pair the first sensor from the dashboard.</p>
+                        </CardContent>
+                    </Card>
+                </div>
+            );
+        }
+
+        if (currentStep.id === 'security') {
+            return (
+                <div className="grid gap-6 xl:grid-cols-[1.2fr,0.8fr]">
+                    <ShellCard title="Temporary Credentials" description="These values are only exposed while setup is incomplete.">
+                        <div className="flex flex-wrap gap-2">
+                            <Button type="button" variant="outline" onClick={copyCredentials} disabled={!credentials}>
+                                <Copy className="h-4 w-4" />
+                                {credentialsCopied ? 'Copied' : 'Copy'}
+                            </Button>
+                            <Button type="button" variant="ghost" onClick={retryCredentials} disabled={busy === 'credentials'}>
+                                {busy === 'credentials' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Database className="h-4 w-4" />}
+                                Reload
+                            </Button>
+                        </div>
+                        <textarea
+                            className="min-h-72 w-full rounded-2xl border border-slate-200 bg-slate-950 p-4 font-mono text-xs text-emerald-200 outline-none"
+                            readOnly
+                            value={credentials || (busy === 'credentials' ? 'Loading credentials...' : 'Credentials are not currently available.')}
+                        />
+                        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+                            Finishing setup deletes this file and blocks access to it.
+                        </div>
+                    </ShellCard>
+
+                    <ShellCard title="Root Certificate" description="Install this on clients that should trust the local HTTPS endpoint.">
+                        <div className="rounded-2xl border border-slate-200/80 bg-slate-50/70 p-4 text-sm text-slate-700">
+                            Download the RoomSense root CA before setup completes.
+                            {certificateDownloaded && <span className="ml-2"><Badge variant="success">Requested</Badge></span>}
+                        </div>
+                        <Button type="button" onClick={downloadCertificate} className="w-full">
+                            <Download className="h-4 w-4" />
+                            Download Certificate
+                        </Button>
+                    </ShellCard>
+                </div>
+            );
+        }
+
+        return (
+            <div className="grid gap-6 xl:grid-cols-[1fr,0.9fr]">
+                <ShellCard title="Final Review" description="Confirm the system is ready before locking setup.">
+                    {[
+                        ['Weather location', locationLabel || 'Not set'],
+                        ['Gemini key', hasExistingGeminiKey || geminiKey.trim() ? 'Configured' : 'Skipped'],
+                        ['Certificate download', certificateDownloaded ? 'Requested' : 'Not requested yet']
+                    ].map(([label, value]) => (
+                        <div key={label} className="flex items-center justify-between rounded-2xl border border-slate-200/80 bg-slate-50/70 px-4 py-3">
+                            <span className="text-sm text-slate-600">{label}</span>
+                            <span className="text-sm font-medium text-slate-900">{value}</span>
+                        </div>
+                    ))}
+                </ShellCard>
+
+                <ShellCard title="Required Checks" description="These are the last irreversible steps before the wizard closes.">
+                    <label className="flex items-start gap-3 rounded-2xl border border-slate-200/80 p-4 text-sm text-slate-700">
+                        <input type="checkbox" className="mt-1" checked={credentialsConfirmed} onChange={(event) => setCredentialsConfirmed(event.target.checked)} />
+                        <span>{credentials ? 'I saved the generated backend credentials somewhere outside this device.' : 'I understand the temporary credentials file could not be loaded and will not be available after setup.'}</span>
+                    </label>
+                    <label className="flex items-start gap-3 rounded-2xl border border-slate-200/80 p-4 text-sm text-slate-700">
+                        <input type="checkbox" className="mt-1" checked={certificateConfirmed} onChange={(event) => setCertificateConfirmed(event.target.checked)} />
+                        <span>I downloaded the RoomSense root certificate and understand the endpoint is disabled after setup completes.</span>
+                    </label>
+                </ShellCard>
+            </div>
+        );
+    };
+
+    if (bootstrapping) {
+        return (
+            <div className="flex min-h-screen items-center justify-center bg-slate-950 px-4 text-white">
+                <div className="flex items-center gap-3 text-sm">
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                    <span>Loading setup state...</span>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="min-h-screen bg-[radial-gradient(circle_at_top,rgba(15,23,42,0.08),transparent_40%),linear-gradient(180deg,#f8fafc_0%,#eef2ff_100%)] px-4 py-8 md:px-6 md:py-10">
+            <Motion.div className="mx-auto grid w-full max-w-6xl gap-6 lg:grid-cols-[280px,1fr]" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>
+                <aside className="rounded-3xl bg-slate-950 p-6 text-white shadow-2xl">
+                    <div className="mb-8">
+                        <div className="mb-4 inline-flex rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs uppercase tracking-[0.2em] text-slate-300">RoomSense Setup</div>
+                        <h1 className="text-2xl font-semibold tracking-tight">Finish provisioning this local server.</h1>
+                        <p className="mt-3 text-sm text-slate-300">Setup stays available until the final confirmation. After that, the dashboard becomes the default landing page.</p>
+                    </div>
+                    <div className="mb-6 h-2 overflow-hidden rounded-full bg-white/10">
+                        <div className="h-full rounded-full bg-emerald-400 transition-all" style={{ width: `${((step + 1) / STEPS.length) * 100}%` }} />
+                    </div>
+                    <div className="space-y-3">
+                        {STEPS.map((item, index) => {
+                            const Icon = item.icon;
+                            const active = index === step;
+                            const complete = index < step;
+                            return (
+                                <div key={item.id} className={`rounded-2xl border px-4 py-3 ${active ? 'border-emerald-400/50 bg-emerald-400/10' : 'border-white/10 bg-white/5'}`}>
+                                    <div className="flex items-center gap-3">
+                                        <div className={`flex h-10 w-10 items-center justify-center rounded-2xl ${complete ? 'bg-emerald-400 text-slate-950' : active ? 'bg-white text-slate-950' : 'bg-white/10 text-white'}`}>
+                                            <Icon className="h-4 w-4" />
+                                        </div>
+                                        <div>
+                                            <p className="text-sm font-medium">{item.title}</p>
+                                            <p className="text-xs text-slate-300">{item.note}</p>
+                                        </div>
+                                    </div>
                                 </div>
                             );
                         })}
-                    </nav>
-                </div>
-
-                {/* Content Area */}
-                <div className="flex-1 p-8 md:p-12 flex flex-col h-[600px]">
-                    <AnimatePresence mode="wait">
-                        {currentStep === 0 && (
-                            <motion.div 
-                                key="welcome"
-                                initial={{ opacity: 0, x: 20 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                exit={{ opacity: 0, x: -20 }}
-                                className="flex-1"
-                            >
-                                <h1 className="text-3xl font-extrabold text-neutral-900 mb-4">Welcome to RoomSense</h1>
-                                <p className="text-neutral-600 mb-8 leading-relaxed">
-                                    Let's get your local server configured for your home. We'll set up your location, connect your first sensor, and provide you with your secure backend credentials.
-                                </p>
-                                <div className="bg-emerald-50 border border-emerald-100 p-4 rounded-2xl flex gap-4 items-start mb-8 text-emerald-800 text-sm">
-                                    <Settings className="flex-shrink-0" size={18} />
-                                    <span>This setup is for the local server only. Your data stays in your home.</span>
-                                </div>
-                            </motion.div>
-                        )}
-
-                        {currentStep === 1 && (
-                            <motion.div 
-                                key="settings"
-                                initial={{ opacity: 0, x: 20 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                exit={{ opacity: 0, x: -20 }}
-                                className="flex-1"
-                            >
-                                <h2 className="text-2xl font-bold text-neutral-900 mb-2">Basic Settings</h2>
-                                <p className="text-neutral-500 mb-8 text-sm">Configure the core functionality of your system.</p>
-                                
-                                <div className="space-y-6">
-                                    <div>
-                                        <label className="block text-xs font-bold text-neutral-500 uppercase tracking-wider mb-2">Weather Location</label>
-                                        <input 
-                                            type="text" 
-                                            className="w-full bg-neutral-100 border-none rounded-xl px-4 py-3 focus:ring-2 focus:ring-emerald-500 transition-all text-neutral-900" 
-                                            value={weatherLocation}
-                                            onChange={(e) => setWeatherLocation(e.target.value)}
-                                            placeholder="e.g. Vienna, AT"
-                                        />
-                                        <p className="text-[10px] text-neutral-400 mt-2">Used to fetch outside temperature and humidity data.</p>
-                                    </div>
-                                    
-                                    <div>
-                                        <label className="block text-xs font-bold text-neutral-500 uppercase tracking-wider mb-2">Gemini AI API Key (Optional)</label>
-                                        <input 
-                                            type="password" 
-                                            className="w-full bg-neutral-100 border-none rounded-xl px-4 py-3 focus:ring-2 focus:ring-emerald-500 transition-all text-neutral-900" 
-                                            value={geminiKey}
-                                            onChange={(e) => setGeminiKey(e.target.value)}
-                                            placeholder="Paste your key here..."
-                                        />
-                                        <p className="text-[10px] text-neutral-400 mt-2">Enables smart insights and home analysis chat feature.</p>
-                                    </div>
-                                </div>
-                            </motion.div>
-                        )}
-
-                        {currentStep === 2 && (
-                            <motion.div 
-                                key="sensors"
-                                initial={{ opacity: 0, x: 20 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                exit={{ opacity: 0, x: -20 }}
-                                className="flex-1 text-center py-8"
-                            >
-                                <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-6 text-emerald-600">
-                                    <Wifi size={40} className="animate-pulse" />
-                                </div>
-                                <h2 className="text-2xl font-bold text-neutral-900 mb-4">Connect First Sensor</h2>
-                                <p className="text-neutral-600 mb-8">
-                                    Power on your RoomSense sensor box and place it near the server. 
-                                    You can skip this step and connect devices later from the dashboard.
-                                </p>
-                                <button 
-                                    className="bg-neutral-900 text-white px-6 py-3 rounded-xl font-bold hover:bg-neutral-800 transition-all inline-flex items-center gap-2"
-                                    onClick={() => navigate('/boxes')}
-                                >
-                                    Open Device Pairing <ExternalLink size={16} />
-                                </button>
-                            </motion.div>
-                        )}
-
-                        {currentStep === 3 && (
-                            <motion.div 
-                                key="security"
-                                initial={{ opacity: 0, x: 20 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                exit={{ opacity: 0, x: -20 }}
-                                className="flex-1"
-                            >
-                                <h2 className="text-2xl font-bold text-neutral-900 mb-6">Backend Security</h2>
-                                
-                                <div className="space-y-4">
-                                    <div className="bg-neutral-50 p-4 rounded-2xl border border-neutral-100">
-                                        <div className="flex items-center justify-between mb-4">
-                                            <span className="text-sm font-bold text-neutral-700 flex items-center gap-2">
-                                                <Database size={16} /> Generated Credentials
-                                            </span>
-                                            <button 
-                                                className="text-[10px] font-bold text-emerald-600 hover:text-emerald-700 uppercase"
-                                                onClick={() => {
-                                                    navigator.clipboard.writeText(credentials);
-                                                    alert('Credentials copied to clipboard!');
-                                                }}
-                                            >
-                                                Copy All
-                                            </button>
-                                        </div>
-                                        <textarea 
-                                            className="w-full h-32 bg-white rounded-xl border-none text-[10px] font-mono p-3 focus:ring-0 resize-none overflow-y-auto"
-                                            readOnly
-                                            value={credentials}
-                                        />
-                                    </div>
-                                    
-                                    <div className="bg-amber-50 border border-amber-100 p-4 rounded-2xl flex gap-4 items-start text-amber-900 text-xs">
-                                        <AlertTriangle className="flex-shrink-0 text-amber-500" size={18} />
-                                        <span>IMPORTANT: This file exists temporarily on your Pi's SD card. It will be <strong>permanently deleted</strong> once you finish. Be sure to save these values now!</span>
-                                    </div>
-
-                                    <div className="flex items-center gap-4 bg-emerald-50 p-4 rounded-2xl border border-emerald-100">
-                                        <Shield className="text-emerald-600 flex-shrink-0" size={24} />
-                                        <div className="flex-1">
-                                            <p className="font-bold text-emerald-900 text-xs">Root CA Certificate</p>
-                                            <p className="text-[10px] text-emerald-700 mb-2">Install this on your devices to trust the local HTTPS connection.</p>
-                                            <button 
-                                                className="bg-white text-emerald-700 px-3 py-1.5 rounded-lg text-[10px] font-bold shadow-sm hover:shadow-md transition-all flex items-center gap-1.5 border border-emerald-100"
-                                                onClick={downloadCert}
-                                            >
-                                                <Download size={14} /> Download Certificate
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-                            </motion.div>
-                        )}
-
-                        {currentStep === 4 && (
-                            <motion.div 
-                                key="finish"
-                                initial={{ opacity: 0, scale: 0.9 }}
-                                animate={{ opacity: 1, scale: 1 }}
-                                className="flex-1 flex flex-col items-center justify-center text-center"
-                            >
-                                <div className="w-24 h-24 bg-emerald-500 rounded-full flex items-center justify-center text-white mb-8 shadow-lg shadow-emerald-500/30">
-                                    <CheckCircle size={48} />
-                                </div>
-                                <h2 className="text-3xl font-extrabold text-neutral-900 mb-4">Configuration Complete!</h2>
-                                <p className="text-neutral-600 mb-10 max-w-sm">
-                                    You're all set. The temporary credentials file will be deleted now. Welcome home!
-                                </p>
-                                
-                                <div className="space-y-4 w-full px-8">
-                                    <label className="flex items-start gap-3 text-left cursor-pointer group">
-                                        <input 
-                                            type="checkbox" 
-                                            className="mt-1 rounded text-emerald-600 focus:ring-emerald-500 transition-all border-neutral-300"
-                                            checked={credsSaved}
-                                            onChange={(e) => setCredsSaved(e.target.checked)}
-                                        />
-                                        <span className="text-xs text-neutral-600 group-hover:text-neutral-900 transition-all leading-relaxed">
-                                            I have saved the backend credentials and downloaded the certificate. I understand the temporary file will be deleted.
-                                        </span>
-                                    </label>
-                                </div>
-                            </motion.div>
-                        )}
-                    </AnimatePresence>
-
-                    {/* Footer Controls */}
-                    <div className="mt-auto pt-8 border-t border-neutral-100 flex items-center justify-between">
-                        {currentStep > 0 && (
-                            <button 
-                                className="text-neutral-500 font-bold text-sm flex items-center gap-1 hover:text-neutral-900 transition-all px-2"
-                                onClick={handleBack}
-                                disabled={loading}
-                            >
-                                <ChevronLeft size={16} /> Back
-                            </button>
-                        )}
-                        <div className="flex-1" />
-                        
-                        {currentStep === 1 ? (
-                            <button 
-                                className="bg-emerald-500 text-white px-8 py-3 rounded-2xl font-bold shadow-lg shadow-emerald-500/30 hover:bg-emerald-600 transition-all flex items-center gap-2"
-                                onClick={saveSettings}
-                                disabled={loading}
-                            >
-                                {loading ? 'Saving...' : 'Save & Continue'} <ChevronRight size={18} />
-                            </button>
-                        ) : currentStep === STEPS.length - 1 ? (
-                            <button 
-                                className={`
-                                    px-8 py-3 rounded-2xl font-bold transition-all
-                                    ${credsSaved ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/30 hover:bg-emerald-600' : 'bg-neutral-200 text-neutral-400 cursor-not-allowed'}
-                                `}
-                                onClick={completeSetup}
-                                disabled={!credsSaved || loading}
-                            >
-                                {loading ? 'Finalizing...' : 'Go to Dashboard'}
-                            </button>
-                        ) : (
-                            <button 
-                                className="bg-emerald-500 text-white px-8 py-3 rounded-2xl font-bold shadow-lg shadow-emerald-500/30 hover:bg-emerald-600 transition-all flex items-center gap-2"
-                                onClick={handleNext}
-                                disabled={loading}
-                            >
-                                {STEPS[currentStep].id === 'sensors' ? 'Skip for now' : 'Continue'} <ChevronRight size={18} />
-                            </button>
-                        )}
                     </div>
-                    
-                    {error && (
-                        <div className="bg-red-50 text-red-600 text-[10px] font-bold p-3 rounded-xl mt-4 flex items-center gap-2 border border-red-100">
-                             <AlertTriangle size={14} /> {error}
+                </aside>
+
+                <Card className="border-white/60 bg-white/95 shadow-2xl backdrop-blur">
+                    <CardHeader className="border-b border-slate-200/80 pb-6">
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                            <div>
+                                <p className="text-xs font-medium uppercase tracking-[0.24em] text-slate-500">Step {step + 1} of {STEPS.length}</p>
+                                <CardTitle className="mt-2 text-3xl tracking-tight text-slate-950">{currentStep.title}</CardTitle>
+                                <CardDescription className="mt-2 max-w-2xl text-base">{currentStep.note}</CardDescription>
+                            </div>
+                            <Badge variant="outline" className="rounded-full px-3 py-1 text-xs font-medium text-slate-700">{currentStep.note}</Badge>
                         </div>
-                    )}
-                </div>
-            </motion.div>
+                    </CardHeader>
+
+                    <CardContent className="flex min-h-[620px] flex-col gap-6 p-6 md:p-8">
+                        <AnimatePresence mode="wait">
+                            <Motion.div key={currentStep.id} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }} transition={{ duration: 0.22 }} className="flex-1">
+                                {renderBody()}
+                            </Motion.div>
+                        </AnimatePresence>
+
+                        {notice && <div className="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">{notice}</div>}
+                        {error && <div className="flex items-start gap-3 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900"><AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" /><span>{error}</span></div>}
+
+                        <div className="mt-auto flex flex-col gap-3 border-t border-slate-200/80 pt-6 sm:flex-row sm:items-center sm:justify-between">
+                            <Button type="button" variant="ghost" onClick={() => setStep((current) => Math.max(current - 1, 0))} disabled={step === 0 || navLocked} className="justify-start">
+                                <ChevronLeft className="h-4 w-4" />
+                                Back
+                            </Button>
+                            <Button type="button" onClick={next} disabled={navLocked || (step === STEPS.length - 1 && (!credentialsConfirmed || !certificateConfirmed))}>
+                                {(busy === 'save' || busy === 'complete') && <Loader2 className="h-4 w-4 animate-spin" />}
+                                {step === 1 ? 'Save and Continue' : step === 3 ? 'Continue to Finish' : step === STEPS.length - 1 ? 'Finish Setup' : 'Continue'}
+                                {busy !== 'save' && busy !== 'complete' && <ChevronRight className="h-4 w-4" />}
+                            </Button>
+                        </div>
+                    </CardContent>
+                </Card>
+            </Motion.div>
         </div>
     );
 }

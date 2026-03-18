@@ -1,8 +1,14 @@
 import api from './api';
 
+const buildSetupUrl = (path) => {
+    const baseUrl = (api.defaults.baseURL || '/api').replace(/\/$/, '');
+    const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+    return `${baseUrl}${normalizedPath}`;
+};
+
 export const setupAPI = {
     /**
-     * Check if the guided setup has been completed
+     * Check if the guided setup has been completed.
      */
     getStatus: async () => {
         const response = await api.get('/setup/status');
@@ -10,12 +16,17 @@ export const setupAPI = {
     },
 
     /**
-     * Fetch temporary system backend credentials
+     * Fetch temporary system backend credentials.
      */
     getCredentials: async () => {
-        const response = await api.get('/setup/credentials');
-        return response.data; // Expected to be string/blob from txt file
+        const response = await api.get('/setup/credentials', { responseType: 'text' });
+        return response.data;
     },
+
+    /**
+     * Build the download URL for the temporary root certificate.
+     */
+    getCertificateDownloadUrl: () => buildSetupUrl('/setup/certificate'),
 
     /**
      * Mark the system setup as complete, which deletes the temporary credentials file.
@@ -24,7 +35,4 @@ export const setupAPI = {
         const response = await api.post('/setup/complete');
         return response.data;
     }
-    
-    // Note: Certificates are usually downloaded via window.open('/api/setup/certificate')
-    // instead of an axios API call so the browser handles the download popup.
 };
