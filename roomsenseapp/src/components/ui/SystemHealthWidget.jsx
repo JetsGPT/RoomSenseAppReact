@@ -1,9 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './card';
-import { Badge } from './badge';
 import { Button } from './button';
 import { sensorsAPI } from '../../services/sensorsAPI';
+import { bleAPI } from '../../services/api';
 import {
     Activity,
     AlertTriangle,
@@ -11,14 +11,79 @@ import {
     Clock,
     RefreshCw,
     ServerCrash,
-    Wifi,
     WifiOff,
     ChevronDown,
     ChevronUp
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { formatDistanceToNow } from 'date-fns';
-import { getSensorName, getSensorIcon } from '../../config/sensorConfig';
+import { getSensorName } from '../../config/sensorConfig';
+
+const normalizeConnectionDevice = (connection) => ({
+    address: connection.address,
+    box_id: connection.original_name || connection.box_name || connection.name || connection.address,
+    display_name: connection.name || connection.display_name || connection.original_name || connection.address,
+    last_seen: connection.last_seen || null,
+    status: 'online',
+    sensors: [],
+    connectionOnly: true,
+});
+
+const mergeStatus = (healthStatus, hasConnection) => {
+    if (!hasConnection) {
+        return healthStatus || 'unknown';
+    }
+
+    if (!healthStatus || healthStatus === 'offline' || healthStatus === 'unknown') {
+        return 'online';
+    }
+
+    return healthStatus;
+};
+
+const mergeDevices = (healthDevices = [], connections = []) => {
+    const devicesByAddress = new Map();
+
+    healthDevices.forEach((device) => {
+        const key = device.address?.toUpperCase();
+        if (!key) return;
+
+        devicesByAddress.set(key, {
+            ...device,
+            sensors: Array.isArray(device.sensors) ? device.sensors : [],
+            connectionOnly: false,
+        });
+    });
+
+    connections.forEach((connection) => {
+        const key = connection.address?.toUpperCase();
+        if (!key) return;
+
+        const existing = devicesByAddress.get(key);
+        if (!existing) {
+            devicesByAddress.set(key, normalizeConnectionDevice(connection));
+            return;
+        }
+
+        devicesByAddress.set(key, {
+            ...existing,
+            box_id: existing.box_id || connection.original_name || connection.box_name || connection.name || connection.address,
+            display_name: connection.name || existing.display_name || connection.display_name || connection.original_name || connection.address,
+            last_seen: existing.last_seen || connection.last_seen || null,
+            status: mergeStatus(existing.status, true),
+            sensors: Array.isArray(existing.sensors) ? existing.sensors : [],
+            connectionOnly: !existing.sensors || existing.sensors.length === 0,
+        });
+    });
+
+    const statusOrder = { online: 0, stale: 1, offline: 2, unknown: 3 };
+
+    return Array.from(devicesByAddress.values()).sort((a, b) => {
+        const statusDelta = (statusOrder[a.status] ?? 99) - (statusOrder[b.status] ?? 99);
+        if (statusDelta !== 0) return statusDelta;
+        return (a.display_name || a.box_id || a.address || '').localeCompare(b.display_name || b.box_id || b.address || '');
+    });
+};
 
 const StatusBadge = ({ status, className }) => {
     const config = {
@@ -80,6 +145,12 @@ const DeviceHealthCard = ({ device }) => {
                     </span>
                 </div>
 
+                {device.connectionOnly && (
+                    <div className="mb-3 rounded-md border border-blue-200 bg-blue-50/70 px-3 py-2 text-xs text-blue-700">
+                        Connected via BLE. Waiting for sensor readings to appear.
+                    </div>
+                )}
+
                 <AnimatePresence>
                     {expanded && (
                         <motion.div
@@ -92,7 +163,6 @@ const DeviceHealthCard = ({ device }) => {
                                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Sensor Status</p>
                                 {device.sensors && device.sensors.length > 0 ? (
                                     device.sensors.map((sensor) => {
-                                        const SensorIcon = getSensorIcon([sensor.type]); // Expect array usually
                                         const sensorLastSeen = sensor.last_seen
                                             ? formatDistanceToNow(new Date(sensor.last_seen), { addSuffix: true })
                                             : 'Never';
@@ -141,31 +211,62 @@ const DeviceHealthCard = ({ device }) => {
 };
 
 export const SystemHealthWidget = () => {
-    const [devices, setDevices] = useState([]);
+    const [healthDevices, setHealthDevices] = useState([]);
+    const [connections, setConnections] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [warning, setWarning] = useState(null);
     const [lastUpdated, setLastUpdated] = useState(null);
 
-    const fetchData = async () => {
+    const devices = useMemo(() => mergeDevices(healthDevices, connections), [healthDevices, connections]);
+
+    const fetchData = useCallback(async () => {
         try {
             setLoading(true);
-            const data = await sensorsAPI.getSystemHealth();
-            setDevices(data);
-            setLastUpdated(new Date());
             setError(null);
+            setWarning(null);
+
+            const [connectionsResult, healthResult] = await Promise.allSettled([
+                bleAPI.getActiveConnections(),
+                sensorsAPI.getSystemHealth(),
+            ]);
+
+            const nextConnections = connectionsResult.status === 'fulfilled' && Array.isArray(connectionsResult.value)
+                ? connectionsResult.value
+                : [];
+            const nextHealthDevices = healthResult.status === 'fulfilled' && Array.isArray(healthResult.value)
+                ? healthResult.value
+                : [];
+
+            setConnections(nextConnections);
+            setHealthDevices(nextHealthDevices);
+            setLastUpdated(new Date());
+
+            if (connectionsResult.status === 'rejected') {
+                console.error('Failed to fetch active connections for system health:', connectionsResult.reason);
+            }
+
+            if (healthResult.status === 'rejected') {
+                console.error("Failed to fetch system health:", healthResult.reason);
+                if (nextConnections.length > 0) {
+                    setWarning('Sensor health details are temporarily unavailable. Showing connected boxes only.');
+                } else {
+                    setError("Failed to load system health data");
+                }
+            }
         } catch (err) {
             console.error("Failed to fetch system health:", err);
             setError("Failed to load system health data");
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
 
     useEffect(() => {
         fetchData();
         const interval = setInterval(fetchData, 60000); // Refresh every minute
         return () => clearInterval(interval);
-    }, []);
+    }, [fetchData]);
 
     const handleRefresh = () => {
         fetchData();
@@ -196,6 +297,12 @@ export const SystemHealthWidget = () => {
                     </Button>
                 </div>
             </div>
+
+            {warning && (
+                <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+                    {warning}
+                </div>
+            )}
 
             {/* Summary Cards */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
