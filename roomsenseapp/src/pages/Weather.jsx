@@ -1,20 +1,57 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { CloudSun, Wind, Droplets, Thermometer, MapPin, RefreshCw, Loader2, Search, Crosshair, Globe, Check } from 'lucide-react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { CloudSun, Wind, Droplets, Thermometer, MapPin, RefreshCw, Loader2, Search, Crosshair, Globe } from 'lucide-react';
+import NumberFlow from '@number-flow/react';
 import { useWeather } from '../contexts/WeatherContext';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
+import { useConnections } from '../contexts/ConnectionsContext';
+import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { IndoorOutdoorChart } from '../components/ui/IndoorOutdoorChart';
 import { Input } from '../components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '../components/ui/popover';
-import NumberFlow from '@number-flow/react';
 import { weatherAPI } from '../services/weatherAPI';
+import { useSensorDataQuery } from '../hooks/useSensorQueries';
+import { DATA_LIMITS } from '../config/sensorConfig';
+
+const formatCoordinate = (value) => {
+    const numeric = Number(value);
+    return Number.isFinite(numeric) ? `${numeric.toFixed(2)}°` : null;
+};
+
+const normalizeIndoorSeries = (data, sensorType) => {
+    if (!Array.isArray(data)) {
+        return [];
+    }
+
+    return data
+        .filter((reading) => reading?.sensor_type === sensorType)
+        .map((reading) => ({
+            timestamp: new Date(reading.timestamp).getTime(),
+            value: Number(reading.value),
+        }))
+        .filter((reading) => Number.isFinite(reading.timestamp) && Number.isFinite(reading.value))
+        .sort((a, b) => a.timestamp - b.timestamp);
+};
 
 const Weather = () => {
-    const { currentWeather, location, loading, locationLoading, error, refresh, getHistory, setLocation, autodetectLocation } = useWeather();
+    const {
+        currentWeather,
+        location,
+        loading,
+        locationLoading,
+        error,
+        refresh,
+        getHistory,
+        setLocation,
+        autodetectLocation
+    } = useWeather();
+    const { activeConnections } = useConnections();
+
     const [historicalData, setHistoricalData] = useState([]);
     const [chartLoading, setChartLoading] = useState(false);
+    const [tempRange, setTempRange] = useState('24h');
+    const [humidityRange, setHumidityRange] = useState('24h');
+    const [selectedBoxAddress, setSelectedBoxAddress] = useState('');
 
-    // Search state
     const [searchQuery, setSearchQuery] = useState('');
     const [searchResults, setSearchResults] = useState([]);
     const [searching, setSearching] = useState(false);
@@ -22,58 +59,123 @@ const Weather = () => {
     const searchTimeoutRef = useRef(null);
 
     useEffect(() => {
+        return () => {
+            if (searchTimeoutRef.current) {
+                clearTimeout(searchTimeoutRef.current);
+            }
+        };
+    }, []);
+
+    useEffect(() => {
         const fetchHistory = async () => {
-            if (locationLoading) return;
+            if (locationLoading) {
+                return;
+            }
+
             setChartLoading(true);
             try {
                 const end = new Date();
                 const start = new Date(end.getTime() - 30 * 24 * 60 * 60 * 1000);
-                const formatDate = (d) => d.toISOString().split('T')[0];
+                const formatDate = (date) => date.toISOString().split('T')[0];
                 const data = await getHistory(formatDate(start), formatDate(end));
                 setHistoricalData(data);
             } catch (err) {
-                console.error("Failed to load historical weather", err);
+                console.error('Failed to load historical weather', err);
             } finally {
                 setChartLoading(false);
             }
         };
+
         fetchHistory();
-    }, [getHistory, location, locationLoading]);
+    }, [getHistory, locationLoading]);
 
-    // Handle search input with debounce
-    const handleSearchChange = (e) => {
-        const val = e.target.value;
-        setSearchQuery(val);
+    useEffect(() => {
+        if (!activeConnections.length) {
+            setSelectedBoxAddress('');
+            return;
+        }
 
-        if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+        const stillSelected = activeConnections.some((connection) => connection.address === selectedBoxAddress);
+        if (!stillSelected) {
+            setSelectedBoxAddress(activeConnections[0].address);
+        }
+    }, [activeConnections, selectedBoxAddress]);
 
-        if (val.trim().length < 2) {
+    const selectedConnection = useMemo(() => {
+        if (!activeConnections.length) {
+            return null;
+        }
+
+        return activeConnections.find((connection) => connection.address === selectedBoxAddress) || activeConnections[0];
+    }, [activeConnections, selectedBoxAddress]);
+
+    const selectedBoxId = selectedConnection?.original_name
+        || selectedConnection?.box_name
+        || selectedConnection?.name
+        || selectedConnection?.address
+        || '';
+
+    const selectedBoxLabel = selectedConnection?.name
+        || selectedConnection?.original_name
+        || selectedConnection?.address
+        || 'No box selected';
+
+    const {
+        data: indoorHistory = [],
+        isLoading: indoorHistoryLoading,
+    } = useSensorDataQuery(selectedBoxId, {
+        timeRange: '-30d',
+        limit: DATA_LIMITS.export,
+        sort: 'asc',
+        enabled: Boolean(selectedBoxId),
+    });
+
+    const indoorTemperatureData = useMemo(
+        () => normalizeIndoorSeries(indoorHistory, 'temperature'),
+        [indoorHistory]
+    );
+
+    const indoorHumidityData = useMemo(
+        () => normalizeIndoorSeries(indoorHistory, 'humidity'),
+        [indoorHistory]
+    );
+
+    const handleSearchChange = (event) => {
+        const value = event.target.value;
+        setSearchQuery(value);
+
+        if (searchTimeoutRef.current) {
+            clearTimeout(searchTimeoutRef.current);
+        }
+
+        if (value.trim().length < 2) {
             setSearchResults([]);
+            setSearching(false);
             return;
         }
 
         setSearching(true);
         searchTimeoutRef.current = setTimeout(async () => {
             try {
-                const results = await weatherAPI.geocode(val);
+                const results = await weatherAPI.geocode(value);
                 setSearchResults(results);
             } catch (err) {
-                console.error("Geocoding failed", err);
+                console.error('Geocoding failed', err);
             } finally {
                 setSearching(false);
             }
         }, 500);
     };
 
-    const handleSelectLocation = async (loc) => {
+    const handleSelectLocation = async (nextLocation) => {
         try {
-            const locName = loc.admin1 ? `${loc.name}, ${loc.admin1}` : loc.name;
-            await setLocation(loc.latitude, loc.longitude, locName);
+            const locationName = nextLocation.admin1 ? `${nextLocation.name}, ${nextLocation.admin1}` : nextLocation.name;
+            await setLocation(nextLocation.latitude, nextLocation.longitude, locationName);
             setIsPopoverOpen(false);
             setSearchQuery('');
             setSearchResults([]);
         } catch (err) {
-            console.error("Failed to set location", err);
+            console.error('Failed to set location', err);
         }
     };
 
@@ -100,8 +202,9 @@ const Weather = () => {
     }
 
     const current = currentWeather?.current;
-    const [tempRange, setTempRange] = useState('24h');
-    const [humidityRange, setHumidityRange] = useState('24h');
+    const latitudeLabel = formatCoordinate(location?.latitude);
+    const longitudeLabel = formatCoordinate(location?.longitude);
+    const showChartSkeleton = chartLoading && historicalData.length === 0;
 
     return (
         <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-6">
@@ -109,15 +212,18 @@ const Weather = () => {
                 <div className="space-y-1">
                     <h1 className="text-3xl font-bold tracking-tight">Weather</h1>
                     <div className="flex items-center gap-2">
-                        <div className="flex items-center text-muted-foreground">
-                            <MapPin className="w-4 h-4 mr-1 text-primary" />
-                            {locationLoading ? (
-                                <span className="animate-pulse">Loading location...</span>
-                            ) : (
-                                <span className="font-medium text-foreground">{location.name}</span>
+                        <div className="flex flex-wrap items-center gap-2 text-muted-foreground">
+                            <div className="flex items-center">
+                                <MapPin className="w-4 h-4 mr-1 text-primary" />
+                                {locationLoading ? (
+                                    <span className="animate-pulse">Loading location...</span>
+                                ) : (
+                                    <span className="font-medium text-foreground">{location?.name || 'Location unavailable'}</span>
+                                )}
+                            </div>
+                            {latitudeLabel && longitudeLabel && (
+                                <span className="text-xs">{latitudeLabel}, {longitudeLabel}</span>
                             )}
-                            <span className="mx-2 opacity-50">•</span>
-                            <span className="text-xs">{location.latitude.toFixed(2)}°N, {location.longitude.toFixed(2)}°E</span>
                         </div>
 
                         <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
@@ -146,18 +252,18 @@ const Weather = () => {
                                             Searching...
                                         </div>
                                     ) : searchResults.length > 0 ? (
-                                        searchResults.map((loc, idx) => (
+                                        searchResults.map((result, index) => (
                                             <button
-                                                key={idx}
+                                                key={`${result.latitude}-${result.longitude}-${index}`}
                                                 className="w-full flex flex-col items-start p-2.5 rounded-md hover:bg-muted text-left transition-colors"
-                                                onClick={() => handleSelectLocation(loc)}
+                                                onClick={() => handleSelectLocation(result)}
                                             >
                                                 <div className="flex items-center justify-between w-full">
-                                                    <span className="font-medium">{loc.name}</span>
-                                                    <span className="text-[10px] font-mono opacity-50 uppercase bg-muted px-1 rounded">{loc.countryCode}</span>
+                                                    <span className="font-medium">{result.name}</span>
+                                                    <span className="text-[10px] font-mono opacity-50 uppercase bg-muted px-1 rounded">{result.countryCode}</span>
                                                 </div>
                                                 <span className="text-xs text-muted-foreground">
-                                                    {loc.admin1 ? `${loc.admin1}, ` : ''}{loc.country}
+                                                    {result.admin1 ? `${result.admin1}, ` : ''}{result.country}
                                                 </span>
                                             </button>
                                         ))
@@ -187,7 +293,6 @@ const Weather = () => {
                 </Button>
             </div>
 
-            {/* Current Conditions Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <Card className="overflow-hidden border-none shadow-sm bg-gradient-to-br from-background to-blue-500/5">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -239,9 +344,47 @@ const Weather = () => {
                 </Card>
             </div>
 
-            {/* Historical Charts */}
+            <Card className="border-dashed">
+                <CardContent className="pt-6 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+                    <div className="space-y-1">
+                        <h2 className="text-lg font-semibold">Indoor vs Outdoor Comparison</h2>
+                        <p className="text-sm text-muted-foreground">
+                            {selectedBoxId
+                                ? `Comparing outdoor weather against ${selectedBoxLabel}.`
+                                : 'Connect a box to compare RoomSense sensor history with outdoor weather.'}
+                        </p>
+                        {selectedBoxId && indoorHistoryLoading && (
+                            <p className="text-xs text-muted-foreground">Loading sensor history for the selected box...</p>
+                        )}
+                        {selectedBoxId && !indoorHistoryLoading && indoorTemperatureData.length === 0 && indoorHumidityData.length === 0 && (
+                            <p className="text-xs text-muted-foreground">No indoor sensor history is available for the selected box yet.</p>
+                        )}
+                    </div>
+
+                    <div className="w-full lg:w-80">
+                        <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground" htmlFor="weather-box-select">
+                            Indoor Box
+                        </label>
+                        <select
+                            id="weather-box-select"
+                            className="mt-2 h-10 w-full rounded-md border bg-background px-3 text-sm"
+                            value={selectedBoxAddress}
+                            onChange={(event) => setSelectedBoxAddress(event.target.value)}
+                            disabled={!activeConnections.length}
+                        >
+                            {!activeConnections.length && <option value="">No connected boxes</option>}
+                            {activeConnections.map((connection) => (
+                                <option key={connection.address} value={connection.address}>
+                                    {connection.name || connection.original_name || connection.address}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                </CardContent>
+            </Card>
+
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {chartLoading && !historicalData.length ? (
+                {showChartSkeleton ? (
                     <div className="col-span-full h-80 flex items-center justify-center border-2 border-dashed rounded-3xl bg-card/30 backdrop-blur-sm">
                         <div className="flex flex-col items-center gap-3">
                             <Loader2 className="w-10 h-10 animate-spin text-primary/50" />
@@ -253,14 +396,14 @@ const Weather = () => {
                         <IndoorOutdoorChart
                             title={`${tempRange} Temperature History`}
                             sensorType="temperature"
-                            indoorData={[]}
+                            indoorData={indoorTemperatureData}
                             outdoorData={historicalData}
                             onRangeChange={setTempRange}
                         />
                         <IndoorOutdoorChart
                             title={`${humidityRange} Humidity History`}
                             sensorType="humidity"
-                            indoorData={[]}
+                            indoorData={indoorHumidityData}
                             outdoorData={historicalData}
                             onRangeChange={setHumidityRange}
                         />

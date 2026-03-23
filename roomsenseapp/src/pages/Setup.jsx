@@ -165,7 +165,7 @@ const ShellCard = ({ title, description, children, style = surfaceStyle, classNa
 
 export default function Setup() {
     const { user, setIsSetupCompleted, refreshSetupStatus } = useAuth();
-    const { refresh: refreshWeather } = useWeather();
+    const { refresh: refreshWeather, setLocation: saveWeatherLocation } = useWeather();
     const navigate = useNavigate();
 
     const [step, setStep] = useState(0);
@@ -296,7 +296,7 @@ export default function Setup() {
         setError('');
         setNotice('');
         try {
-            await weatherAPI.setLocation(selectedLocation.latitude, selectedLocation.longitude, formatLocation(selectedLocation));
+            await saveWeatherLocation(selectedLocation.latitude, selectedLocation.longitude, formatLocation(selectedLocation));
             if (isAdmin && geminiKey.trim()) {
                 await settingsAPI.update('gemini_api_key', geminiKey.trim(), 'Google Gemini API key for RoomSense AI features', true);
                 setGeminiKey('');

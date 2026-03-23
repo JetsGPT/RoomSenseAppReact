@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { motion as Motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -10,10 +10,25 @@ import { useConnections } from '@/contexts/ConnectionsContext';
 import { StaggeredContainer, StaggeredItem, FadeIn } from '@/components/ui/PageTransition';
 import { RenameDeviceDialog } from '@/components/RenameDeviceDialog';
 import { PairingDialog } from '@/components/PairingDialog';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { AnimatePresence } from 'framer-motion';
+
+const KNOWN_DEVICE_STATUS_META = {
+    connected: { label: 'Connected', className: 'bg-green-500/10 text-green-700 dark:text-green-400' },
+    connecting: { label: 'Connecting', className: 'bg-blue-500/10 text-blue-700 dark:text-blue-400' },
+    authenticating: { label: 'Authenticating', className: 'bg-blue-500/10 text-blue-700 dark:text-blue-400' },
+    pin_required: { label: 'PIN Required', className: 'bg-amber-500/10 text-amber-700 dark:text-amber-400' },
+    pairing_failed: { label: 'Pairing Failed', className: 'bg-red-500/10 text-red-700 dark:text-red-400' },
+    error: { label: 'Connection Error', className: 'bg-red-500/10 text-red-700 dark:text-red-400' },
+    disconnected: { label: 'Disconnected', className: 'bg-slate-500/10 text-slate-700 dark:text-slate-300' },
+};
+
+const getKnownDeviceRuntimeStatus = (device, isAlreadyConnected) => {
+    if (isAlreadyConnected || device?.is_connected) {
+        return 'connected';
+    }
+
+    return device?.runtime_status || device?.status || 'disconnected';
+};
 
 const BoxManagement = () => {
     const { activeConnections, loading: isLoadingConnections, refreshConnections, setPollingPaused } = useConnections();
@@ -397,7 +412,7 @@ const BoxManagement = () => {
             <FadeIn>
                 <div className="max-w-7xl mx-auto space-y-6 sm:space-y-8">
                     {/* Header */}
-                    <motion.div
+                    <Motion.div
                         initial={{ opacity: 0, y: -20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.5 }}
@@ -406,7 +421,7 @@ const BoxManagement = () => {
                         <p className="text-sm sm:text-base text-muted-foreground">
                             Manage your RoomSense slave boxes and BLE connections
                         </p>
-                    </motion.div>
+                    </Motion.div>
 
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
                         {/* Active Connections Card */}
@@ -449,7 +464,7 @@ const BoxManagement = () => {
                                     <StaggeredContainer className="space-y-3">
                                         {activeConnections.map((device, index) => (
                                             <StaggeredItem key={device.address} index={index}>
-                                                <motion.div
+                                                <Motion.div
                                                     className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 sm:p-4 rounded-lg border bg-card hover:bg-accent/50 transition-colors gap-3 sm:gap-0"
                                                     whileHover={{ scale: 1.02 }}
                                                     whileTap={{ scale: 0.98 }}
@@ -492,7 +507,7 @@ const BoxManagement = () => {
                                                             )}
                                                         </Button>
                                                     </div>
-                                                </motion.div>
+                                                </Motion.div>
                                             </StaggeredItem>
                                         ))}
                                     </StaggeredContainer>
@@ -540,7 +555,7 @@ const BoxManagement = () => {
                                                 );
                                                 return (
                                                     <StaggeredItem key={device.address} index={index}>
-                                                        <motion.div
+                                                        <Motion.div
                                                             className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 sm:p-4 rounded-lg border bg-card hover:bg-accent/50 transition-colors gap-3 sm:gap-0"
                                                             whileHover={{ scale: 1.02 }}
                                                             whileTap={{ scale: 0.98 }}
@@ -577,7 +592,7 @@ const BoxManagement = () => {
                                                                     )}
                                                                 </Button>
                                                             )}
-                                                        </motion.div>
+                                                        </Motion.div>
                                                     </StaggeredItem>
                                                 );
                                             })}
@@ -634,12 +649,23 @@ const BoxManagement = () => {
                                 ) : (
                                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                         <AnimatePresence>
-                                            {knownDevices.map((device, index) => {
+                                            {knownDevices.map((device) => {
                                                 const isAlreadyConnected = activeConnections.some(
                                                     conn => conn.address === device.address
                                                 );
+                                                const runtimeStatus = getKnownDeviceRuntimeStatus(device, isAlreadyConnected);
+                                                const statusMeta = KNOWN_DEVICE_STATUS_META[runtimeStatus] || KNOWN_DEVICE_STATUS_META.disconnected;
+                                                const isBusy = connectingDevices.has(device.address);
+                                                const disableConnect = isBusy || ['connecting', 'authenticating', 'pin_required'].includes(runtimeStatus);
+                                                const connectLabel = runtimeStatus === 'pairing_failed' || runtimeStatus === 'error'
+                                                    ? 'Retry'
+                                                    : runtimeStatus === 'pin_required'
+                                                        ? 'Awaiting PIN'
+                                                        : runtimeStatus === 'connecting' || runtimeStatus === 'authenticating'
+                                                            ? 'Connecting'
+                                                            : 'Connect';
                                                 return (
-                                                    <motion.div
+                                                    <Motion.div
                                                         key={device.address}
                                                         layout
                                                         initial={{ opacity: 0, scale: 0.95 }}
@@ -655,31 +681,45 @@ const BoxManagement = () => {
                                                                 <div className="min-w-0 flex-1">
                                                                     <p className="font-medium truncate">{device.name || 'Unknown Device'}</p>
                                                                     <p className="text-xs text-muted-foreground truncate">{device.address}</p>
+                                                                    {device.box_address && (
+                                                                        <p className="text-xs text-muted-foreground truncate">{device.box_address}</p>
+                                                                    )}
                                                                 </div>
                                                             </div>
                                                         </div>
                                                         
+                                                        <div className="mb-3 flex flex-wrap gap-2">
+                                                            <Badge variant="outline" className={statusMeta.className}>
+                                                                {statusMeta.label}
+                                                            </Badge>
+                                                            {device.last_seen && (
+                                                                <Badge variant="outline">
+                                                                    Seen {new Date(device.last_seen).toLocaleString()}
+                                                                </Badge>
+                                                            )}
+                                                        </div>
+
                                                         <div className="flex items-center justify-between mt-auto pt-3 border-t">
-                                                                {isAlreadyConnected ? (
-                                                                    <Badge variant="success" className="bg-green-500/10 text-green-700 dark:text-green-400">
-                                                                        Connected
-                                                                    </Badge>
-                                                                ) : (
-                                                                    <Button
-                                                                        variant="outline"
-                                                                        size="sm"
-                                                                        onClick={() => handleConnect(device.address, device.name)}
-                                                                        disabled={connectingDevices.has(device.address)}
-                                                                    >
-                                                                        {connectingDevices.has(device.address) ? (
-                                                                            <Loader2 className="mr-2 h-3 w-3 animate-spin" />
-                                                                        ) : (
-                                                                            <Wifi className="mr-2 h-3 w-3" />
-                                                                        )}
-                                                                        Connect
-                                                                    </Button>
-                                                                )}
-                                                            
+                                                            {runtimeStatus === 'connected' ? (
+                                                                <Badge variant="success" className="bg-green-500/10 text-green-700 dark:text-green-400">
+                                                                    Connected
+                                                                </Badge>
+                                                            ) : (
+                                                                <Button
+                                                                    variant="outline"
+                                                                    size="sm"
+                                                                    onClick={() => handleConnect(device.address, device.original_name || device.name)}
+                                                                    disabled={disableConnect}
+                                                                >
+                                                                    {isBusy || runtimeStatus === 'connecting' || runtimeStatus === 'authenticating' ? (
+                                                                        <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                                                                    ) : (
+                                                                        <Wifi className="mr-2 h-3 w-3" />
+                                                                    )}
+                                                                    {connectLabel}
+                                                                </Button>
+                                                            )}
+
                                                             <Button
                                                                 variant="ghost"
                                                                 size="sm"
@@ -694,7 +734,7 @@ const BoxManagement = () => {
                                                                 )}
                                                             </Button>
                                                         </div>
-                                                    </motion.div>
+                                                    </Motion.div>
                                                 );
                                             })}
                                         </AnimatePresence>

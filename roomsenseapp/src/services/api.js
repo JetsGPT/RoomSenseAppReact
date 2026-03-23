@@ -163,6 +163,18 @@ export const settingsAPI = {
     },
 };
 
+export const systemAPI = {
+    getInfo: async () => {
+        const response = await api.get('/system/info');
+        return response.data;
+    },
+
+    reboot: async () => {
+        const response = await api.post('/system/reboot');
+        return response.data;
+    },
+};
+
 // Import sensors API
 export { sensorsAPI, sensorHelpers } from './sensorsAPI.js';
 export { notificationsAPI } from './notificationsAPI.js';

@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { weatherAPI } from '../services/weatherAPI';
 
@@ -12,11 +13,7 @@ export const useWeather = () => {
 };
 
 export const WeatherProvider = ({ children }) => {
-    const [location, setLocationState] = useState({
-        latitude: 52.52,
-        longitude: 13.41,
-        name: 'Berlin'
-    });
+    const [location, setLocationState] = useState(null);
 
     const [currentWeather, setCurrentWeather] = useState(null);
     const [historicalData, setHistoricalData] = useState({});
@@ -29,7 +26,7 @@ export const WeatherProvider = ({ children }) => {
         const loadLocation = async () => {
             try {
                 const loc = await weatherAPI.getLocation();
-                if (loc && loc.latitude && loc.longitude) {
+                if (loc && loc.latitude != null && loc.longitude != null) {
                     setLocationState(loc);
                 }
             } catch (err) {
@@ -48,10 +45,10 @@ export const WeatherProvider = ({ children }) => {
     const setLocation = useCallback(async (latitude, longitude, name) => {
         try {
             await weatherAPI.setLocation(latitude, longitude, name);
-            setLocationState({ latitude, longitude, name });
-            // Clear cached data so it refetches for the new location
+            setLocationState({ latitude, longitude, name: name || 'Custom Location' });
             setCurrentWeather(null);
             setHistoricalData({});
+            setError(null);
         } catch (err) {
             console.error('[Weather] Failed to save location:', err);
             throw err;
@@ -77,12 +74,13 @@ export const WeatherProvider = ({ children }) => {
                         setLocationState({ latitude: lat, longitude: lon, name: 'Current Location' });
                         setCurrentWeather(null);
                         setHistoricalData({});
+                        setError(null);
                         resolve({ latitude: lat, longitude: lon, name: 'Current Location' });
                     } catch (err) {
                         reject(err);
                     }
                 },
-                (err) => {
+                () => {
                     reject(new Error('Location access denied'));
                 }
             );
@@ -102,7 +100,7 @@ export const WeatherProvider = ({ children }) => {
         } finally {
             setLoading(false);
         }
-    }, [location]);
+    }, []);
 
     // Fetch weather on mount and on location change, then every 15 min
     useEffect(() => {
@@ -117,7 +115,10 @@ export const WeatherProvider = ({ children }) => {
      * Uses backend's saved location — no coordinates needed.
      */
     const getHistory = useCallback(async (startDate, endDate) => {
-        const key = `${startDate}_${endDate}`;
+        const locationKey = location?.latitude != null && location?.longitude != null
+            ? `${location.latitude},${location.longitude}`
+            : 'default';
+        const key = `${locationKey}_${startDate}_${endDate}`;
         if (historicalData[key]) {
             return historicalData[key];
         }

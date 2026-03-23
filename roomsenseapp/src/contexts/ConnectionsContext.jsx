@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { bleAPI } from '../services/api';
 import { useToast } from '../hooks/use-toast';
@@ -56,7 +57,10 @@ export const ConnectionsProvider = ({ children }) => {
                 const isEqual = sortedPrev.every((p, i) =>
                     p.address === sortedNew[i].address &&
                     p.name === sortedNew[i].name &&
-                    p.original_name === sortedNew[i].original_name
+                    p.original_name === sortedNew[i].original_name &&
+                    p.status === sortedNew[i].status &&
+                    p.box_name === sortedNew[i].box_name &&
+                    p.last_seen === sortedNew[i].last_seen
                 );
 
                 return isEqual ? prev : connections;
