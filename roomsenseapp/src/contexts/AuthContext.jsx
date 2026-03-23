@@ -53,6 +53,11 @@ export const AuthProvider = ({ children }) => {
             setIsSetupCompleted(completed);
             return completed;
         } catch (err) {
+            if (err.response?.status === 401) {
+                setIsSetupCompleted(null);
+                return null;
+            }
+
             console.warn('[AuthContext] Failed to get setup status', err);
             // Fail-safe to avoid soft locks if setup status is temporarily unavailable.
             setIsSetupCompleted(FALLBACK_SETUP_STATUS);
@@ -115,15 +120,20 @@ export const AuthProvider = ({ children }) => {
                 return;
             }
 
-            await refreshSetupStatus();
-
             try {
                 await authAPI.getCsrfToken();
             } catch (err) {
                 console.warn('Failed to fetch CSRF token on init', err);
             }
 
-            await checkAuth({ showLoading: true });
+            const authenticatedUser = await checkAuth({ showLoading: true });
+
+            if (authenticatedUser) {
+                await refreshSetupStatus();
+            } else {
+                setIsSetupCompleted(null);
+                setSetupLoading(false);
+            }
         };
 
         initAuth();
@@ -134,8 +144,18 @@ export const AuthProvider = ({ children }) => {
             return;
         }
 
-        checkAuth({ showLoading: false });
-        refreshSetupStatus({ silent: true });
+        const syncAuthenticatedState = async () => {
+            const authenticatedUser = await checkAuth({ showLoading: false });
+            if (!authenticatedUser) {
+                setIsSetupCompleted(null);
+                setSetupLoading(false);
+                return;
+            }
+
+            await refreshSetupStatus({ silent: true });
+        };
+
+        syncAuthenticatedState();
     }, [location.pathname, authenticatedUserId, checkAuth, refreshSetupStatus]);
 
     const login = async (username, password) => {
@@ -171,10 +191,14 @@ export const AuthProvider = ({ children }) => {
             await authAPI.logout();
             setUser(null);
             setError(null);
+            setIsSetupCompleted(null);
+            setSetupLoading(false);
         } catch (err) {
             console.error('Logout error:', err);
             // Even if server logout fails, clear client state.
             setUser(null);
+            setIsSetupCompleted(null);
+            setSetupLoading(false);
         }
     };
 

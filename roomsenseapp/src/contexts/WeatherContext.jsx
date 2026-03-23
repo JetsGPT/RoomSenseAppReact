@@ -1,5 +1,6 @@
 /* eslint-disable react-refresh/only-export-components */
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import { useAuth } from './AuthContext';
 import { weatherAPI } from '../services/weatherAPI';
 
 const WeatherContext = createContext(null);
@@ -13,36 +14,64 @@ export const useWeather = () => {
 };
 
 export const WeatherProvider = ({ children }) => {
+    const { user, loading: authLoading } = useAuth();
     const [location, setLocationState] = useState(null);
-
     const [currentWeather, setCurrentWeather] = useState(null);
     const [historicalData, setHistoricalData] = useState({});
     const [loading, setLoading] = useState(false);
     const [locationLoading, setLocationLoading] = useState(true);
     const [error, setError] = useState(null);
 
-    // Load saved location from backend on mount
-    useEffect(() => {
-        const loadLocation = async () => {
-            try {
-                const loc = await weatherAPI.getLocation();
-                if (loc && loc.latitude != null && loc.longitude != null) {
-                    setLocationState(loc);
-                }
-            } catch (err) {
-                console.warn('[Weather] Could not load saved location:', err);
-            } finally {
-                setLocationLoading(false);
-            }
-        };
-        loadLocation();
+    const resetWeatherState = useCallback(() => {
+        setLocationState(null);
+        setCurrentWeather(null);
+        setHistoricalData({});
+        setError(null);
     }, []);
 
-    /**
-     * Update and persist the weather location.
-     * After saving, clears caches and refetches current weather.
-     */
+    useEffect(() => {
+        if (authLoading) {
+            return;
+        }
+
+        if (!user) {
+            resetWeatherState();
+            setLocationLoading(false);
+            return;
+        }
+
+        let active = true;
+
+        const loadLocation = async () => {
+            setLocationLoading(true);
+            try {
+                const savedLocation = await weatherAPI.getLocation();
+                if (active && savedLocation?.latitude != null && savedLocation?.longitude != null) {
+                    setLocationState(savedLocation);
+                }
+            } catch (err) {
+                if (active) {
+                    console.warn('[Weather] Could not load saved location:', err);
+                }
+            } finally {
+                if (active) {
+                    setLocationLoading(false);
+                }
+            }
+        };
+
+        loadLocation();
+
+        return () => {
+            active = false;
+        };
+    }, [authLoading, resetWeatherState, user]);
+
     const setLocation = useCallback(async (latitude, longitude, name) => {
+        if (!user) {
+            throw new Error('You must be logged in to update the weather location');
+        }
+
         try {
             await weatherAPI.setLocation(latitude, longitude, name);
             setLocationState({ latitude, longitude, name: name || 'Custom Location' });
@@ -53,29 +82,32 @@ export const WeatherProvider = ({ children }) => {
             console.error('[Weather] Failed to save location:', err);
             throw err;
         }
-    }, []);
+    }, [user]);
 
-    /**
-     * Autodetect location using browser geolocation.
-     * Returns the detected coordinates, or throws if denied.
-     */
     const autodetectLocation = useCallback(() => {
         return new Promise((resolve, reject) => {
+            if (!user) {
+                reject(new Error('You must be logged in to detect the weather location'));
+                return;
+            }
+
             if (!navigator.geolocation) {
                 reject(new Error('Geolocation is not supported by your browser'));
                 return;
             }
+
             navigator.geolocation.getCurrentPosition(
                 async (position) => {
-                    const lat = position.coords.latitude;
-                    const lon = position.coords.longitude;
+                    const latitude = position.coords.latitude;
+                    const longitude = position.coords.longitude;
+
                     try {
-                        await weatherAPI.setLocation(lat, lon, 'Current Location');
-                        setLocationState({ latitude: lat, longitude: lon, name: 'Current Location' });
+                        await weatherAPI.setLocation(latitude, longitude, 'Current Location');
+                        setLocationState({ latitude, longitude, name: 'Current Location' });
                         setCurrentWeather(null);
                         setHistoricalData({});
                         setError(null);
-                        resolve({ latitude: lat, longitude: lon, name: 'Current Location' });
+                        resolve({ latitude, longitude, name: 'Current Location' });
                     } catch (err) {
                         reject(err);
                     }
@@ -85,61 +117,68 @@ export const WeatherProvider = ({ children }) => {
                 }
             );
         });
-    }, []);
+    }, [user]);
 
     const fetchCurrentWeather = useCallback(async () => {
+        if (authLoading || !user) {
+            return null;
+        }
+
         try {
             setLoading(true);
-            // Don't pass coordinates — backend reads the saved location
             const data = await weatherAPI.getCurrent();
             setCurrentWeather(data);
             setError(null);
+            return data;
         } catch (err) {
             console.error('Failed to fetch current weather', err);
             setError('Failed to fetch weather data');
+            return null;
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [authLoading, user]);
 
-    // Fetch weather on mount and on location change, then every 15 min
     useEffect(() => {
-        if (locationLoading) return; // Wait for location to load first
+        if (authLoading || !user || locationLoading) {
+            return;
+        }
+
         fetchCurrentWeather();
         const interval = setInterval(fetchCurrentWeather, 15 * 60 * 1000);
         return () => clearInterval(interval);
-    }, [fetchCurrentWeather, locationLoading]);
+    }, [authLoading, fetchCurrentWeather, locationLoading, user]);
 
-    /**
-     * Fetch historical weather for a date range.
-     * Uses backend's saved location — no coordinates needed.
-     */
     const getHistory = useCallback(async (startDate, endDate) => {
+        if (authLoading || !user) {
+            return [];
+        }
+
         const locationKey = location?.latitude != null && location?.longitude != null
             ? `${location.latitude},${location.longitude}`
             : 'default';
         const key = `${locationKey}_${startDate}_${endDate}`;
+
         if (historicalData[key]) {
             return historicalData[key];
         }
 
         try {
             setLoading(true);
-            // Don't pass coordinates — backend reads the saved location
             const data = await weatherAPI.getHistorical(null, null, startDate, endDate);
-
             const processed = [];
+
             if (data?.hourly?.time) {
-                data.hourly.time.forEach((t, i) => {
+                data.hourly.time.forEach((timestamp, index) => {
                     processed.push({
-                        timestamp: new Date(t).getTime(),
-                        outdoor_temp: data.hourly.temperature_2m[i],
-                        outdoor_humidity: data.hourly.relative_humidity_2m[i]
+                        timestamp: new Date(timestamp).getTime(),
+                        outdoor_temp: data.hourly.temperature_2m[index],
+                        outdoor_humidity: data.hourly.relative_humidity_2m[index],
                     });
                 });
             }
 
-            setHistoricalData(prev => ({ ...prev, [key]: processed }));
+            setHistoricalData((previous) => ({ ...previous, [key]: processed }));
             return processed;
         } catch (err) {
             console.error('Failed to fetch historical weather', err);
@@ -147,7 +186,7 @@ export const WeatherProvider = ({ children }) => {
         } finally {
             setLoading(false);
         }
-    }, [location, historicalData]);
+    }, [authLoading, historicalData, location, user]);
 
     const value = {
         location,
@@ -158,7 +197,7 @@ export const WeatherProvider = ({ children }) => {
         loading,
         locationLoading,
         error,
-        refresh: fetchCurrentWeather
+        refresh: fetchCurrentWeather,
     };
 
     return (

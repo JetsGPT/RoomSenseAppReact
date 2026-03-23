@@ -265,13 +265,13 @@ function App() {
         <BrowserRouter>
             <ThemeProvider>
                 <SettingsProvider>
-                    <WeatherProvider>
-                        <AuthProvider>
+                    <AuthProvider>
+                        <WeatherProvider>
                             <ConnectionsProvider>
                                 <DashboardWrapper />
                             </ConnectionsProvider>
-                        </AuthProvider>
-                    </WeatherProvider>
+                        </WeatherProvider>
+                    </AuthProvider>
                 </SettingsProvider>
             </ThemeProvider>
         </BrowserRouter>

@@ -81,7 +81,7 @@ export const RequireSetup = ({ children }) => {
     const { user, loading, setupLoading, isSetupCompleted } = useAuth();
     const location = useLocation();
 
-    if (loading || setupLoading || isSetupCompleted === null) {
+    if (loading || (user && (setupLoading || isSetupCompleted === null))) {
         return <RouteLoader message="Loading system configuration..." />;
     }
 
@@ -103,7 +103,7 @@ export const SetupOnly = ({ children }) => {
     const { user, loading, setupLoading, isSetupCompleted } = useAuth();
     const location = useLocation();
 
-    if (loading || setupLoading || isSetupCompleted === null) {
+    if (loading || (user && (setupLoading || isSetupCompleted === null))) {
         return <RouteLoader message="Loading system configuration..." />;
     }
 
