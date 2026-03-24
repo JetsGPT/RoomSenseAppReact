@@ -14,6 +14,7 @@ import { PageTransition } from './components/ui/PageTransition';
 import { ErrorBoundary } from './shared/components/ErrorBoundary';
 import AiChatbot from './components/AiChatbot';
 import { Loader2 } from 'lucide-react';
+import { getConnectionBoxId } from './lib/connectionIdentity';
 import './App.css';
 
 // Lazy load pages
@@ -39,7 +40,10 @@ const LoadingFallback = () => (
 
 function DashboardWrapper() {
     const { activeConnections } = useConnections();
-    const sensorBoxes = useMemo(() => activeConnections.map(conn => conn.name || conn.address), [activeConnections]);
+    const sensorBoxes = useMemo(
+        () => activeConnections.map(getConnectionBoxId).filter(Boolean),
+        [activeConnections]
+    );
 
     return (
         <SidebarProvider sensorBoxes={sensorBoxes} connections={activeConnections}>

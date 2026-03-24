@@ -9,10 +9,27 @@ import { StaggeredContainer, StaggeredItem } from '../components/ui/PageTransiti
 import { useConnections } from '../contexts/ConnectionsContext';
 import { sensorsAPI } from '../services/sensorsAPI';
 import { useToast } from '../hooks/use-toast';
+import { getConnectionBoxId, getConnectionDisplayName } from '../lib/connectionIdentity';
 
 export default function Download() {
     const { activeConnections } = useConnections();
     const { toast } = useToast();
+    const availableBoxes = React.useMemo(() =>
+        activeConnections
+            .map((connection) => {
+                const id = getConnectionBoxId(connection);
+                if (!id) {
+                    return null;
+                }
+
+                return {
+                    id,
+                    label: getConnectionDisplayName(connection, id),
+                };
+            })
+            .filter(Boolean),
+        [activeConnections]
+    );
     
     // Form state
     const [selectedBox, setSelectedBox] = useState('all');
@@ -214,9 +231,9 @@ export default function Download() {
                                     className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                                 >
                                     <option value="all">All Boxes</option>
-                                    {activeConnections.map((conn) => (
-                                        <option key={conn.address} value={conn.address}>
-                                            {conn.name || conn.address}
+                                    {availableBoxes.map((box) => (
+                                        <option key={box.id} value={box.id}>
+                                            {box.label}
                                         </option>
                                     ))}
                                 </select>
@@ -319,7 +336,7 @@ export default function Download() {
                                 </div>
                                 <div className="grid grid-cols-2 gap-2">
                                     <code className="text-xs bg-muted px-2 py-1 rounded">sensor_box</code>
-                                    <span className="text-muted-foreground">Box ID (MAC address)</span>
+                                    <span className="text-muted-foreground">Technical sensor box ID</span>
                                 </div>
                                 <div className="grid grid-cols-2 gap-2">
                                     <code className="text-xs bg-muted px-2 py-1 rounded">sensor_type</code>

@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { useSidebar } from '../contexts/SidebarContext';
 import { cn } from '../../lib/utils';
+import { getConnectionBoxId, getConnectionDisplayName } from '../../lib/connectionIdentity';
 
 
 /**
@@ -28,15 +29,19 @@ export function AppSidebar() {
     // Build sensor children from connections
     const sensorChildren = [
         { id: 'overview', label: 'Overview', icon: Home },
-        ...sensorBoxes.map((boxId, index) => {
-            const connection = connections[index];
-            const displayName = connection?.name || boxId;
+        ...connections.map((connection, index) => {
+            const boxId = getConnectionBoxId(connection) || sensorBoxes[index];
+            if (!boxId) {
+                return null;
+            }
+
+            const displayName = getConnectionDisplayName(connection, boxId);
             return {
                 id: `box-${boxId}`,
                 label: displayName,
                 icon: Box,
             };
-        }),
+        }).filter(Boolean),
     ];
 
     // Build analytics children

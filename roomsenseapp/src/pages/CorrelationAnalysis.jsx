@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useConnections } from '../contexts/ConnectionsContext';
 import { useSensorData } from '../hooks/useSensorData';
 import {
@@ -19,15 +19,44 @@ import {
 } from "../components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Loader2, GitCompareArrows } from 'lucide-react';
+import { getConnectionBoxId, getConnectionDisplayName } from '../lib/connectionIdentity';
 
 const CorrelationAnalysis = () => {
     const { activeConnections } = useConnections();
+    const availableBoxes = useMemo(() =>
+        activeConnections
+            .map((connection) => {
+                const id = getConnectionBoxId(connection);
+                if (!id) {
+                    return null;
+                }
+
+                return {
+                    id,
+                    label: getConnectionDisplayName(connection, id),
+                };
+            })
+            .filter(Boolean),
+        [activeConnections]
+    );
 
     // State
-    const [selectedBoxId, setSelectedBoxId] = useState(activeConnections[0]?.sensor_box || '');
+    const [selectedBoxId, setSelectedBoxId] = useState('');
     const [xMetric, setXMetric] = useState('temperature');
     const [yMetric, setYMetric] = useState('humidity');
     const [timeRange, setTimeRange] = useState('24h');
+
+    useEffect(() => {
+        if (!availableBoxes.length) {
+            setSelectedBoxId('');
+            return;
+        }
+
+        const stillSelected = availableBoxes.some((box) => box.id === selectedBoxId);
+        if (!stillSelected) {
+            setSelectedBoxId(availableBoxes[0].id);
+        }
+    }, [availableBoxes, selectedBoxId]);
 
     // Fetch data for the selected box
     const { data, loading, error } = useSensorData({
@@ -97,9 +126,9 @@ const CorrelationAnalysis = () => {
                         <SelectValue placeholder="Select Sensor Box" />
                     </SelectTrigger>
                     <SelectContent>
-                        {activeConnections.map(conn => (
-                            <SelectItem key={conn.sensor_box} value={conn.sensor_box}>
-                                {conn.name || conn.sensor_box}
+                        {availableBoxes.map((box) => (
+                            <SelectItem key={box.id} value={box.id}>
+                                {box.label}
                             </SelectItem>
                         ))}
                     </SelectContent>

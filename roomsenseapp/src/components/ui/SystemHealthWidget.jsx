@@ -415,14 +415,14 @@ export const SystemHealthWidget = () => {
                                 System Control
                             </CardTitle>
                             <CardDescription>
-                                Reboot is available only when the backend has a reboot command configured.
+                                Reboot is available when the backend can reach the Raspberry Pi host helper or a configured reboot command hook.
                             </CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-4">
                             <div className="rounded-md border bg-muted/20 px-3 py-2 text-sm text-muted-foreground">
                                 {systemInfo?.rebootConfigured
-                                    ? 'Reboot is configured and will execute the backend command hook.'
-                                    : 'Reboot is disabled until SYSTEM_REBOOT_COMMAND is configured on the backend.'}
+                                    ? 'Reboot is configured and will execute the Raspberry Pi host control helper or configured backend command.'
+                                    : 'Reboot is disabled until the Raspberry Pi host helper is installed or SYSTEM_REBOOT_COMMAND is configured on the backend.'}
                             </div>
                             <Button
                                 onClick={handleReboot}

@@ -13,17 +13,19 @@ import { SensorChartManager } from './SensorChartManager';
 import { useSensorSelection } from '../hooks/useSensorSelection';
 import { useComfortZones } from '../hooks/useComfortZones';
 import { useSettings } from '../contexts/SettingsContext';
+import { useConnections } from '../contexts/ConnectionsContext';
 import { useSidebar } from '../shared/contexts/SidebarContext';
 import { getSensorIcon, getSensorUnit, getSensorName } from '../config/sensorConfig';
 import { sensorHelpers } from '../services/sensorsAPI';
 import { AnimatePresence, motion } from 'framer-motion';
 import { AiInsights } from './AiInsights';
+import { buildConnectionBoxMap } from '../lib/connectionIdentity';
 
 /**
  * RoomCard Component
  * Shows a room/box summary with comfort score.
  */
-const RoomCard = memo(function RoomCard({ boxId, readings, displayMode, onClick }) {
+const RoomCard = memo(function RoomCard({ boxId, displayName, readings, displayMode, onClick }) {
     const { getComfortZone } = useComfortZones();
 
     const latestReadings = useMemo(() => {
@@ -38,7 +40,12 @@ const RoomCard = memo(function RoomCard({ boxId, readings, displayMode, onClick 
             onClick={onClick}
         >
             <div className="flex items-center justify-between mb-3">
-                <h4 className="font-semibold text-foreground">{boxId}</h4>
+                <div className="min-w-0">
+                    <h4 className="font-semibold text-foreground truncate">{displayName}</h4>
+                    {displayName !== boxId && (
+                        <p className="text-xs text-muted-foreground truncate">{boxId}</p>
+                    )}
+                </div>
                 <RoomScoreCompact readings={latestReadings} />
             </div>
 
@@ -74,7 +81,7 @@ const RoomCard = memo(function RoomCard({ boxId, readings, displayMode, onClick 
  * SensorStatusStrip Component
  * Horizontal strip showing room-by-room comfort status
  */
-const SensorStatusStrip = memo(function SensorStatusStrip({ groupedData, onRoomClick }) {
+const SensorStatusStrip = memo(function SensorStatusStrip({ groupedData, getBoxLabel, onRoomClick }) {
     const { getComfortZone, calculateRoomScore, getScoreInfo } = useComfortZones();
 
     const roomStatuses = useMemo(() => {
@@ -101,9 +108,9 @@ const SensorStatusStrip = memo(function SensorStatusStrip({ groupedData, onRoomC
                 }
             }
 
-            return { boxId, score, scoreInfo, statusLabel };
+            return { boxId, displayName: getBoxLabel(boxId), score, scoreInfo, statusLabel };
         });
-    }, [groupedData, calculateRoomScore, getScoreInfo, getComfortZone]);
+    }, [groupedData, calculateRoomScore, getScoreInfo, getComfortZone, getBoxLabel]);
 
     if (roomStatuses.length === 0) return null;
 
@@ -113,7 +120,7 @@ const SensorStatusStrip = memo(function SensorStatusStrip({ groupedData, onRoomC
             initial={{ opacity: 0, y: -5 }}
             animate={{ opacity: 1, y: 0 }}
         >
-            {roomStatuses.map(({ boxId, score, scoreInfo, statusLabel }) => (
+            {roomStatuses.map(({ boxId, displayName, score, scoreInfo, statusLabel }) => (
                 <button
                     key={boxId}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-all hover:shadow-sm cursor-pointer"
@@ -125,7 +132,7 @@ const SensorStatusStrip = memo(function SensorStatusStrip({ groupedData, onRoomC
                     onClick={() => onRoomClick(boxId)}
                 >
                     <span className="w-2 h-2 rounded-full" style={{ backgroundColor: scoreInfo.color }} />
-                    <span className="text-foreground font-medium">{boxId}</span>
+                    <span className="text-foreground font-medium">{displayName}</span>
                     <span>{statusLabel}</span>
                 </button>
             ))}
@@ -134,6 +141,7 @@ const SensorStatusStrip = memo(function SensorStatusStrip({ groupedData, onRoomC
 });
 
 export function Overview({ sensorData, groupedData }) {
+    const { activeConnections } = useConnections();
     const {
         settings,
         updateSettings,
@@ -142,6 +150,7 @@ export function Overview({ sensorData, groupedData }) {
     } = useSettings();
 
     const { setActiveView } = useSidebar();
+    const boxMap = useMemo(() => buildConnectionBoxMap(activeConnections), [activeConnections]);
 
     const displayMode = settings.displayMode || 'comfort';
     const showTips = settings.showTips !== false;
@@ -186,6 +195,10 @@ export function Overview({ sensorData, groupedData }) {
         defaultToAll: false,
         defaultSelection: ['temperature', 'humidity']
     });
+
+    const getBoxLabel = useCallback((boxId) => {
+        return boxMap.get(boxId)?.displayName || boxId;
+    }, [boxMap]);
 
     // Handle display mode change
     const handleDisplayModeChange = useCallback((mode) => {
@@ -243,7 +256,11 @@ export function Overview({ sensorData, groupedData }) {
         <div className="space-y-5">
             {/* ===== SENSOR STATUS STRIP ===== */}
             {Object.keys(groupedData).length > 0 && (
-                <SensorStatusStrip groupedData={groupedData} onRoomClick={(boxId) => setActiveView(`box-${boxId}`)} />
+                <SensorStatusStrip
+                    groupedData={groupedData}
+                    getBoxLabel={getBoxLabel}
+                    onRoomClick={(boxId) => setActiveView(`box-${boxId}`)}
+                />
             )}
 
             {/* ===== COMPACT ROOM SCORE + LIVE HEADER ===== */}
@@ -394,6 +411,7 @@ export function Overview({ sensorData, groupedData }) {
                         <RoomCard
                             key={boxId}
                             boxId={boxId}
+                            displayName={getBoxLabel(boxId)}
                             readings={readings}
                             displayMode={displayMode}
                             onClick={() => setActiveView(`box-${boxId}`)}

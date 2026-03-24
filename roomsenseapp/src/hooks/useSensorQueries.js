@@ -2,6 +2,7 @@ import { useQuery, useQueries, keepPreviousData } from '@tanstack/react-query';
 import { sensorsAPI, sensorHelpers } from '../services/sensorsAPI';
 import { DEFAULT_TIME_RANGE_VALUE, DEFAULT_DATA_LIMIT } from '../config/sensorConfig';
 import { DEV_MODE, generateMockSensorData, groupMockDataByBox } from '../config/devConfig';
+import { getConnectionBoxId } from '../lib/connectionIdentity';
 
 // Query Keys
 export const sensorKeys = {
@@ -9,7 +10,7 @@ export const sensorKeys = {
     types: () => [...sensorKeys.all, 'types'],
     boxes: () => [...sensorKeys.all, 'boxes'],
     data: (boxId, params) => [...sensorKeys.all, 'data', boxId, params],
-    dashboard: (activeConnections) => [...sensorKeys.all, 'dashboard', activeConnections.map(c => c.name || c.address).sort()],
+    dashboard: (activeConnections) => [...sensorKeys.all, 'dashboard', activeConnections.map(getConnectionBoxId).filter(Boolean).sort()],
 };
 
 // Cache for mock data (regenerate periodically to simulate real updates)
@@ -137,16 +138,22 @@ export const useDashboardData = (activeConnections = [], options = {}) => {
     }
 
     // Create a query for each active connection
-    const queries = activeConnections.map(conn => {
-        const boxId = conn.name || conn.address;
-        return {
-            queryKey: sensorKeys.data(boxId, { start_time: '-5m', limit: 100, sort: 'desc', purpose: 'dashboard' }),
-            queryFn: () => sensorsAPI.getSensorDataByBox(boxId, { start_time: '-5m', limit: 100, sort: 'desc' }),
-            enabled: enabled,
-            refetchInterval: refreshInterval,
-            staleTime: 30000, // Match global staleTime to prevent refetches on view switches
-        };
-    });
+    const queries = activeConnections
+        .map((conn) => {
+            const boxId = getConnectionBoxId(conn);
+            if (!boxId) {
+                return null;
+            }
+
+            return {
+                queryKey: sensorKeys.data(boxId, { start_time: '-5m', limit: 100, sort: 'desc', purpose: 'dashboard' }),
+                queryFn: () => sensorsAPI.getSensorDataByBox(boxId, { start_time: '-5m', limit: 100, sort: 'desc' }),
+                enabled: enabled,
+                refetchInterval: refreshInterval,
+                staleTime: 30000, // Match global staleTime to prevent refetches on view switches
+            };
+        })
+        .filter(Boolean);
 
     const results = useQueries({ queries });
 

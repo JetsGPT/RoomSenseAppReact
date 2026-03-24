@@ -169,6 +169,16 @@ export const systemAPI = {
         return response.data;
     },
 
+    getWifiNetworks: async () => {
+        const response = await api.get('/system/wifi/networks', { timeout: 15000 });
+        return response.data;
+    },
+
+    connectWifi: async ({ ssid, password = null }) => {
+        const response = await api.post('/system/wifi/connect', { ssid, password }, { timeout: 8000 });
+        return response.data;
+    },
+
     reboot: async () => {
         const response = await api.post('/system/reboot');
         return response.data;

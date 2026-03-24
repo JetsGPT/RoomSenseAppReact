@@ -2,21 +2,21 @@ import { useState } from "react"
 import { useLocation, useNavigate, Link } from "react-router-dom"
 import { motion } from "framer-motion"
 import {
-  HouseIcon, Bell, Download, Menu, X,
-  Box, Home, Map, BarChart3, CloudSun, GitCompareArrows,
-  Calendar, Activity, Settings
+  Bell, Download, Menu, X,
+  Box, Home, Map, CloudSun, GitCompareArrows,
+  Calendar, Activity
 } from "lucide-react"
 import Time from "@/components/ui/Time"
 import { Button } from "@/components/ui/button"
 import UserMenu from "@/components/user-menu"
 import ThemeSwitch from "@/components/ui/ThemeSwitch"
+import WifiNetworkControl from "@/components/ui/WifiNetworkControl"
 import { useSidebar } from "@/shared/contexts/SidebarContext"
-import { Badge } from "@/components/ui/badge"
 
 export default function Navigation() {
   const location = useLocation()
   const navigate = useNavigate()
-  const { toggleCollapsed, isCollapsed, notificationCount } = useSidebar()
+  const { toggleCollapsed, isCollapsed } = useSidebar()
   const [mobileOpen, setMobileOpen] = useState(false)
 
   // Mobile nav items (mirrors sidebar for mobile)
@@ -83,6 +83,8 @@ export default function Navigation() {
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.2 }}
           >
+            <WifiNetworkControl />
+
             {/* Notifications */}
             <Button
               variant="ghost"

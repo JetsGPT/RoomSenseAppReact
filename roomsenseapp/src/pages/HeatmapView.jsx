@@ -14,6 +14,7 @@ import { getSensorConfig } from '../config/sensorConfig';
 import { StaggeredContainer, StaggeredItem } from '../components/ui/PageTransition';
 
 import { useConnections } from '../contexts/ConnectionsContext';
+import { getConnectionBoxId, getConnectionDisplayName } from '../lib/connectionIdentity';
 
 const HeatmapView = () => {
     const { activeConnections } = useConnections();
@@ -23,7 +24,19 @@ const HeatmapView = () => {
     // Selectors state
     // Derived from activeConnections
     const sensorBoxes = React.useMemo(() =>
-        activeConnections.map(conn => conn.name || conn.address || conn.original_name),
+        activeConnections
+            .map((connection) => {
+                const id = getConnectionBoxId(connection);
+                if (!id) {
+                    return null;
+                }
+
+                return {
+                    id,
+                    label: getConnectionDisplayName(connection, id),
+                };
+            })
+            .filter(Boolean),
         [activeConnections]);
 
     const [sensorTypes, setSensorTypes] = useState([]);
@@ -75,11 +88,12 @@ const HeatmapView = () => {
         fetchTypes();
 
         // Set default box if available and not set
+        const availableBoxIds = sensorBoxes.map((box) => box.id);
         if (!selectedBox && sensorBoxes.length > 0) {
-            setSelectedBox(sensorBoxes[0]);
-        } else if (selectedBox && !sensorBoxes.includes(selectedBox) && sensorBoxes.length > 0) {
+            setSelectedBox(sensorBoxes[0].id);
+        } else if (selectedBox && !availableBoxIds.includes(selectedBox) && sensorBoxes.length > 0) {
             // If selected box is no longer in list, reset to first
-            setSelectedBox(sensorBoxes[0]);
+            setSelectedBox(sensorBoxes[0].id);
         }
     }, [sensorBoxes, selectedBox, selectedType]);
 
@@ -109,6 +123,7 @@ const HeatmapView = () => {
 
     // Derived configs
     const sensorConfig = getSensorConfig(selectedType);
+    const selectedBoxLabel = sensorBoxes.find((box) => box.id === selectedBox)?.label || selectedBox;
 
     return (
         <StaggeredContainer className="space-y-6">
@@ -128,9 +143,9 @@ const HeatmapView = () => {
                                 <SelectValue placeholder="Select Sensor Box" />
                             </SelectTrigger>
                             <SelectContent>
-                                {sensorBoxes.map(box => (
-                                    <SelectItem key={box} value={box}>
-                                        {box.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
+                                {sensorBoxes.map((box) => (
+                                    <SelectItem key={box.id} value={box.id}>
+                                        {box.label}
                                     </SelectItem>
                                 ))}
                             </SelectContent>
@@ -185,7 +200,7 @@ const HeatmapView = () => {
                             {sensorConfig.name} ({aggregation})
                         </CardTitle>
                         <CardDescription>
-                            Daily {aggregation} values for {selectedBox.replace(/_/g, ' ')}.
+                            Daily {aggregation} values for {selectedBoxLabel}.
                         </CardDescription>
                     </CardHeader>
                     <CardContent>

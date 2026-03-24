@@ -29,6 +29,7 @@ import { useSensorSelection } from '../hooks/useSensorSelection';
 import { useSensorData } from '../hooks/useSensorData';
 import { useSettings } from '../contexts/SettingsContext';
 import { useWeather } from '../contexts/WeatherContext';
+import { useConnections } from '../contexts/ConnectionsContext';
 import {
     getSensorIcon,
     getSensorUnit,
@@ -40,6 +41,7 @@ import {
     DEFAULT_TIME_RANGE_VALUE,
     DATA_LIMITS
 } from '../config/sensorConfig';
+import { buildConnectionBoxMap } from '../lib/connectionIdentity';
 
 const DEFAULT_RANGE_KEY = DEFAULT_TIME_RANGE || '24h';
 const STORAGE_PREFIX = 'roomsense.box';
@@ -115,9 +117,12 @@ const readStoredCustomRange = (boxId) => {
 export function BoxDetail({ boxId }) {
     const { settings, updateSettings, getGaugeTypeForSensor, setGaugeTypeForSensor } = useSettings();
     const { getHistory } = useWeather();
+    const { activeConnections } = useConnections();
     const refreshInterval = settings?.refreshInterval || 30000;
     const displayMode = settings.displayMode || 'comfort';
     const showTips = settings.showTips !== false;
+    const boxMap = useMemo(() => buildConnectionBoxMap(activeConnections), [activeConnections]);
+    const boxDisplayName = boxMap.get(boxId)?.displayName || boxId;
 
     const [rangeKey, setRangeKey] = useState(() => readStoredRange(boxId));
     const [customRange, setCustomRange] = useState(() => readStoredCustomRange(boxId));
@@ -515,11 +520,14 @@ export function BoxDetail({ boxId }) {
             <div className="space-y-3">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
                     <div>
-                        <h2 className="text-xl font-semibold text-foreground sm:text-2xl">Sensor Box {boxId}</h2>
+                        <h2 className="text-xl font-semibold text-foreground sm:text-2xl">{boxDisplayName}</h2>
                         <p className="text-sm text-muted-foreground sm:text-base">
                             <NumberFlow value={sortedBoxData.length} /> total readings •{' '}
                             <NumberFlow value={availableSensorTypes.length} /> sensor types
                         </p>
+                        {boxDisplayName !== boxId && (
+                            <p className="text-xs text-muted-foreground">Technical ID: {boxId}</p>
+                        )}
                     </div>
                     <div className="flex flex-col items-start gap-2 sm:items-end">
                         <div className="flex items-center gap-2">
