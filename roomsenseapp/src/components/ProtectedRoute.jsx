@@ -68,17 +68,9 @@ export const RequireRole = ({ children, roles }) => {
  * PublicOnly - Redirects authenticated users away from public pages (like login).
  */
 export const PublicOnly = ({ children }) => {
-    const { user, loading, setupLoading, isSetupCompleted, isFirstInstall, bootstrapIssue } = useAuth();
+    const { user, loading, setupLoading, isSetupCompleted, isFirstInstall } = useAuth();
 
     if (loading || setupLoading) {
-        return <RouteLoader message="Loading account..." />;
-    }
-
-    if (isSetupCompleted === null && bootstrapIssue) {
-        return <RouteRecovery issue={bootstrapIssue} />;
-    }
-
-    if (isSetupCompleted === null) {
         return <RouteLoader message="Loading account..." />;
     }
 

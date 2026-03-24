@@ -105,7 +105,7 @@ const Login = () => {
                             {localError}
                         </Motion.div>
                     )}
-                    {bootstrapIssue && (
+                    {bootstrapIssue?.isLikelyTrustIssue && (
                         <BootstrapRecoveryPanel issue={bootstrapIssue} className="rounded-2xl border-amber-300 p-5" />
                     )}
 
