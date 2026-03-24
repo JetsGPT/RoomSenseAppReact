@@ -2,7 +2,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { useAuth } from './AuthContext';
 import { weatherAPI } from '../services/weatherAPI';
-import { buildLocalHttpsRecoveryMessage, isLikelyLocalHttpsTransportFailure } from '../lib/runtimeRecovery';
 
 const WeatherContext = createContext(null);
 
@@ -52,11 +51,7 @@ export const WeatherProvider = ({ children }) => {
                 }
             } catch (err) {
                 if (active) {
-                    if (isLikelyLocalHttpsTransportFailure(err)) {
-                        console.warn('[Weather] Local HTTPS trust issue while loading saved location:', err);
-                    } else {
-                        console.warn('[Weather] Could not load saved location:', err);
-                    }
+                    console.warn('[Weather] Could not load saved location:', err);
                 }
             } finally {
                 if (active) {
@@ -137,11 +132,7 @@ export const WeatherProvider = ({ children }) => {
             return data;
         } catch (err) {
             console.error('Failed to fetch current weather', err);
-            setError(
-                isLikelyLocalHttpsTransportFailure(err)
-                    ? buildLocalHttpsRecoveryMessage('RoomSense could not load weather data.')
-                    : 'Failed to fetch weather data'
-            );
+            setError('Failed to fetch weather data');
             return null;
         } finally {
             setLoading(false);

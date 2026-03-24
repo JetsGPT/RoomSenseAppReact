@@ -34,6 +34,8 @@ const normalizeConnectionDevice = (connection) => ({
     connectionOnly: true,
 });
 
+const isNotModifiedError = (error) => error?.response?.status === 304;
+
 const mergeStatus = (healthStatus, hasConnection) => {
     if (!hasConnection) {
         return healthStatus || 'unknown';
@@ -250,26 +252,30 @@ export const SystemHealthWidget = () => {
                 systemAPI.getInfo(),
             ]);
 
+            const connectionsNotModified = connectionsResult.status === 'rejected' && isNotModifiedError(connectionsResult.reason);
+            const healthNotModified = healthResult.status === 'rejected' && isNotModifiedError(healthResult.reason);
+            const systemNotModified = systemResult.status === 'rejected' && isNotModifiedError(systemResult.reason);
+
             const nextConnections = connectionsResult.status === 'fulfilled' && Array.isArray(connectionsResult.value)
                 ? connectionsResult.value
-                : [];
+                : (connectionsNotModified ? connections : []);
             const nextHealthDevices = healthResult.status === 'fulfilled' && Array.isArray(healthResult.value)
                 ? healthResult.value
-                : [];
+                : (healthNotModified ? healthDevices : []);
             const nextSystemInfo = systemResult.status === 'fulfilled'
                 ? systemResult.value
-                : null;
+                : (systemNotModified ? systemInfo : null);
 
             setConnections(nextConnections);
             setHealthDevices(nextHealthDevices);
             setSystemInfo(nextSystemInfo);
             setLastUpdated(new Date());
 
-            if (connectionsResult.status === 'rejected') {
+            if (connectionsResult.status === 'rejected' && !connectionsNotModified) {
                 console.error('Failed to fetch active connections for system health:', connectionsResult.reason);
             }
 
-            if (healthResult.status === 'rejected') {
+            if (healthResult.status === 'rejected' && !healthNotModified) {
                 console.error('Failed to fetch system health:', healthResult.reason);
                 if (nextConnections.length > 0) {
                     nextWarning = 'Sensor health details are temporarily unavailable. Showing connected boxes only.';
@@ -278,7 +284,7 @@ export const SystemHealthWidget = () => {
                 }
             }
 
-            if (systemResult.status === 'rejected') {
+            if (systemResult.status === 'rejected' && !systemNotModified) {
                 console.error('Failed to fetch system info:', systemResult.reason);
                 if (!nextConnections.length && healthResult.status === 'rejected') {
                     setError('Failed to load system status data');
@@ -294,7 +300,7 @@ export const SystemHealthWidget = () => {
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [connections, healthDevices, systemInfo]);
 
     useEffect(() => {
         fetchData();
