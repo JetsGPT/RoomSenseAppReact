@@ -14,6 +14,153 @@ const TIME_RANGES = [
     { label: 'Last 7 Days', value: '-7d', hours: 168 }
 ];
 
+const MAX_SENSOR_SAMPLE_POINTS = 8;
+const MAX_WEATHER_SAMPLE_POINTS = 12;
+
+function normalizeTimestamp(value) {
+    const timestamp = new Date(value).getTime();
+    return Number.isFinite(timestamp) ? timestamp : null;
+}
+
+function downsamplePoints(points, maxPoints) {
+    if (!Array.isArray(points) || points.length <= maxPoints) {
+        return points;
+    }
+
+    const lastIndex = points.length - 1;
+    const sampled = [];
+
+    for (let index = 0; index < maxPoints; index += 1) {
+        const pointIndex = Math.round((index * lastIndex) / (maxPoints - 1));
+        sampled.push(points[pointIndex]);
+    }
+
+    return sampled;
+}
+
+function summarizeSeries(points, maxSamplePoints) {
+    const normalizedPoints = points
+        .map((point) => ({
+            timestamp: normalizeTimestamp(point.timestamp),
+            value: Number(point.value),
+        }))
+        .filter((point) => point.timestamp != null && Number.isFinite(point.value))
+        .sort((left, right) => left.timestamp - right.timestamp);
+
+    if (normalizedPoints.length === 0) {
+        return null;
+    }
+
+    const values = normalizedPoints.map((point) => point.value);
+    const firstPoint = normalizedPoints[0];
+    const lastPoint = normalizedPoints[normalizedPoints.length - 1];
+    const average = values.reduce((sum, value) => sum + value, 0) / values.length;
+
+    return {
+        count: normalizedPoints.length,
+        min: Math.min(...values),
+        max: Math.max(...values),
+        avg: average,
+        start: firstPoint,
+        end: lastPoint,
+        latest: lastPoint,
+        delta: lastPoint.value - firstPoint.value,
+        sample: downsamplePoints(normalizedPoints, maxSamplePoints),
+    };
+}
+
+function buildSensorSummary(readings) {
+    const seriesMap = new Map();
+
+    for (const reading of readings) {
+        const boxId = typeof reading?.sensor_box === 'string' ? reading.sensor_box : '';
+        const sensorType = typeof reading?.sensor_type === 'string' ? reading.sensor_type : '';
+        const value = Number(reading?.value);
+        const timestamp = reading?.timestamp;
+
+        if (!boxId || !sensorType || !Number.isFinite(value) || !timestamp) {
+            continue;
+        }
+
+        const key = `${boxId}::${sensorType}`;
+        if (!seriesMap.has(key)) {
+            seriesMap.set(key, {
+                boxId,
+                sensorType,
+                points: [],
+            });
+        }
+
+        seriesMap.get(key).points.push({ timestamp, value });
+    }
+
+    const boxMap = new Map();
+
+    for (const series of seriesMap.values()) {
+        const summary = summarizeSeries(series.points, MAX_SENSOR_SAMPLE_POINTS);
+        if (!summary) {
+            continue;
+        }
+
+        if (!boxMap.has(series.boxId)) {
+            boxMap.set(series.boxId, {
+                boxId: series.boxId,
+                sensors: [],
+            });
+        }
+
+        boxMap.get(series.boxId).sensors.push({
+            sensorType: series.sensorType,
+            ...summary,
+        });
+    }
+
+    const boxes = Array.from(boxMap.values())
+        .map((box) => ({
+            ...box,
+            sensors: box.sensors.sort((left, right) => left.sensorType.localeCompare(right.sensorType)),
+        }))
+        .sort((left, right) => left.boxId.localeCompare(right.boxId));
+
+    return {
+        totalReadings: Array.isArray(readings) ? readings.length : 0,
+        boxCount: boxes.length,
+        sensorSeriesCount: boxes.reduce((count, box) => count + box.sensors.length, 0),
+        boxes,
+    };
+}
+
+function buildWeatherSummary(readings) {
+    const temperaturePoints = [];
+    const humidityPoints = [];
+
+    for (const reading of readings) {
+        const timestamp = normalizeTimestamp(reading?.timestamp);
+        const temperature = Number(reading?.outdoor_temp);
+        const humidity = Number(reading?.outdoor_humidity);
+
+        if (timestamp == null) {
+            continue;
+        }
+
+        if (Number.isFinite(temperature)) {
+            temperaturePoints.push({ timestamp, value: temperature });
+        }
+
+        if (Number.isFinite(humidity)) {
+            humidityPoints.push({ timestamp, value: humidity });
+        }
+    }
+
+    return {
+        totalReadings: Array.isArray(readings) ? readings.length : 0,
+        metrics: {
+            outdoor_temp: summarizeSeries(temperaturePoints, MAX_WEATHER_SAMPLE_POINTS),
+            outdoor_humidity: summarizeSeries(humidityPoints, MAX_WEATHER_SAMPLE_POINTS),
+        },
+    };
+}
+
 export function AiInsights({ activeBoxes = [] }) {
     const { getHistory } = useWeather();
     const [timeRange, setTimeRange] = useState(TIME_RANGES[3]);
@@ -42,19 +189,25 @@ export function AiInsights({ activeBoxes = [] }) {
             const start = new Date(end.getTime() - (timeRange.hours * 60 * 60 * 1000));
             const weatherData = await getHistory(start.toISOString(), end.toISOString());
 
-            // 3. Optional: Downsample sensor data to avoid massive payloads
-            // For insights, an hourly snapshot or similar is often enough. 
-            // We'll trust the backend trimming, or do a simple filter here if it's too large.
-            const downsampledSensors = flatSensorData.filter((_, i) => i % (timeRange.hours > 24 ? 10 : 2) === 0);
-            const downsampledWeather = weatherData.filter((_, i) => i % (timeRange.hours > 24 ? 4 : 1) === 0);
+            const sensorSummary = buildSensorSummary(flatSensorData);
+            const weatherSummary = buildWeatherSummary(weatherData);
 
-            // 4. Send to AI
-            const response = await aiAPI.analyze(downsampledSensors, downsampledWeather, timeRange.label);
+            if (sensorSummary.sensorSeriesCount === 0) {
+                throw new Error('Not enough sensor history is available yet to generate insights.');
+            }
+
+            // 3. Send compact summaries to the backend instead of raw time-series arrays.
+            const response = await aiAPI.analyze(sensorSummary, weatherSummary, timeRange.label);
             setInsights(response.analysis);
 
         } catch (err) {
             console.error('Failed to generate insights:', err);
-            setError(err.response?.data?.error || err.message || 'Failed to generate insights');
+            const apiError = err.response?.data;
+            setError(
+                apiError?.details
+                    ? `${apiError.error}: ${apiError.details}`
+                    : apiError?.error || err.message || 'Failed to generate insights'
+            );
         } finally {
             setLoading(false);
         }
