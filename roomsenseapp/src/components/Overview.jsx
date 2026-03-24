@@ -5,6 +5,7 @@ import { GaugeCustomizer } from './ui/SensorGauge';
 import { SensorDisplayGrid } from './ui/SensorDisplayGrid';
 import { RoomScore, TipsCard, RoomScoreCompact } from './ui/RoomScore';
 import { DisplayModeSelector } from './ui/DisplayModeSelector';
+import { PageBanner } from './ui/PageBanner';
 import { FloorPlanViewer } from './floor-plan/FloorPlanViewer';
 import { SystemHealthWidget } from './ui/SystemHealthWidget';
 import { Radio, Clock, Settings2, X, ChevronRight, PencilLine, Map as MapIcon } from 'lucide-react';
@@ -254,6 +255,35 @@ export function Overview({ sensorData, groupedData }) {
 
     return (
         <div className="space-y-5">
+            <PageBanner>
+                <div className="max-w-3xl space-y-3">
+                    <span className="inline-flex w-fit items-center rounded-full border border-border/60 bg-background/75 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.24em] text-muted-foreground backdrop-blur-sm">
+                        RoomSense Dashboard
+                    </span>
+                    <div className="space-y-2">
+                        <h2 className="text-2xl font-semibold tracking-tight text-foreground sm:text-4xl">
+                            Overview
+                        </h2>
+                        <p className="max-w-2xl text-sm text-muted-foreground sm:text-base">
+                            {Object.keys(groupedData).length > 0
+                                ? `Monitor ${Object.keys(groupedData).length} active rooms, ${latestByType.length} live sensor groups, and the overall comfort of your space at a glance.`
+                                : 'Monitor live room comfort, sensor activity, and system status at a glance.'}
+                        </p>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                        <span className="rounded-full border border-border/60 bg-background/70 px-3 py-1 backdrop-blur-sm">
+                            {Object.keys(groupedData).length} rooms active
+                        </span>
+                        <span className="rounded-full border border-border/60 bg-background/70 px-3 py-1 backdrop-blur-sm">
+                            {latestByType.length} sensor groups live
+                        </span>
+                        <span className="rounded-full border border-border/60 bg-background/70 px-3 py-1 backdrop-blur-sm">
+                            Updated {lastUpdate}
+                        </span>
+                    </div>
+                </div>
+            </PageBanner>
+
             {/* ===== SENSOR STATUS STRIP ===== */}
             {Object.keys(groupedData).length > 0 && (
                 <SensorStatusStrip
