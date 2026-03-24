@@ -9,11 +9,13 @@ import {
     Database,
     Download,
     Loader2,
+    Lock,
     MapPin,
+    RefreshCw,
     Search,
     Shield,
     Sparkles,
-    Wifi,
+    UserPlus,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Badge } from '../components/ui/badge';
@@ -28,10 +30,19 @@ import { setupAPI } from '../services/setupAPI';
 import { weatherAPI } from '../services/weatherAPI';
 import { describeRequestError } from '../lib/runtimeRecovery';
 
-const STEPS = [
+const BASE_STEPS = [
+    { id: 'certificate', title: 'Certificate', description: 'Install the RoomSense root certificate on this device before authentication.', icon: Shield },
+    { id: 'account', title: 'Admin Account', description: 'Create the first RoomSense administrator account.', icon: UserPlus, requiresFirstInstall: true },
     { id: 'basics', title: 'Basics', description: 'Choose the weather location and optionally store the Gemini key.', icon: CloudSun },
-    { id: 'security', title: 'Security Files', description: 'Save the one-time credentials and download the RoomSense certificate.', icon: Shield },
-    { id: 'finish', title: 'Finish', description: 'Confirm the required checks and unlock the dashboard.', icon: CheckCircle2 },
+    { id: 'security', title: 'Security Files', description: 'Save the one-time backend credentials before setup finishes.', icon: Database },
+    { id: 'finish', title: 'Finish', description: 'Confirm the final checks and unlock the dashboard.', icon: CheckCircle2 },
+];
+
+const WINDOWS_CERTIFICATE_STEPS = [
+    'Download the current RoomSense certificate file from this step.',
+    'Double-click the downloaded .crt file and choose Install Certificate.',
+    'Pick Place all certificates in the following store, then select Trusted Root Certification Authorities.',
+    'Finish the wizard, then reload the page if Windows or your browser was blocking secure RoomSense requests.',
 ];
 
 const getErrorMessage = (err, fallback) => {
@@ -54,12 +65,18 @@ const StepCard = ({ title, description, children, className = '' }) => (
 );
 
 export default function Setup() {
-    const { user, setIsSetupCompleted, refreshSetupStatus } = useAuth();
+    const {
+        user,
+        isFirstInstall,
+        createInitialAccount,
+        setIsSetupCompleted,
+        refreshSetupStatus,
+    } = useAuth();
     const { refresh: refreshWeather, setLocation: saveWeatherLocation } = useWeather();
     const navigate = useNavigate();
 
-    const [step, setStep] = useState(0);
-    const [bootstrapping, setBootstrapping] = useState(true);
+    const [stepId, setStepId] = useState('certificate');
+    const [bootstrapping, setBootstrapping] = useState(Boolean(user));
     const [busy, setBusy] = useState('');
     const [error, setError] = useState('');
     const [notice, setNotice] = useState('');
@@ -73,37 +90,88 @@ export default function Setup() {
     const [credentials, setCredentials] = useState('');
     const [credentialsLoaded, setCredentialsLoaded] = useState(false);
     const [credentialsCopied, setCredentialsCopied] = useState(false);
-    const [certificateDownloaded, setCertificateDownloaded] = useState(false);
     const [credentialsConfirmed, setCredentialsConfirmed] = useState(false);
+
+    const [certificateDownloaded, setCertificateDownloaded] = useState(false);
     const [certificateConfirmed, setCertificateConfirmed] = useState(false);
 
+    const [accountUsername, setAccountUsername] = useState('');
+    const [accountPassword, setAccountPassword] = useState('');
+    const [accountPasswordConfirm, setAccountPasswordConfirm] = useState('');
+
     const isAdmin = user?.role === 'admin';
+    const showAccountStep = !user && isFirstInstall === true;
+    const steps = useMemo(
+        () => BASE_STEPS.filter((item) => !item.requiresFirstInstall || showAccountStep),
+        [showAccountStep]
+    );
+
+    useEffect(() => {
+        if (steps.some((item) => item.id === stepId)) {
+            return;
+        }
+
+        setStepId(user ? 'basics' : steps[0]?.id || 'certificate');
+    }, [stepId, steps, user]);
+
+    const currentIndex = Math.max(steps.findIndex((item) => item.id === stepId), 0);
+    const currentStep = steps[currentIndex] || steps[0];
+    const nextStep = steps[currentIndex + 1] || null;
+    const isFinalStep = currentIndex === steps.length - 1;
+    const progressPercent = steps.length > 0 ? ((currentIndex + 1) / steps.length) * 100 : 0;
     const locationLabel = useMemo(() => formatLocation(selectedLocation), [selectedLocation]);
-    const currentStep = STEPS[step];
-    const nextStep = step < STEPS.length - 1 ? STEPS[step + 1] : null;
-    const navLocked = busy === 'save' || busy === 'credentials' || busy === 'complete';
-    const isFinalStep = step === STEPS.length - 1;
-    const progressPercent = ((step + 1) / STEPS.length) * 100;
-    const primaryActionLabel = step === 0 ? 'Save and Continue' : isFinalStep ? 'Finish Setup' : 'Continue';
+
+    const navLocked = ['save', 'credentials', 'complete', 'account'].includes(busy);
+    const accountInputsMissing = !accountUsername.trim() || !accountPassword || !accountPasswordConfirm;
+
+    const primaryActionLabel = useMemo(() => {
+        switch (currentStep?.id) {
+            case 'certificate':
+                return showAccountStep ? 'Continue to Account' : 'Continue to Basics';
+            case 'account':
+                return 'Create Account and Continue';
+            case 'basics':
+                return 'Save and Continue';
+            case 'security':
+                return 'Continue to Final Review';
+            default:
+                return 'Finish Setup';
+        }
+    }, [currentStep?.id, showAccountStep]);
 
     const actionHint = useMemo(() => {
-        if (isFinalStep) {
-            return credentialsConfirmed && certificateConfirmed
-                ? 'Finish setup and open the dashboard.'
-                : 'Confirm both security checks before finishing.';
+        switch (currentStep?.id) {
+            case 'certificate':
+                return certificateConfirmed
+                    ? `Up next: ${nextStep?.title || 'the next setup step'}.`
+                    : 'Install and confirm the local certificate before continuing.';
+            case 'account':
+                return 'Create the first admin account to unlock the authenticated setup steps.';
+            case 'basics':
+                return 'Save the weather location before continuing to the security files.';
+            case 'security':
+                return 'Save the temporary credentials now. The final review comes next.';
+            default:
+                return credentialsConfirmed
+                    ? 'Finish setup and open the dashboard.'
+                    : 'Confirm the temporary credentials were saved before finishing.';
         }
+    }, [certificateConfirmed, credentialsConfirmed, currentStep?.id, nextStep?.title]);
 
-        if (step === 0) {
-            return 'Save the weather location before you continue.';
-        }
-
-        return nextStep ? `Up next: ${nextStep.title}.` : 'Continue through setup.';
-    }, [certificateConfirmed, credentialsConfirmed, isFinalStep, nextStep, step]);
+    const primaryActionDisabled = navLocked
+        || (currentStep?.id === 'certificate' && !certificateConfirmed)
+        || (currentStep?.id === 'account' && accountInputsMissing)
+        || (isFinalStep && (!credentialsConfirmed || !certificateConfirmed));
 
     useEffect(() => {
         let active = true;
 
         const loadSetupState = async () => {
+            if (!user) {
+                setBootstrapping(false);
+                return;
+            }
+
             setBootstrapping(true);
             try {
                 const [location, geminiSetting] = await Promise.all([
@@ -139,10 +207,10 @@ export default function Setup() {
         return () => {
             active = false;
         };
-    }, [isAdmin]);
+    }, [isAdmin, user]);
 
     useEffect(() => {
-        if (currentStep.id !== 'security' || credentialsLoaded) {
+        if (!user || currentStep?.id !== 'security' || credentialsLoaded) {
             return;
         }
 
@@ -160,7 +228,7 @@ export default function Setup() {
         };
 
         loadCredentials();
-    }, [credentialsLoaded, currentStep.id]);
+    }, [credentialsLoaded, currentStep?.id, user]);
 
     const searchLocations = async () => {
         const query = weatherQuery.trim();
@@ -206,9 +274,39 @@ export default function Setup() {
             await refreshWeather();
             setLocationResults([]);
             setNotice('Core settings saved.');
-            setStep((current) => Math.min(current + 1, STEPS.length - 1));
+            setStepId('security');
         } catch (err) {
             setError(getErrorMessage(err, 'Failed to save setup settings.'));
+        } finally {
+            setBusy('');
+        }
+    };
+
+    const createAccount = async () => {
+        if (!accountUsername.trim() || !accountPassword || !accountPasswordConfirm) {
+            setError('Username, password, and password confirmation are required.');
+            return;
+        }
+
+        if (accountPassword !== accountPasswordConfirm) {
+            setError('The password confirmation does not match.');
+            return;
+        }
+
+        setBusy('account');
+        setError('');
+        setNotice('');
+        try {
+            const result = await createInitialAccount(accountUsername.trim(), accountPassword);
+            if (!result.success) {
+                setError(result.error || 'Failed to create the initial setup account.');
+                return;
+            }
+
+            setAccountPassword('');
+            setAccountPasswordConfirm('');
+            setNotice('Administrator account created. Continue with the remaining setup.');
+            setStepId('basics');
         } finally {
             setBusy('');
         }
@@ -275,275 +373,106 @@ export default function Setup() {
     };
 
     const goBack = () => {
-        if (navLocked) {
+        if (navLocked || currentIndex === 0) {
             return;
         }
 
         setError('');
         setNotice('');
-        setStep((current) => Math.max(current - 1, 0));
+        setStepId(steps[currentIndex - 1].id);
     };
 
     const next = () => {
         setError('');
         setNotice('');
 
-        if (step === 0) {
-            saveSettings();
-            return;
+        switch (currentStep?.id) {
+            case 'certificate':
+                if (!certificateConfirmed) {
+                    setError('Install the certificate and confirm it before continuing.');
+                    return;
+                }
+                setStepId(showAccountStep ? 'account' : 'basics');
+                return;
+            case 'account':
+                createAccount();
+                return;
+            case 'basics':
+                saveSettings();
+                return;
+            case 'security':
+                setStepId('finish');
+                return;
+            default:
+                completeSetup();
         }
-
-        if (isFinalStep) {
-            completeSetup();
-            return;
-        }
-
-        setStep((current) => Math.min(current + 1, STEPS.length - 1));
     };
 
     const setupSummaryItems = [
-        ['Weather location', locationLabel || 'Not set'],
-        ['Gemini key', hasExistingGeminiKey || geminiKey.trim() ? 'Configured' : 'Skipped'],
-        ['Credentials file', credentialsCopied ? 'Copied' : credentials ? 'Loaded' : 'Not loaded yet'],
-        ['Certificate', certificateDownloaded ? 'Requested' : 'Not downloaded yet'],
+        ['Certificate', certificateConfirmed ? 'Trusted on this device' : certificateDownloaded ? 'Downloaded' : 'Pending'],
+        ['Administrator account', user ? `${user.username} (${user.role})` : 'Not created yet'],
+        ['Weather location', locationLabel || (user ? 'Not set' : 'Available after the account step')],
+        ['Gemini key', user ? (hasExistingGeminiKey || geminiKey.trim() ? 'Configured' : 'Skipped') : 'Available after the account step'],
+        ['Credentials file', user ? (credentialsCopied ? 'Copied' : credentials ? 'Loaded' : 'Not loaded yet') : 'Available after sign-in'],
     ];
 
-    const renderStep = () => {
-        if (currentStep.id === 'basics') {
-            return (
-                <div className="space-y-6">
-                    <StepCard title="Before You Start" description="This setup keeps the first boot focused on the essentials.">
-                        <div className="grid gap-3 md:grid-cols-3">
-                            {[
-                                {
-                                    icon: MapPin,
-                                    title: 'Weather baseline',
-                                    description: 'Pick one outdoor location so RoomSense can compare indoor readings against local conditions.',
-                                },
-                                {
-                                    icon: Shield,
-                                    title: 'Security files',
-                                    description: 'Save the generated credentials and certificate before the system locks them away.',
-                                },
-                                {
-                                    icon: Wifi,
-                                    title: 'Sensor pairing',
-                                    description: 'Pair the first box from the dashboard right after setup instead of inside the wizard.',
-                                },
-                            ].map((item) => {
-                                const Icon = item.icon;
-                                return (
-                                    <div key={item.title} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
-                                        <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700">
-                                            <Icon className="h-5 w-5" />
-                                        </div>
-                                        <p className="font-medium text-slate-900">{item.title}</p>
-                                        <p className="mt-1 text-sm text-slate-600">{item.description}</p>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </StepCard>
-
-                    <div className="grid gap-6 xl:grid-cols-[1.2fr,0.8fr]">
-                        <StepCard title="Weather Location" description="Search for the city or region this server should use for outdoor comparisons.">
-                            <div className="flex flex-col gap-3 sm:flex-row">
-                                <Input
-                                    value={weatherQuery}
-                                    onChange={(event) => {
-                                        setWeatherQuery(event.target.value);
-                                        if (selectedLocation && event.target.value !== locationLabel) {
-                                            setSelectedLocation(null);
-                                        }
-                                    }}
-                                    onKeyDown={(event) => {
-                                        if (event.key === 'Enter') {
-                                            event.preventDefault();
-                                            searchLocations();
-                                        }
-                                    }}
-                                    placeholder="Vienna, AT"
-                                    disabled={busy === 'save'}
-                                    className="h-11 border-slate-300"
-                                />
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    onClick={searchLocations}
-                                    disabled={busy === 'search' || busy === 'save'}
-                                    className="h-11"
-                                >
-                                    {busy === 'search' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-                                    Search
-                                </Button>
-                            </div>
-
-                            <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
-                                {selectedLocation ? (
-                                    <span className="flex flex-wrap items-center gap-2">
-                                        <Badge variant="outline" className="border-emerald-300 bg-emerald-50 text-emerald-700">
-                                            Selected
-                                        </Badge>
-                                        <span>{locationLabel}</span>
-                                    </span>
-                                ) : (
-                                    'Choose a result below or keep the saved location.'
-                                )}
-                            </div>
-
-                            {locationResults.length > 0 && (
-                                <div className="space-y-2">
-                                    {locationResults.map((location) => {
-                                        const label = formatLocation(location);
-                                        return (
-                                            <button
-                                                key={`${location.latitude}-${location.longitude}-${label}`}
-                                                type="button"
-                                                className="flex w-full items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 py-4 text-left transition hover:border-emerald-300 hover:bg-emerald-50/50"
-                                                onClick={() => {
-                                                    setSelectedLocation(location);
-                                                    setWeatherQuery(label);
-                                                    setLocationResults([]);
-                                                    setNotice('Weather location selected.');
-                                                }}
-                                            >
-                                                <div>
-                                                    <div className="font-medium text-slate-900">{label}</div>
-                                                    <div className="text-xs text-slate-500">
-                                                        {location.latitude}, {location.longitude}
-                                                    </div>
-                                                </div>
-                                                <ChevronRight className="h-4 w-4 text-slate-400" />
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-                            )}
-                        </StepCard>
-
-                        <StepCard title="Gemini API Key" description="Optional. This enables RoomSense AI summaries and chat after setup.">
-                            {isAdmin ? (
-                                <>
-                                    {hasExistingGeminiKey && (
-                                        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
-                                            A Gemini API key is already configured. Leave the field empty to keep it.
-                                        </div>
-                                    )}
-                                    <Input
-                                        type="password"
-                                        value={geminiKey}
-                                        onChange={(event) => setGeminiKey(event.target.value)}
-                                        placeholder="AIzaSy..."
-                                        disabled={busy === 'save'}
-                                        className="h-11 border-slate-300"
-                                    />
-                                    <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
-                                        You can skip this for now and add it later from the admin settings page.
-                                    </div>
-                                </>
-                            ) : (
-                                <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
-                                    Only admin users can add the Gemini API key. You can finish setup without it.
-                                </div>
-                            )}
-                        </StepCard>
-                    </div>
+    const renderCertificateStep = () => (
+        <div className="grid gap-6 xl:grid-cols-[1.15fr,0.85fr]">
+            <StepCard
+                title="Install the RoomSense Root Certificate"
+                description="Do this first so local HTTPS requests can succeed before login and the rest of setup."
+            >
+                <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+                    Windows first: double-click the downloaded certificate, choose <span className="font-semibold">Install Certificate</span>,
+                    then place it in <span className="font-semibold">Trusted Root Certification Authorities</span>.
                 </div>
-            );
-        }
 
-        if (currentStep.id === 'security') {
-            return (
-                <div className="grid gap-6 xl:grid-cols-[1.15fr,0.85fr]">
-                    <StepCard title="Temporary Credentials" description="Save these now. They are removed as soon as setup is completed.">
-                        <div className="flex flex-wrap gap-2">
-                            <Button type="button" variant="outline" onClick={copyCredentials} disabled={!credentials}>
-                                <Copy className="h-4 w-4" />
-                                {credentialsCopied ? 'Copied' : 'Copy'}
-                            </Button>
-                            <Button type="button" variant="ghost" onClick={retryCredentials} disabled={busy === 'credentials'}>
-                                {busy === 'credentials' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Database className="h-4 w-4" />}
-                                Reload
-                            </Button>
+                <div className="space-y-3">
+                    {WINDOWS_CERTIFICATE_STEPS.map((item, index) => (
+                        <div key={item} className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+                            <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-emerald-100 text-xs font-semibold text-emerald-700">
+                                {index + 1}
+                            </span>
+                            <span>{item}</span>
                         </div>
-                        <textarea
-                            className="min-h-80 w-full rounded-2xl border border-slate-800 bg-slate-950 p-4 font-mono text-xs text-slate-50 outline-none"
-                            readOnly
-                            value={credentials || (busy === 'credentials' ? 'Loading credentials...' : 'Credentials are not currently available.')}
-                        />
-                        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-                            Finishing setup removes this temporary file from the server.
-                        </div>
-                    </StepCard>
-
-                    <div className="space-y-6">
-                        <StepCard title="Root Certificate" description="Install this on clients that should trust the local HTTPS endpoint.">
-                            <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
-                                Download the current RoomSense root CA before setup completes. Factory reset rotates this certificate.
-                            </div>
-                            <Button type="button" onClick={downloadCertificate} className="h-11 w-full bg-slate-900 text-white hover:bg-slate-800">
-                                <Download className="h-4 w-4" />
-                                Download Certificate
-                            </Button>
-                            {certificateDownloaded && (
-                                <Badge variant="outline" className="border-emerald-300 bg-emerald-50 text-emerald-700">
-                                    Download requested
-                                </Badge>
-                            )}
-                        </StepCard>
-
-                        <StepCard title="What Happens Next" description="Pairing is intentionally outside the wizard so setup stays short and predictable.">
-                            <div className="space-y-3">
-                                {[
-                                    'Save the security files on this step.',
-                                    'Finish setup and open the dashboard.',
-                                    'Use the sidebar pairing flow to connect the first sensor.',
-                                ].map((item, index) => (
-                                    <div key={item} className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
-                                        <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-emerald-100 text-xs font-semibold text-emerald-700">
-                                            {index + 1}
-                                        </span>
-                                        <span>{item}</span>
-                                    </div>
-                                ))}
-                            </div>
-                        </StepCard>
-                    </div>
+                    ))}
                 </div>
-            );
-        }
 
-        return (
-            <div className="grid gap-6 xl:grid-cols-[1fr,0.9fr]">
-                <StepCard title="Final Review" description="Make sure the essentials are saved before unlocking the dashboard.">
-                    <div className="space-y-3">
-                        {setupSummaryItems.map(([label, value]) => (
-                            <div key={label} className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-                                <span className="text-sm text-slate-600">{label}</span>
-                                <span className="text-sm font-medium text-slate-900">{value}</span>
-                            </div>
-                        ))}
-                        <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
-                            Sensor pairing happens after setup. Open the dashboard first, then connect the first RoomSense box.
-                        </div>
+                <div className="flex flex-wrap gap-3">
+                    <Button type="button" onClick={downloadCertificate} className="h-11 bg-slate-900 text-white hover:bg-slate-800">
+                        <Download className="h-4 w-4" />
+                        Download Certificate
+                    </Button>
+                    <Button type="button" variant="outline" onClick={() => window.location.reload()} className="h-11">
+                        <RefreshCw className="h-4 w-4" />
+                        Reload Page
+                    </Button>
+                </div>
+
+                {certificateDownloaded && (
+                    <Badge variant="outline" className="w-fit border-emerald-300 bg-emerald-50 text-emerald-700">
+                        Download requested
+                    </Badge>
+                )}
+            </StepCard>
+
+            <div className="space-y-6">
+                <StepCard
+                    title="Other Devices"
+                    description="If you are not on Windows, trust the same certificate in the device's system certificate store before continuing."
+                >
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                        The important part is that this device trusts the current RoomSense root certificate before any secure RoomSense API calls run.
+                    </div>
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                        If Windows prompts for administrator approval during certificate import, allow it and finish the wizard.
                     </div>
                 </StepCard>
 
-                <StepCard title="Required Checks" description="Both confirmations are required before setup can finish.">
-                    <label className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
-                        <input
-                            type="checkbox"
-                            className="mt-1"
-                            checked={credentialsConfirmed}
-                            onChange={(event) => setCredentialsConfirmed(event.target.checked)}
-                        />
-                        <span>
-                            {credentials
-                                ? 'I saved the generated backend credentials somewhere outside this device.'
-                                : 'I understand the temporary credentials file could not be loaded and will not be available after setup.'}
-                        </span>
-                    </label>
-
+                <StepCard
+                    title="Confirmation"
+                    description="The next setup step unlocks only after this device trusts the current certificate."
+                >
                     <label className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
                         <input
                             type="checkbox"
@@ -551,13 +480,349 @@ export default function Setup() {
                             checked={certificateConfirmed}
                             onChange={(event) => setCertificateConfirmed(event.target.checked)}
                         />
-                        <span>
-                            I downloaded the RoomSense root certificate and understand the direct setup endpoint is disabled after setup completes.
-                        </span>
+                        <span>I installed or trusted the current RoomSense root certificate on this device.</span>
                     </label>
                 </StepCard>
             </div>
-        );
+        </div>
+    );
+
+    const renderAccountStep = () => (
+        <div className="grid gap-6 xl:grid-cols-[1.1fr,0.9fr]">
+            <StepCard
+                title="Create the First Administrator Account"
+                description="This is the first permanent RoomSense user and it will stay signed in for the rest of setup."
+            >
+                <div className="space-y-4">
+                    <div className="space-y-2">
+                        <label htmlFor="setup-username" className="text-sm font-medium text-slate-900">
+                            Username
+                        </label>
+                        <div className="relative">
+                            <div className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-slate-500">
+                                <UserPlus className="h-4 w-4" />
+                            </div>
+                            <Input
+                                id="setup-username"
+                                value={accountUsername}
+                                onChange={(event) => setAccountUsername(event.target.value)}
+                                disabled={busy === 'account'}
+                                placeholder="admin"
+                                className="h-11 border-slate-300 pl-9"
+                            />
+                        </div>
+                    </div>
+
+                    <div className="space-y-2">
+                        <label htmlFor="setup-password" className="text-sm font-medium text-slate-900">
+                            Password
+                        </label>
+                        <div className="relative">
+                            <div className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-slate-500">
+                                <Lock className="h-4 w-4" />
+                            </div>
+                            <Input
+                                id="setup-password"
+                                type="password"
+                                value={accountPassword}
+                                onChange={(event) => setAccountPassword(event.target.value)}
+                                disabled={busy === 'account'}
+                                placeholder="Choose a password"
+                                className="h-11 border-slate-300 pl-9"
+                            />
+                        </div>
+                    </div>
+
+                    <div className="space-y-2">
+                        <label htmlFor="setup-password-confirm" className="text-sm font-medium text-slate-900">
+                            Confirm Password
+                        </label>
+                        <div className="relative">
+                            <div className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-slate-500">
+                                <Lock className="h-4 w-4" />
+                            </div>
+                            <Input
+                                id="setup-password-confirm"
+                                type="password"
+                                value={accountPasswordConfirm}
+                                onChange={(event) => setAccountPasswordConfirm(event.target.value)}
+                                disabled={busy === 'account'}
+                                placeholder="Repeat the password"
+                                className="h-11 border-slate-300 pl-9"
+                            />
+                        </div>
+                    </div>
+                </div>
+
+                <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+                    The first account is automatically created with the <span className="font-semibold">admin</span> role.
+                </div>
+            </StepCard>
+
+            <div className="space-y-6">
+                <StepCard
+                    title="Why This Is Inside Setup"
+                    description="The certificate step happens first so local HTTPS trust problems do not block account creation."
+                >
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                        After this account is created, RoomSense keeps the session active and continues with the weather and security steps.
+                    </div>
+                </StepCard>
+
+                <StepCard
+                    title="Sign-In Later"
+                    description="This username and password become the normal RoomSense login after setup finishes."
+                >
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                        Save these credentials now. They are separate from the one-time backend credentials shown later in setup.
+                    </div>
+                </StepCard>
+            </div>
+        </div>
+    );
+
+    const renderBasicsStep = () => (
+        <div className="space-y-6">
+            <StepCard title="Before You Continue" description="Finish the core settings now, then save the one-time security files on the next step.">
+                <div className="grid gap-3 md:grid-cols-3">
+                    {[
+                        {
+                            icon: MapPin,
+                            title: 'Weather baseline',
+                            description: 'Pick one outdoor location so RoomSense can compare indoor readings against local conditions.',
+                        },
+                        {
+                            icon: Sparkles,
+                            title: 'AI optional',
+                            description: 'The Gemini API key can be skipped now and added later from the admin settings page.',
+                        },
+                        {
+                            icon: Shield,
+                            title: 'Security files next',
+                            description: 'The following step shows the temporary credentials file that is deleted once setup is completed.',
+                        },
+                    ].map((item) => {
+                        const Icon = item.icon;
+                        return (
+                            <div key={item.title} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
+                                <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700">
+                                    <Icon className="h-5 w-5" />
+                                </div>
+                                <p className="font-medium text-slate-900">{item.title}</p>
+                                <p className="mt-1 text-sm text-slate-600">{item.description}</p>
+                            </div>
+                        );
+                    })}
+                </div>
+            </StepCard>
+
+            <div className="grid gap-6 xl:grid-cols-[1.2fr,0.8fr]">
+                <StepCard title="Weather Location" description="Search for the city or region this server should use for outdoor comparisons.">
+                    <div className="flex flex-col gap-3 sm:flex-row">
+                        <Input
+                            value={weatherQuery}
+                            onChange={(event) => {
+                                setWeatherQuery(event.target.value);
+                                if (selectedLocation && event.target.value !== locationLabel) {
+                                    setSelectedLocation(null);
+                                }
+                            }}
+                            onKeyDown={(event) => {
+                                if (event.key === 'Enter') {
+                                    event.preventDefault();
+                                    searchLocations();
+                                }
+                            }}
+                            placeholder="Vienna, AT"
+                            disabled={busy === 'save'}
+                            className="h-11 border-slate-300"
+                        />
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={searchLocations}
+                            disabled={busy === 'search' || busy === 'save'}
+                            className="h-11"
+                        >
+                            {busy === 'search' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                            Search
+                        </Button>
+                    </div>
+
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+                        {selectedLocation ? (
+                            <span className="flex flex-wrap items-center gap-2">
+                                <Badge variant="outline" className="border-emerald-300 bg-emerald-50 text-emerald-700">
+                                    Selected
+                                </Badge>
+                                <span>{locationLabel}</span>
+                            </span>
+                        ) : (
+                            'Choose a result below or keep the saved location.'
+                        )}
+                    </div>
+
+                    {locationResults.length > 0 && (
+                        <div className="space-y-2">
+                            {locationResults.map((location) => {
+                                const label = formatLocation(location);
+                                return (
+                                    <button
+                                        key={`${location.latitude}-${location.longitude}-${label}`}
+                                        type="button"
+                                        className="flex w-full items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 py-4 text-left transition hover:border-emerald-300 hover:bg-emerald-50/50"
+                                        onClick={() => {
+                                            setSelectedLocation(location);
+                                            setWeatherQuery(label);
+                                            setLocationResults([]);
+                                            setNotice('Weather location selected.');
+                                        }}
+                                    >
+                                        <div>
+                                            <div className="font-medium text-slate-900">{label}</div>
+                                            <div className="text-xs text-slate-500">
+                                                {location.latitude}, {location.longitude}
+                                            </div>
+                                        </div>
+                                        <ChevronRight className="h-4 w-4 text-slate-400" />
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    )}
+                </StepCard>
+
+                <StepCard title="Gemini API Key" description="Optional. This enables RoomSense AI summaries and chat after setup.">
+                    {isAdmin ? (
+                        <>
+                            {hasExistingGeminiKey && (
+                                <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+                                    A Gemini API key is already configured. Leave the field empty to keep it.
+                                </div>
+                            )}
+                            <Input
+                                type="password"
+                                value={geminiKey}
+                                onChange={(event) => setGeminiKey(event.target.value)}
+                                placeholder="AIzaSy..."
+                                disabled={busy === 'save'}
+                                className="h-11 border-slate-300"
+                            />
+                            <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                                You can skip this for now and add it later from the admin settings page.
+                            </div>
+                        </>
+                    ) : (
+                        <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                            Only admin users can add the Gemini API key. You can finish setup without it.
+                        </div>
+                    )}
+                </StepCard>
+            </div>
+        </div>
+    );
+
+    const renderSecurityStep = () => (
+        <div className="grid gap-6 xl:grid-cols-[1.15fr,0.85fr]">
+            <StepCard title="Temporary Credentials" description="Save these now. They are removed as soon as setup is completed.">
+                <div className="flex flex-wrap gap-2">
+                    <Button type="button" variant="outline" onClick={copyCredentials} disabled={!credentials}>
+                        <Copy className="h-4 w-4" />
+                        {credentialsCopied ? 'Copied' : 'Copy'}
+                    </Button>
+                    <Button type="button" variant="ghost" onClick={retryCredentials} disabled={busy === 'credentials'}>
+                        {busy === 'credentials' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Database className="h-4 w-4" />}
+                        Reload
+                    </Button>
+                </div>
+                <textarea
+                    className="min-h-80 w-full rounded-2xl border border-slate-800 bg-slate-950 p-4 font-mono text-xs text-slate-50 outline-none"
+                    readOnly
+                    value={credentials || (busy === 'credentials' ? 'Loading credentials...' : 'Credentials are not currently available.')}
+                />
+                <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                    Finishing setup removes this temporary file from the server.
+                </div>
+            </StepCard>
+
+            <div className="space-y-6">
+                <StepCard title="What Happens Next" description="The wizard stays short. Pairing and day-to-day changes happen after setup.">
+                    <div className="space-y-3">
+                        {[
+                            'Save the temporary backend credentials on this step.',
+                            'Finish setup and open the dashboard.',
+                            'Pair the first RoomSense box from the sidebar after setup finishes.',
+                        ].map((item, index) => (
+                            <div key={item} className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+                                <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-emerald-100 text-xs font-semibold text-emerald-700">
+                                    {index + 1}
+                                </span>
+                                <span>{item}</span>
+                            </div>
+                        ))}
+                    </div>
+                </StepCard>
+
+                <StepCard title="Certificate For Other Devices" description="If another PC or phone needs local RoomSense access later, install the same certificate there too.">
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                        You can download the current certificate again from the login page or any RoomSense recovery panel if another device needs trust later.
+                    </div>
+                </StepCard>
+            </div>
+        </div>
+    );
+
+    const renderFinishStep = () => (
+        <div className="grid gap-6 xl:grid-cols-[1fr,0.9fr]">
+            <StepCard title="Final Review" description="Make sure the essentials are saved before unlocking the dashboard.">
+                <div className="space-y-3">
+                    {setupSummaryItems.map(([label, value]) => (
+                        <div key={label} className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                            <span className="text-sm text-slate-600">{label}</span>
+                            <span className="text-sm font-medium text-slate-900">{value}</span>
+                        </div>
+                    ))}
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                        Sensor pairing happens after setup. Open the dashboard first, then connect the first RoomSense box.
+                    </div>
+                </div>
+            </StepCard>
+
+            <StepCard title="Required Check" description="Only the temporary credentials still need confirmation before setup can finish.">
+                <label className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+                    <input
+                        type="checkbox"
+                        className="mt-1"
+                        checked={credentialsConfirmed}
+                        onChange={(event) => setCredentialsConfirmed(event.target.checked)}
+                    />
+                    <span>
+                        {credentials
+                            ? 'I saved the generated backend credentials somewhere outside this device.'
+                            : 'I understand the temporary credentials file could not be loaded and will not be available after setup.'}
+                    </span>
+                </label>
+
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                    Certificate trust was already confirmed on the first step. Setup completion now removes the temporary credentials endpoint.
+                </div>
+            </StepCard>
+        </div>
+    );
+
+    const renderStep = () => {
+        switch (currentStep?.id) {
+            case 'certificate':
+                return renderCertificateStep();
+            case 'account':
+                return renderAccountStep();
+            case 'basics':
+                return renderBasicsStep();
+            case 'security':
+                return renderSecurityStep();
+            default:
+                return renderFinishStep();
+        }
     };
 
     if (bootstrapping) {
@@ -601,10 +866,10 @@ export default function Setup() {
                                     </div>
                                 </div>
                                 <p className="max-w-2xl text-sm text-slate-600 md:text-base">
-                                    Finish the first-boot essentials, save the one-time security files, and then continue device pairing from the dashboard.
+                                    Install the local certificate first, create the first administrator account during setup, then finish the remaining first-boot essentials.
                                 </p>
                                 <div className="flex flex-wrap gap-2">
-                                    {['Weather location', 'Security files', 'Dashboard pairing next'].map((label) => (
+                                    {['Certificate first', 'Admin account in setup', 'Security files', 'Dashboard pairing next'].map((label) => (
                                         <Badge key={label} variant="outline" className="rounded-full border-slate-300 bg-white text-slate-700">
                                             {label}
                                         </Badge>
@@ -614,17 +879,17 @@ export default function Setup() {
 
                             <div className="w-full max-w-md space-y-3">
                                 <div className="flex items-center justify-between text-sm text-slate-600">
-                                    <span>Step {step + 1} of {STEPS.length}</span>
-                                    <span>{currentStep.title}</span>
+                                    <span>Step {currentIndex + 1} of {steps.length}</span>
+                                    <span>{currentStep?.title}</span>
                                 </div>
                                 <div className="h-2 rounded-full bg-slate-200">
                                     <div className="h-full rounded-full bg-emerald-500 transition-all duration-200" style={{ width: `${progressPercent}%` }} />
                                 </div>
-                                <div className="grid grid-cols-3 gap-2">
-                                    {STEPS.map((item, index) => {
+                                <div className={`grid gap-2 ${steps.length > 4 ? 'grid-cols-5' : 'grid-cols-4'}`}>
+                                    {steps.map((item, index) => {
                                         const Icon = item.icon;
-                                        const active = index === step;
-                                        const complete = index < step;
+                                        const active = index === currentIndex;
+                                        const complete = index < currentIndex;
 
                                         return (
                                             <div
@@ -649,7 +914,7 @@ export default function Setup() {
                         </div>
 
                         <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
-                            <span className="font-medium text-slate-900">{currentStep.title}:</span> {currentStep.description}
+                            <span className="font-medium text-slate-900">{currentStep?.title}:</span> {currentStep?.description}
                         </div>
                     </CardContent>
                 </Card>
@@ -691,7 +956,7 @@ export default function Setup() {
                                     Review weather and AI settings later without repeating the whole wizard.
                                 </div>
                                 <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-                                    The setup-only credentials and certificate endpoints are no longer meant for day-to-day use.
+                                    The setup-only credentials are removed once setup finishes.
                                 </div>
                             </div>
                         </StepCard>
@@ -705,7 +970,7 @@ export default function Setup() {
                                 type="button"
                                 variant="ghost"
                                 onClick={goBack}
-                                disabled={step === 0 || navLocked}
+                                disabled={currentIndex === 0 || navLocked}
                                 className="h-11 w-fit rounded-2xl px-2"
                             >
                                 <ChevronLeft className="h-4 w-4" />
@@ -719,12 +984,12 @@ export default function Setup() {
                                 type="button"
                                 size="lg"
                                 onClick={next}
-                                disabled={navLocked || (isFinalStep && (!credentialsConfirmed || !certificateConfirmed))}
+                                disabled={primaryActionDisabled}
                                 className="h-12 w-full rounded-2xl bg-slate-900 text-base font-semibold text-white hover:bg-slate-800 sm:max-w-md"
                             >
-                                {(busy === 'save' || busy === 'complete') && <Loader2 className="h-4 w-4 animate-spin" />}
+                                {navLocked && <Loader2 className="h-4 w-4 animate-spin" />}
                                 {primaryActionLabel}
-                                {busy !== 'save' && busy !== 'complete' && <ChevronRight className="h-4 w-4" />}
+                                {!navLocked && <ChevronRight className="h-4 w-4" />}
                             </Button>
                         </div>
 

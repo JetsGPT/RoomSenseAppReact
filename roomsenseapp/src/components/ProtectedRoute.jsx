@@ -68,22 +68,26 @@ export const RequireRole = ({ children, roles }) => {
  * PublicOnly - Redirects authenticated users away from public pages (like login).
  */
 export const PublicOnly = ({ children }) => {
-    const { user, loading, setupLoading, isSetupCompleted, bootstrapIssue } = useAuth();
+    const { user, loading, setupLoading, isSetupCompleted, isFirstInstall, bootstrapIssue } = useAuth();
 
-    if (loading || (user && setupLoading)) {
+    if (loading || setupLoading) {
         return <RouteLoader message="Loading account..." />;
     }
 
-    if (user && isSetupCompleted === null && bootstrapIssue) {
+    if (isSetupCompleted === null && bootstrapIssue) {
         return <RouteRecovery issue={bootstrapIssue} />;
     }
 
-    if (user && isSetupCompleted === null) {
+    if (isSetupCompleted === null) {
         return <RouteLoader message="Loading account..." />;
     }
 
     if (user) {
         return <Navigate to={isSetupCompleted === false ? '/setup' : '/dashboard'} replace />;
+    }
+
+    if (isFirstInstall === true) {
+        return <Navigate to="/setup" replace />;
     }
 
     return children;
@@ -93,15 +97,11 @@ export const PublicOnly = ({ children }) => {
  * RequireSetup - Protects routes that should remain locked until setup completes.
  */
 export const RequireSetup = ({ children }) => {
-    const { user, loading, setupLoading, isSetupCompleted, bootstrapIssue } = useAuth();
+    const { user, loading, setupLoading, isSetupCompleted, isFirstInstall, bootstrapIssue } = useAuth();
     const location = useLocation();
 
-    if (loading || (user && setupLoading)) {
+    if (loading || setupLoading) {
         return <RouteLoader message="Loading system configuration..." />;
-    }
-
-    if (!user) {
-        return <Navigate to="/login" state={{ from: location }} replace />;
     }
 
     if (isSetupCompleted === null && bootstrapIssue) {
@@ -110,6 +110,14 @@ export const RequireSetup = ({ children }) => {
 
     if (isSetupCompleted === null) {
         return <RouteLoader message="Loading system configuration..." />;
+    }
+
+    if (!user) {
+        if (isFirstInstall === true) {
+            return <Navigate to="/setup" state={{ from: location }} replace />;
+        }
+
+        return <Navigate to="/login" state={{ from: location }} replace />;
     }
 
     if (isSetupCompleted === false) {
@@ -123,15 +131,11 @@ export const RequireSetup = ({ children }) => {
  * SetupOnly - Allows the setup flow only while setup is incomplete.
  */
 export const SetupOnly = ({ children }) => {
-    const { user, loading, setupLoading, isSetupCompleted, bootstrapIssue } = useAuth();
+    const { user, loading, setupLoading, isSetupCompleted, isFirstInstall, bootstrapIssue } = useAuth();
     const location = useLocation();
 
-    if (loading || (user && setupLoading)) {
+    if (loading || setupLoading) {
         return <RouteLoader message="Loading system configuration..." />;
-    }
-
-    if (!user) {
-        return <Navigate to="/login" state={{ from: location }} replace />;
     }
 
     if (isSetupCompleted === null && bootstrapIssue) {
@@ -142,9 +146,13 @@ export const SetupOnly = ({ children }) => {
         return <RouteLoader message="Loading system configuration..." />;
     }
 
-    if (isSetupCompleted) {
-        return <Navigate to="/dashboard" replace />;
+    if (isSetupCompleted === true) {
+        return <Navigate to={user ? '/dashboard' : '/login'} replace />;
     }
 
-    return children;
+    if (user || isFirstInstall === true) {
+        return children;
+    }
+
+    return <Navigate to="/login" state={{ from: location }} replace />;
 };

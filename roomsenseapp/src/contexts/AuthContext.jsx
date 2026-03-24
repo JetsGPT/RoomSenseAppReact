@@ -8,20 +8,48 @@ import { createBootstrapIssue, describeRequestError, isLikelyLocalHttpsTransport
 
 const AuthContext = createContext(null);
 
+function normalizeBootstrapState(payload) {
+    const rawCompleted = payload?.setupCompleted ?? payload?.completed;
+    const setupCompleted = typeof rawCompleted === 'boolean' ? rawCompleted : null;
+
+    let hasUsers = null;
+    if (typeof payload?.hasUsers === 'boolean') {
+        hasUsers = payload.hasUsers;
+    } else if (payload?.firstInstall === true) {
+        hasUsers = false;
+    } else if (payload?.firstInstall === false && setupCompleted === false) {
+        hasUsers = true;
+    }
+
+    return {
+        setupCompleted,
+        hasUsers,
+    };
+}
+
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
     const [setupLoading, setSetupLoading] = useState(true);
     const [error, setError] = useState(null);
     const [isSetupCompleted, setIsSetupCompleted] = useState(null);
+    const [hasUsers, setHasUsers] = useState(null);
     const [bootstrapIssue, setBootstrapIssue] = useState(null);
     const location = useLocation();
     const hasInitialized = useRef(false);
     const authenticatedUserId = user?.id;
 
+    const applyBootstrapState = useCallback((payload) => {
+        const { setupCompleted, hasUsers: nextHasUsers } = normalizeBootstrapState(payload);
+        setIsSetupCompleted(setupCompleted);
+        setHasUsers(nextHasUsers);
+        return setupCompleted;
+    }, []);
+
     const refreshSetupStatus = useCallback(async ({ silent = false } = {}) => {
         if (DEV_MODE) {
             setIsSetupCompleted(true);
+            setHasUsers(true);
             setSetupLoading(false);
             return true;
         }
@@ -31,20 +59,14 @@ export const AuthProvider = ({ children }) => {
         }
 
         try {
-            const setupRes = await setupAPI.getStatus();
-            const completed = Boolean(setupRes?.completed);
-            setIsSetupCompleted(completed);
+            const setupRes = await setupAPI.getBootstrap();
+            const completed = applyBootstrapState(setupRes);
             setBootstrapIssue(null);
             return completed;
         } catch (err) {
-            if (err.response?.status === 401) {
-                setIsSetupCompleted(null);
-                setBootstrapIssue(null);
-                return null;
-            }
-
-            console.warn('[AuthContext] Failed to get setup status', err);
+            console.warn('[AuthContext] Failed to get setup bootstrap state', err);
             setIsSetupCompleted(null);
+            setHasUsers(null);
             setBootstrapIssue(createBootstrapIssue(err, 'RoomSense could not verify whether guided setup is complete.'));
             return null;
         } finally {
@@ -52,13 +74,14 @@ export const AuthProvider = ({ children }) => {
                 setSetupLoading(false);
             }
         }
-    }, []);
+    }, [applyBootstrapState]);
 
-    const checkAuth = useCallback(async ({ showLoading = true, refreshSetup = false } = {}) => {
+    const checkAuth = useCallback(async ({ showLoading = true } = {}) => {
         if (DEV_MODE) {
             setUser(DEV_USER);
             setError(null);
             setIsSetupCompleted(true);
+            setHasUsers(true);
             setSetupLoading(false);
             setLoading(false);
             return DEV_USER;
@@ -72,18 +95,10 @@ export const AuthProvider = ({ children }) => {
             const userData = await authAPI.getCurrentUser();
             setUser(userData);
             setError(null);
-            setBootstrapIssue(null);
-
-            if (refreshSetup) {
-                await refreshSetupStatus({ silent: true });
-            }
-
             return userData;
         } catch (err) {
             setUser(null);
-            if (err.response?.status === 401) {
-                setBootstrapIssue(null);
-            } else {
+            if (err.response?.status !== 401) {
                 setBootstrapIssue(createBootstrapIssue(err, 'RoomSense could not validate your current session.'));
             }
             return null;
@@ -92,7 +107,7 @@ export const AuthProvider = ({ children }) => {
                 setLoading(false);
             }
         }
-    }, [refreshSetupStatus]);
+    }, []);
 
     useEffect(() => {
         if (hasInitialized.current) {
@@ -106,6 +121,7 @@ export const AuthProvider = ({ children }) => {
                 setUser(DEV_USER);
                 setError(null);
                 setIsSetupCompleted(true);
+                setHasUsers(true);
                 setSetupLoading(false);
                 setLoading(false);
                 return;
@@ -120,13 +136,13 @@ export const AuthProvider = ({ children }) => {
                 }
             }
 
-            const authenticatedUser = await checkAuth({ showLoading: true });
-
-            if (authenticatedUser) {
-                await refreshSetupStatus();
-            } else {
-                setIsSetupCompleted(null);
-                setSetupLoading(false);
+            try {
+                await Promise.all([
+                    checkAuth({ showLoading: false }),
+                    refreshSetupStatus(),
+                ]);
+            } finally {
+                setLoading(false);
             }
         };
 
@@ -141,8 +157,6 @@ export const AuthProvider = ({ children }) => {
         const syncAuthenticatedState = async () => {
             const authenticatedUser = await checkAuth({ showLoading: false });
             if (!authenticatedUser) {
-                setIsSetupCompleted(null);
-                setSetupLoading(false);
                 return;
             }
 
@@ -188,26 +202,46 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
+    const createInitialAccount = async (username, password) => {
+        try {
+            setError(null);
+            setBootstrapIssue(null);
+            const response = await setupAPI.createInitialAccount(username, password);
+            const userData = response?.user ?? response;
+            setUser(userData);
+            const setupCompleted = await refreshSetupStatus({ silent: true });
+            return { success: true, setupCompleted, user: userData };
+        } catch (err) {
+            console.error('[AuthContext] Initial account creation error:', err);
+            const errorMessage = describeRequestError(err, 'Failed to create the initial setup account');
+            setError(errorMessage);
+            if (isLikelyLocalHttpsTransportFailure(err)) {
+                setBootstrapIssue(createBootstrapIssue(err, 'RoomSense could not complete the local HTTPS setup account flow.'));
+            }
+            return { success: false, error: errorMessage };
+        }
+    };
+
     const logout = async () => {
         try {
             await authAPI.logout();
-            setUser(null);
-            setError(null);
-            setIsSetupCompleted(null);
-            setSetupLoading(false);
-            setBootstrapIssue(null);
         } catch (err) {
             console.error('Logout error:', err);
-            // Even if server logout fails, clear client state.
+        } finally {
             setUser(null);
-            setIsSetupCompleted(null);
-            setSetupLoading(false);
+            setError(null);
             setBootstrapIssue(null);
+            await refreshSetupStatus({ silent: true });
         }
     };
 
     const hasRole = (role) => user?.role === role;
     const hasAnyRole = (roles) => roles.includes(user?.role);
+    const isFirstInstall = isSetupCompleted === false && hasUsers === false
+        ? true
+        : isSetupCompleted === null || hasUsers === null
+            ? null
+            : false;
 
     const value = {
         user,
@@ -216,10 +250,13 @@ export const AuthProvider = ({ children }) => {
         error,
         bootstrapIssue,
         isSetupCompleted,
+        hasUsers,
+        isFirstInstall,
         setIsSetupCompleted,
         refreshSetupStatus,
         login,
         register,
+        createInitialAccount,
         logout,
         checkAuth,
         hasRole,
