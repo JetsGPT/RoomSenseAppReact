@@ -3,14 +3,65 @@ import { lazy } from 'react';
 export const LOCAL_CERTIFICATE_DOWNLOAD_PATH = '/ca.crt';
 const CHUNK_RELOAD_KEY_PREFIX = 'roomsense:chunk-reload';
 
+function getCurrentOrigin() {
+    if (typeof window !== 'undefined' && window.location?.origin) {
+        return window.location.origin;
+    }
+
+    return 'https://roomsense.local';
+}
+
+function resolveRequestUrl(error) {
+    const baseUrl = error?.config?.baseURL || getCurrentOrigin();
+    const requestUrl = error?.config?.url || baseUrl;
+
+    try {
+        return new URL(requestUrl, baseUrl);
+    } catch {
+        return null;
+    }
+}
+
 export function getLocalCertificateDownloadUrl() {
     return LOCAL_CERTIFICATE_DOWNLOAD_PATH;
+}
+
+export function isLikelyLocalHttpsTransportFailure(error) {
+    if (!error || error.response) {
+        return false;
+    }
+
+    const code = String(error.code || '');
+    const message = String(error.message || '');
+
+    if (code !== 'ERR_NETWORK' && !/network error/i.test(message)) {
+        return false;
+    }
+
+    const requestUrl = resolveRequestUrl(error);
+    if (!requestUrl) {
+        return typeof window !== 'undefined' && window.location.protocol === 'https:';
+    }
+
+    if (typeof window === 'undefined') {
+        return requestUrl.protocol === 'https:';
+    }
+
+    return requestUrl.protocol === 'https:' && requestUrl.origin === window.location.origin;
+}
+
+export function buildLocalHttpsRecoveryMessage(prefix = 'RoomSense could not reach the local HTTPS API.') {
+    return `${prefix} After a factory reset, RoomSense creates a new local certificate authority. Download the current certificate from this box, install it on this device, then reload the page.`;
 }
 
 export function describeRequestError(error, fallbackMessage) {
     if (error?.response) {
         const responseMessage = error.response.data?.error || error.response.data?.message || JSON.stringify(error.response.data);
         return `Server error (${error.response.status}): ${responseMessage}`;
+    }
+
+    if (isLikelyLocalHttpsTransportFailure(error)) {
+        return buildLocalHttpsRecoveryMessage('RoomSense could not verify the local HTTPS service.');
     }
 
     if (error?.request) {
