@@ -804,7 +804,7 @@ export default function Setup() {
                 </label>
 
                 <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
-                    Certificate trust was already confirmed on the first step. Setup completion now removes the temporary credentials endpoint.
+                    Certificate trust was already confirmed on the first step. Setup completion removes only the temporary credentials endpoint. The certificate download remains available later if another device needs to trust RoomSense.
                 </div>
             </StepCard>
         </div>

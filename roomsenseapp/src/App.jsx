@@ -13,13 +13,14 @@ import { AppSidebar } from './shared/components/AppSidebar';
 import { PageTransition } from './components/ui/PageTransition';
 import { ErrorBoundary } from './shared/components/ErrorBoundary';
 import AiChatbot from './components/AiChatbot';
+import Login from './pages/Login';
+import Setup from './pages/Setup';
 import { Loader2 } from 'lucide-react';
 import { getConnectionBoxId } from './lib/connectionIdentity';
 import { lazyWithRetry } from './lib/runtimeRecovery';
 import './App.css';
 
-// Lazy load pages
-const Login = lazyWithRetry(() => import('./pages/Login'), 'Login');
+// Keep bootstrap routes in the entry bundle so first-load setup does not depend on extra HTTPS chunk fetches.
 const AboutMe = lazyWithRetry(() => import('./pages/AboutMe'), 'AboutMe');
 const Dashboard = lazyWithRetry(() => import('./pages/Dashboard'), 'Dashboard');
 const Admin = lazyWithRetry(() => import('./pages/Admin'), 'Admin');
@@ -31,7 +32,6 @@ const FloorPlanEditor = lazyWithRetry(() => import('./pages/FloorPlanEditor'), '
 const Weather = lazyWithRetry(() => import('./pages/Weather'), 'Weather');
 const Notifications = lazyWithRetry(() => import('./pages/Notifications'), 'Notifications');
 const SystemHealth = lazyWithRetry(() => import('./pages/SystemHealth'), 'SystemHealth');
-const Setup = lazyWithRetry(() => import('./pages/Setup'), 'Setup');
 
 const LoadingFallback = () => (
     <div className="flex items-center justify-center min-h-screen">

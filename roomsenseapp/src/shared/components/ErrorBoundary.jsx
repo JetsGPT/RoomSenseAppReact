@@ -1,8 +1,13 @@
 import React from 'react';
-import { motion } from 'framer-motion';
+import { motion as Motion } from 'framer-motion';
 import { Button } from '../../components/ui/button';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
-import { isChunkLoadError } from '../../lib/runtimeRecovery';
+import BootstrapRecoveryPanel from './BootstrapRecoveryPanel';
+import {
+    createLocalModuleFetchIssue,
+    isChunkLoadError,
+    isSameOriginHttpsModuleFetchFailure
+} from '../../lib/runtimeRecovery';
 
 /**
  * Error boundary component for catching and handling React errors
@@ -22,7 +27,7 @@ export class ErrorBoundary extends React.Component {
         };
     }
 
-    static getDerivedStateFromError(error) {
+    static getDerivedStateFromError() {
         // Update state so the next render will show the fallback UI
         return { hasError: true };
     }
@@ -52,6 +57,7 @@ export class ErrorBoundary extends React.Component {
 
     render() {
         if (this.state.hasError) {
+            const localModuleFetchFailure = isSameOriginHttpsModuleFetchFailure(this.state.error);
             const chunkLoadFailure = isChunkLoadError(this.state.error);
             const title = chunkLoadFailure ? 'Application update is incomplete' : 'Oops! Something went wrong';
             const description = chunkLoadFailure
@@ -67,49 +73,55 @@ export class ErrorBoundary extends React.Component {
             // Default error UI
             return (
                 <div className={`min-h-[400px] w-full flex flex-col items-center justify-center p-8 text-center ${this.props.className || ''}`}>
-                    <motion.div
+                    <Motion.div
                         initial={{ opacity: 0, scale: 0.95 }}
                         animate={{ opacity: 1, scale: 1 }}
                         transition={{ duration: 0.4, ease: "easeOut" }}
                         className="max-w-md w-full space-y-6"
                     >
-                        {/* Icon with pulse effect */}
-                        <div className="relative w-20 h-20 mx-auto mb-6">
-                            <div className="absolute inset-0 bg-destructive/10 rounded-full animate-pulse" />
-                            <div className="absolute inset-0 flex items-center justify-center">
-                                <AlertTriangle className="w-10 h-10 text-destructive" />
-                            </div>
-                        </div>
+                        {localModuleFetchFailure ? (
+                            <BootstrapRecoveryPanel issue={createLocalModuleFetchIssue()} />
+                        ) : (
+                            <>
+                                {/* Icon with pulse effect */}
+                                <div className="relative w-20 h-20 mx-auto mb-6">
+                                    <div className="absolute inset-0 bg-destructive/10 rounded-full animate-pulse" />
+                                    <div className="absolute inset-0 flex items-center justify-center">
+                                        <AlertTriangle className="w-10 h-10 text-destructive" />
+                                    </div>
+                                </div>
 
-                        {/* Text Content */}
-                        <div className="space-y-2">
-                            <h2 className="text-2xl font-bold tracking-tight text-foreground">
-                                {title}
-                            </h2>
-                            <p className="text-muted-foreground">
-                                {description}
-                            </p>
-                        </div>
+                                {/* Text Content */}
+                                <div className="space-y-2">
+                                    <h2 className="text-2xl font-bold tracking-tight text-foreground">
+                                        {title}
+                                    </h2>
+                                    <p className="text-muted-foreground">
+                                        {description}
+                                    </p>
+                                </div>
 
-                        {/* Action Buttons */}
-                        <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
-                            <Button onClick={chunkLoadFailure ? () => window.location.reload() : this.handleRetry} size="lg" className="gap-2 shadow-md">
-                                <RefreshCw className="w-4 h-4" />
-                                {retryLabel}
-                            </Button>
-                            <Button
-                                variant="outline"
-                                size="lg"
-                                onClick={() => window.location.reload()}
-                                className="gap-2"
-                            >
-                                Refresh Page
-                            </Button>
-                        </div>
+                                {/* Action Buttons */}
+                                <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
+                                    <Button onClick={chunkLoadFailure ? () => window.location.reload() : this.handleRetry} size="lg" className="gap-2 shadow-md">
+                                        <RefreshCw className="w-4 h-4" />
+                                        {retryLabel}
+                                    </Button>
+                                    <Button
+                                        variant="outline"
+                                        size="lg"
+                                        onClick={() => window.location.reload()}
+                                        className="gap-2"
+                                    >
+                                        Refresh Page
+                                    </Button>
+                                </div>
+                            </>
+                        )}
 
                         {/* Technical Details (Collapsible) */}
                         {this.state.error && (
-                            <motion.div
+                            <Motion.div
                                 initial={{ opacity: 0 }}
                                 animate={{ opacity: 1 }}
                                 transition={{ delay: 0.2 }}
@@ -120,7 +132,7 @@ export class ErrorBoundary extends React.Component {
                                         <span>Show Technical Details</span>
                                         <span className="group-open:rotate-180 transition-transform duration-200">▼</span>
                                     </summary>
-                                    <motion.div
+                                    <Motion.div
                                         initial={{ height: 0, opacity: 0 }}
                                         animate={{ height: "auto", opacity: 1 }}
                                         className="mt-4 overflow-hidden"
@@ -135,11 +147,11 @@ export class ErrorBoundary extends React.Component {
                                                 </pre>
                                             )}
                                         </div>
-                                    </motion.div>
+                                    </Motion.div>
                                 </details>
-                            </motion.div>
+                            </Motion.div>
                         )}
-                    </motion.div>
+                    </Motion.div>
                 </div>
             );
         }

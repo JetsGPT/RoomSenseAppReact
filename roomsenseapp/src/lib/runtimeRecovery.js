@@ -2,6 +2,7 @@ import { lazy } from 'react';
 
 export const LOCAL_CERTIFICATE_DOWNLOAD_PATH = '/ca.crt';
 const CHUNK_RELOAD_KEY_PREFIX = 'roomsense:chunk-reload';
+const DYNAMIC_IMPORT_FETCH_ERROR_PATTERN = /Failed to fetch dynamically imported module:\s*(\S+)/i;
 
 function getCurrentOrigin() {
     if (typeof window !== 'undefined' && window.location?.origin) {
@@ -17,6 +18,22 @@ function resolveRequestUrl(error) {
 
     try {
         return new URL(requestUrl, baseUrl);
+    } catch {
+        return null;
+    }
+}
+
+function resolveDynamicImportUrl(error) {
+    const message = String(error?.message || error || '');
+    const match = message.match(DYNAMIC_IMPORT_FETCH_ERROR_PATTERN);
+    const requestUrl = match?.[1];
+
+    if (!requestUrl) {
+        return null;
+    }
+
+    try {
+        return new URL(requestUrl, getCurrentOrigin());
     } catch {
         return null;
     }
@@ -54,6 +71,10 @@ export function buildLocalHttpsRecoveryMessage(prefix = 'RoomSense could not rea
     return `${prefix} After a factory reset, RoomSense creates a new local certificate authority. Download the current certificate from this box, install it on this device, then reload the page.`;
 }
 
+export function buildLocalHttpsModuleRecoveryMessage() {
+    return 'RoomSense could not load a local HTTPS application file because this device does not trust the current RoomSense certificate yet. Download the current certificate, double-click the .crt file, install it into Trusted Root Certification Authorities, then reload the page.';
+}
+
 export function describeRequestError(error, fallbackMessage) {
     if (error?.response) {
         const responseMessage = error.response.data?.error || error.response.data?.message || JSON.stringify(error.response.data);
@@ -83,8 +104,38 @@ export function createBootstrapIssue(error, fallbackMessage) {
     };
 }
 
+export function createLocalModuleFetchIssue() {
+    return {
+        title: 'Install the current RoomSense certificate',
+        message: buildLocalHttpsModuleRecoveryMessage(),
+        isLikelyTrustIssue: true,
+    };
+}
+
+export function isSameOriginHttpsModuleFetchFailure(error) {
+    const message = String(error?.message || error || '');
+    if (!/Failed to fetch dynamically imported module/i.test(message)) {
+        return false;
+    }
+
+    const requestUrl = resolveDynamicImportUrl(error);
+    if (!requestUrl) {
+        return typeof window !== 'undefined' && window.location.protocol === 'https:';
+    }
+
+    if (typeof window === 'undefined') {
+        return requestUrl.protocol === 'https:';
+    }
+
+    return requestUrl.protocol === 'https:' && requestUrl.origin === window.location.origin;
+}
+
 export function isChunkLoadError(error) {
     const message = String(error?.message || error || '');
+    if (isSameOriginHttpsModuleFetchFailure(error)) {
+        return false;
+    }
+
     return /ChunkLoadError/i.test(message)
         || /Loading chunk [\d]+ failed/i.test(message)
         || /Failed to fetch dynamically imported module/i.test(message);

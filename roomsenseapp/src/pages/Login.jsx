@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { Input } from '../components/ui/input';
 import { Button } from '../components/ui/button';
 import Time from '../components/ui/Time';
-import { User, Lock, Eye, EyeOff, Loader2, Download, Shield } from 'lucide-react';
+import { User, Lock, Eye, EyeOff, Loader2, Download } from 'lucide-react';
 import BootstrapRecoveryPanel from '../shared/components/BootstrapRecoveryPanel';
 import { describeRequestError, getLocalCertificateDownloadUrl } from '../lib/runtimeRecovery';
 
@@ -71,6 +71,14 @@ const Login = () => {
             transition={{ duration: 0.4 }}
         >
             <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(59,130,246,0.25)_0,rgba(59,130,246,0)_45%)]" />
+            <div className="absolute right-4 top-4 z-20 sm:right-6 sm:top-6">
+                <Button asChild size="sm" variant="outline" className="border-border/60 bg-background/90 shadow-sm backdrop-blur">
+                    <a href={getLocalCertificateDownloadUrl()} download="roomsense-rootCA.crt">
+                        <Download className="h-4 w-4" />
+                        Certificate
+                    </a>
+                </Button>
+            </div>
             <Motion.div
                 className="relative z-10 w-full max-w-md space-y-8 rounded-3xl border border-border/60 bg-background/95 px-6 py-10 shadow-2xl backdrop-blur-xl md:px-10"
                 initial={{ opacity: 0, y: 24 }}
@@ -186,29 +194,6 @@ const Login = () => {
                             </Button>
                         </div>
                     </form>
-
-                    <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-700">
-                        <div className="flex items-start gap-3">
-                            <div className="mt-0.5 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-slate-900 text-white">
-                                <Shield className="h-4 w-4" />
-                            </div>
-                            <div className="space-y-3">
-                                <div>
-                                    <p className="font-medium text-slate-900">Factory reset certificate note</p>
-                                    <p className="mt-1 text-sm text-slate-600">
-                                        Every factory reset creates a new local RoomSense certificate authority. If this device stops trusting
-                                        the local RoomSense address, install the current certificate from the box and reload the page.
-                                    </p>
-                                </div>
-                                <Button asChild variant="outline" className="w-full sm:w-auto">
-                                    <a href={getLocalCertificateDownloadUrl()} download="roomsense-rootCA.crt">
-                                        <Download className="h-4 w-4" />
-                                        Install Local Certificate
-                                    </a>
-                                </Button>
-                            </div>
-                        </div>
-                    </div>
                 </div>
             </Motion.div>
         </Motion.div>
