@@ -71,6 +71,18 @@ export function describeRequestError(error, fallbackMessage) {
     return error?.message || fallbackMessage;
 }
 
+export function createBootstrapIssue(error, fallbackMessage) {
+    const likelyTrustIssue = isLikelyLocalHttpsTransportFailure(error);
+
+    return {
+        title: likelyTrustIssue ? 'Install the current RoomSense certificate' : 'RoomSense is still starting',
+        message: likelyTrustIssue
+            ? buildLocalHttpsRecoveryMessage(fallbackMessage)
+            : describeRequestError(error, fallbackMessage),
+        isLikelyTrustIssue: likelyTrustIssue,
+    };
+}
+
 export function isChunkLoadError(error) {
     const message = String(error?.message || error || '');
     return /ChunkLoadError/i.test(message)
