@@ -26,6 +26,7 @@ import { useWeather } from '../contexts/WeatherContext';
 import { settingsAPI } from '../services/api';
 import { setupAPI } from '../services/setupAPI';
 import { weatherAPI } from '../services/weatherAPI';
+import { describeRequestError } from '../lib/runtimeRecovery';
 
 const STEPS = [
     { id: 'basics', title: 'Basics', description: 'Choose the weather location and optionally store the Gemini key.', icon: CloudSun },
@@ -34,13 +35,10 @@ const STEPS = [
 ];
 
 const getErrorMessage = (err, fallback) => {
-    if (err.response) {
+    if (err?.response) {
         return err.response.data?.error || err.response.data?.message || fallback;
     }
-    if (err.request) {
-        return 'No response from the server. Check the RoomSense service and try again.';
-    }
-    return err.message || fallback;
+    return describeRequestError(err, fallback);
 };
 
 const formatLocation = (location) => [location?.name, location?.admin1, location?.country || location?.countryCode].filter(Boolean).join(', ');
@@ -481,7 +479,7 @@ export default function Setup() {
                     <div className="space-y-6">
                         <StepCard title="Root Certificate" description="Install this on clients that should trust the local HTTPS endpoint.">
                             <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
-                                Download the RoomSense root CA before setup completes.
+                                Download the current RoomSense root CA before setup completes. Factory reset rotates this certificate.
                             </div>
                             <Button type="button" onClick={downloadCertificate} className="h-11 w-full bg-slate-900 text-white hover:bg-slate-800">
                                 <Download className="h-4 w-4" />

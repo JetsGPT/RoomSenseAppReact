@@ -4,27 +4,9 @@ import { useLocation } from 'react-router-dom';
 import { authAPI } from '../services/api';
 import { setupAPI } from '../services/setupAPI';
 import { DEV_MODE, DEV_USER } from '../config/devConfig';
+import { createBootstrapIssue, describeRequestError, isLikelyLocalHttpsTransportFailure } from '../lib/runtimeRecovery';
 
 const AuthContext = createContext(null);
-const FALLBACK_SETUP_STATUS = true;
-
-const buildRequestErrorMessage = (err, fallbackMessage) => {
-    let errorMessage = fallbackMessage;
-
-    if (err.response) {
-        errorMessage = `Server error (${err.response.status}): ${err.response.data?.error || err.response.data?.message || JSON.stringify(err.response.data)}`;
-    } else if (err.request) {
-        errorMessage = `No response from server: ${err.message || 'Connection failed'}`;
-    } else {
-        errorMessage = `Request error: ${err.message || 'Unknown error'}`;
-    }
-
-    if (err.code) {
-        errorMessage += ` (Code: ${err.code})`;
-    }
-
-    return errorMessage;
-};
 
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
@@ -32,6 +14,7 @@ export const AuthProvider = ({ children }) => {
     const [setupLoading, setSetupLoading] = useState(true);
     const [error, setError] = useState(null);
     const [isSetupCompleted, setIsSetupCompleted] = useState(null);
+    const [bootstrapIssue, setBootstrapIssue] = useState(null);
     const location = useLocation();
     const hasInitialized = useRef(false);
     const authenticatedUserId = user?.id;
@@ -51,17 +34,19 @@ export const AuthProvider = ({ children }) => {
             const setupRes = await setupAPI.getStatus();
             const completed = Boolean(setupRes?.completed);
             setIsSetupCompleted(completed);
+            setBootstrapIssue(null);
             return completed;
         } catch (err) {
             if (err.response?.status === 401) {
                 setIsSetupCompleted(null);
+                setBootstrapIssue(null);
                 return null;
             }
 
             console.warn('[AuthContext] Failed to get setup status', err);
-            // Fail-safe to avoid soft locks if setup status is temporarily unavailable.
-            setIsSetupCompleted(FALLBACK_SETUP_STATUS);
-            return FALLBACK_SETUP_STATUS;
+            setIsSetupCompleted(null);
+            setBootstrapIssue(createBootstrapIssue(err, 'RoomSense could not verify whether guided setup is complete.'));
+            return null;
         } finally {
             if (!silent) {
                 setSetupLoading(false);
@@ -87,14 +72,20 @@ export const AuthProvider = ({ children }) => {
             const userData = await authAPI.getCurrentUser();
             setUser(userData);
             setError(null);
+            setBootstrapIssue(null);
 
             if (refreshSetup) {
                 await refreshSetupStatus({ silent: true });
             }
 
             return userData;
-        } catch {
+        } catch (err) {
             setUser(null);
+            if (err.response?.status === 401) {
+                setBootstrapIssue(null);
+            } else {
+                setBootstrapIssue(createBootstrapIssue(err, 'RoomSense could not validate your current session.'));
+            }
             return null;
         } finally {
             if (showLoading) {
@@ -124,6 +115,9 @@ export const AuthProvider = ({ children }) => {
                 await authAPI.getCsrfToken();
             } catch (err) {
                 console.warn('Failed to fetch CSRF token on init', err);
+                if (isLikelyLocalHttpsTransportFailure(err)) {
+                    setBootstrapIssue(createBootstrapIssue(err, 'RoomSense could not reach its local HTTPS bootstrap endpoint.'));
+                }
             }
 
             const authenticatedUser = await checkAuth({ showLoading: true });
@@ -161,14 +155,18 @@ export const AuthProvider = ({ children }) => {
     const login = async (username, password) => {
         try {
             setError(null);
+            setBootstrapIssue(null);
             const userData = await authAPI.login(username, password);
             setUser(userData);
             const setupCompleted = await refreshSetupStatus({ silent: true });
             return { success: true, setupCompleted };
         } catch (err) {
             console.error('[AuthContext] Login error:', err);
-            const errorMessage = buildRequestErrorMessage(err, 'Login failed');
+            const errorMessage = describeRequestError(err, 'Login failed');
             setError(errorMessage);
+            if (isLikelyLocalHttpsTransportFailure(err)) {
+                setBootstrapIssue(createBootstrapIssue(err, 'RoomSense could not complete the local HTTPS login flow.'));
+            }
             return { success: false, error: errorMessage };
         }
     };
@@ -176,12 +174,16 @@ export const AuthProvider = ({ children }) => {
     const register = async (username, password) => {
         try {
             setError(null);
+            setBootstrapIssue(null);
             await authAPI.register(username, password);
             return await login(username, password);
         } catch (err) {
             console.error('[AuthContext] Registration error:', err);
-            const errorMessage = buildRequestErrorMessage(err, 'Registration failed');
+            const errorMessage = describeRequestError(err, 'Registration failed');
             setError(errorMessage);
+            if (isLikelyLocalHttpsTransportFailure(err)) {
+                setBootstrapIssue(createBootstrapIssue(err, 'RoomSense could not complete the local HTTPS registration flow.'));
+            }
             return { success: false, error: errorMessage };
         }
     };
@@ -193,12 +195,14 @@ export const AuthProvider = ({ children }) => {
             setError(null);
             setIsSetupCompleted(null);
             setSetupLoading(false);
+            setBootstrapIssue(null);
         } catch (err) {
             console.error('Logout error:', err);
             // Even if server logout fails, clear client state.
             setUser(null);
             setIsSetupCompleted(null);
             setSetupLoading(false);
+            setBootstrapIssue(null);
         }
     };
 
@@ -210,6 +214,7 @@ export const AuthProvider = ({ children }) => {
         loading,
         setupLoading,
         error,
+        bootstrapIssue,
         isSetupCompleted,
         setIsSetupCompleted,
         refreshSetupStatus,
