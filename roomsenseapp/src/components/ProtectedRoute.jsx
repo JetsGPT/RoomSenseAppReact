@@ -1,7 +1,6 @@
 import { Loader2 } from 'lucide-react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import BootstrapRecoveryPanel from '../shared/components/BootstrapRecoveryPanel';
 
 const RouteLoader = ({ message }) => (
     <div className="flex min-h-[40vh] items-center justify-center px-4">
@@ -9,12 +8,6 @@ const RouteLoader = ({ message }) => (
             <Loader2 className="h-4 w-4 animate-spin" />
             <span>{message}</span>
         </div>
-    </div>
-);
-
-const RouteRecovery = ({ issue }) => (
-    <div className="flex min-h-[60vh] items-center justify-center px-4 py-8">
-        <BootstrapRecoveryPanel issue={issue} className="w-full max-w-2xl" />
     </div>
 );
 
@@ -68,22 +61,18 @@ export const RequireRole = ({ children, roles }) => {
  * PublicOnly - Redirects authenticated users away from public pages (like login).
  */
 export const PublicOnly = ({ children }) => {
-    const { user, loading, setupLoading, isSetupCompleted, bootstrapIssue } = useAuth();
+    const { user, loading, setupLoading, isSetupCompleted } = useAuth();
 
     if (loading || (user && setupLoading)) {
         return <RouteLoader message="Loading account..." />;
     }
 
-    if (user && isSetupCompleted === null && bootstrapIssue) {
-        return <RouteRecovery issue={bootstrapIssue} />;
-    }
-
-    if (user && isSetupCompleted === null) {
-        return <RouteLoader message="Loading account..." />;
+    if (user && isSetupCompleted !== true) {
+        return <Navigate to="/setup" replace />;
     }
 
     if (user) {
-        return <Navigate to={isSetupCompleted === false ? '/setup' : '/dashboard'} replace />;
+        return <Navigate to="/dashboard" replace />;
     }
 
     return children;
@@ -93,7 +82,7 @@ export const PublicOnly = ({ children }) => {
  * RequireSetup - Protects routes that should remain locked until setup completes.
  */
 export const RequireSetup = ({ children }) => {
-    const { user, loading, setupLoading, isSetupCompleted, bootstrapIssue } = useAuth();
+    const { user, loading, setupLoading, isSetupCompleted } = useAuth();
     const location = useLocation();
 
     if (loading || (user && setupLoading)) {
@@ -104,15 +93,7 @@ export const RequireSetup = ({ children }) => {
         return <Navigate to="/login" state={{ from: location }} replace />;
     }
 
-    if (isSetupCompleted === null && bootstrapIssue) {
-        return <RouteRecovery issue={bootstrapIssue} />;
-    }
-
-    if (isSetupCompleted === null) {
-        return <RouteLoader message="Loading system configuration..." />;
-    }
-
-    if (isSetupCompleted === false) {
+    if (isSetupCompleted !== true) {
         return <Navigate to="/setup" state={{ from: location }} replace />;
     }
 
@@ -123,7 +104,7 @@ export const RequireSetup = ({ children }) => {
  * SetupOnly - Allows the setup flow only while setup is incomplete.
  */
 export const SetupOnly = ({ children }) => {
-    const { user, loading, setupLoading, isSetupCompleted, bootstrapIssue } = useAuth();
+    const { user, loading, setupLoading, isSetupCompleted } = useAuth();
     const location = useLocation();
 
     if (loading || (user && setupLoading)) {
@@ -132,14 +113,6 @@ export const SetupOnly = ({ children }) => {
 
     if (!user) {
         return <Navigate to="/login" state={{ from: location }} replace />;
-    }
-
-    if (isSetupCompleted === null && bootstrapIssue) {
-        return <RouteRecovery issue={bootstrapIssue} />;
-    }
-
-    if (isSetupCompleted === null) {
-        return <RouteLoader message="Loading system configuration..." />;
     }
 
     if (isSetupCompleted) {
