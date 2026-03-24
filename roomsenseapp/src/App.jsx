@@ -1,6 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
-import { Suspense, useMemo } from 'react';
+import { lazy, Suspense, useMemo } from 'react';
 import { AuthProvider } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { SettingsProvider } from './contexts/SettingsContext';
@@ -15,23 +15,22 @@ import { ErrorBoundary } from './shared/components/ErrorBoundary';
 import AiChatbot from './components/AiChatbot';
 import { Loader2 } from 'lucide-react';
 import { getConnectionBoxId } from './lib/connectionIdentity';
-import { lazyWithRetry } from './lib/runtimeRecovery';
 import './App.css';
 
 // Lazy load pages
-const Login = lazyWithRetry(() => import('./pages/Login'), 'Login');
-const AboutMe = lazyWithRetry(() => import('./pages/AboutMe'), 'AboutMe');
-const Dashboard = lazyWithRetry(() => import('./pages/Dashboard'), 'Dashboard');
-const Admin = lazyWithRetry(() => import('./pages/Admin'), 'Admin');
-const BoxManagement = lazyWithRetry(() => import('./pages/BoxManagement'), 'BoxManagement');
-const Download = lazyWithRetry(() => import('./pages/Download'), 'Download');
-const Unauthorized = lazyWithRetry(() => import('./pages/Unauthorized'), 'Unauthorized');
-const KioskView = lazyWithRetry(() => import('./pages/KioskView'), 'KioskView');
-const FloorPlanEditor = lazyWithRetry(() => import('./pages/FloorPlanEditor'), 'FloorPlanEditor');
-const Weather = lazyWithRetry(() => import('./pages/Weather'), 'Weather');
-const Notifications = lazyWithRetry(() => import('./pages/Notifications'), 'Notifications');
-const SystemHealth = lazyWithRetry(() => import('./pages/SystemHealth'), 'SystemHealth');
-const Setup = lazyWithRetry(() => import('./pages/Setup'), 'Setup');
+const Login = lazy(() => import('./pages/Login'));
+const AboutMe = lazy(() => import('./pages/AboutMe'));
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const Admin = lazy(() => import('./pages/Admin'));
+const BoxManagement = lazy(() => import('./pages/BoxManagement'));
+const Download = lazy(() => import('./pages/Download'));
+const Unauthorized = lazy(() => import('./pages/Unauthorized'));
+const KioskView = lazy(() => import('./pages/KioskView'));
+const FloorPlanEditor = lazy(() => import('./pages/FloorPlanEditor'));
+const Weather = lazy(() => import('./pages/Weather'));
+const Notifications = lazy(() => import('./pages/Notifications'));
+const SystemHealth = lazy(() => import('./pages/SystemHealth'));
+const Setup = lazy(() => import('./pages/Setup'));
 
 const LoadingFallback = () => (
     <div className="flex items-center justify-center min-h-screen">

@@ -1,5 +1,10 @@
 import api from './api';
-import { getLocalCertificateDownloadUrl } from '../lib/runtimeRecovery';
+
+const buildSetupUrl = (path) => {
+    const baseUrl = (api.defaults.baseURL || '/api').replace(/\/$/, '');
+    const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+    return `${baseUrl}${normalizedPath}`;
+};
 
 export const setupAPI = {
     /**
@@ -19,9 +24,9 @@ export const setupAPI = {
     },
 
     /**
-     * Build the download URL for the current public RoomSense root certificate.
+     * Build the download URL for the temporary root certificate.
      */
-    getCertificateDownloadUrl: () => getLocalCertificateDownloadUrl(),
+    getCertificateDownloadUrl: () => buildSetupUrl('/setup/certificate'),
 
     /**
      * Mark the system setup as complete, which deletes the temporary credentials file.

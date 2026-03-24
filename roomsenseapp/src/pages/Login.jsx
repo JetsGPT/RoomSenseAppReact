@@ -5,9 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { Input } from '../components/ui/input';
 import { Button } from '../components/ui/button';
 import Time from '../components/ui/Time';
-import { User, Lock, Eye, EyeOff, Loader2, Download, Shield } from 'lucide-react';
-import BootstrapRecoveryPanel from '../shared/components/BootstrapRecoveryPanel';
-import { describeRequestError, getLocalCertificateDownloadUrl } from '../lib/runtimeRecovery';
+import { User, Lock, Eye, EyeOff, Loader2 } from 'lucide-react';
 
 const Login = () => {
     const [username, setUsername] = useState('');
@@ -17,7 +15,7 @@ const Login = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
 
-    const { login, register, bootstrapIssue } = useAuth();
+    const { login, register } = useAuth();
     const navigate = useNavigate();
     const location = useLocation();
 
@@ -40,17 +38,37 @@ const Login = () => {
                 : await login(username, password);
 
             if (result.success) {
-                const destination = result.setupCompleted === true
-                    ? (from || '/dashboard')
-                    : '/setup';
+                const destination = result.setupCompleted === false
+                    ? '/setup'
+                    : (from || '/dashboard');
 
                 navigate(destination, { replace: true });
             } else {
                 setLocalError(result.error || 'Authentication failed');
             }
         } catch (err) {
-            const errorMessage = describeRequestError(err, 'An unexpected error occurred');
-            console.error('[Login] Authentication flow error:', err);
+            let errorMessage = 'An unexpected error occurred';
+
+            if (err.response) {
+                errorMessage = `Server error (${err.response.status}): ${err.response.data?.message || err.response.data || 'Unknown error'}`;
+                console.error('[Login] Server response:', err.response.data);
+            } else if (err.request) {
+                errorMessage = `No response from server: ${err.message || 'Connection failed'}`;
+                console.error('[Login] Request error:', err.request);
+            } else {
+                errorMessage = `Error: ${err.message || 'Unknown error'}`;
+                console.error('[Login] Error:', err.message);
+            }
+
+            if (err.code) {
+                errorMessage += ` (Code: ${err.code})`;
+                console.error('[Login] Error code:', err.code);
+            }
+
+            if (err.config) {
+                console.error('[Login] Request URL:', err.config.baseURL + err.config.url);
+            }
+
             setLocalError(errorMessage);
         } finally {
             setIsLoading(false);
@@ -96,9 +114,6 @@ const Login = () => {
                         >
                             {localError}
                         </Motion.div>
-                    )}
-                    {bootstrapIssue && (
-                        <BootstrapRecoveryPanel issue={bootstrapIssue} className="rounded-2xl border-amber-300 p-5" />
                     )}
 
                     <form onSubmit={handleSubmit} className="space-y-6">
@@ -186,29 +201,6 @@ const Login = () => {
                             </Button>
                         </div>
                     </form>
-
-                    <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-700">
-                        <div className="flex items-start gap-3">
-                            <div className="mt-0.5 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-slate-900 text-white">
-                                <Shield className="h-4 w-4" />
-                            </div>
-                            <div className="space-y-3">
-                                <div>
-                                    <p className="font-medium text-slate-900">Factory reset certificate note</p>
-                                    <p className="mt-1 text-sm text-slate-600">
-                                        Every factory reset creates a new local RoomSense certificate authority. If this device stops trusting
-                                        the local RoomSense address, install the current certificate from the box and reload the page.
-                                    </p>
-                                </div>
-                                <Button asChild variant="outline" className="w-full sm:w-auto">
-                                    <a href={getLocalCertificateDownloadUrl()} download="roomsense-rootCA.crt">
-                                        <Download className="h-4 w-4" />
-                                        Install Local Certificate
-                                    </a>
-                                </Button>
-                            </div>
-                        </div>
-                    </div>
                 </div>
             </Motion.div>
         </Motion.div>

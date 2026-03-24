@@ -2,7 +2,6 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { Button } from '../../components/ui/button';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
-import { isChunkLoadError } from '../../lib/runtimeRecovery';
 
 /**
  * Error boundary component for catching and handling React errors
@@ -52,13 +51,6 @@ export class ErrorBoundary extends React.Component {
 
     render() {
         if (this.state.hasError) {
-            const chunkLoadFailure = isChunkLoadError(this.state.error);
-            const title = chunkLoadFailure ? 'Application update is incomplete' : 'Oops! Something went wrong';
-            const description = chunkLoadFailure
-                ? 'RoomSense could not load a required application file. Reload the page to finish loading the latest build.'
-                : "We encountered an unexpected error. Don't worry, it's not your fault.";
-            const retryLabel = chunkLoadFailure ? 'Reload Application' : 'Try Again';
-
             // Custom fallback component
             if (this.props.fallback) {
                 return this.props.fallback(this.state.error, this.handleRetry);
@@ -84,18 +76,18 @@ export class ErrorBoundary extends React.Component {
                         {/* Text Content */}
                         <div className="space-y-2">
                             <h2 className="text-2xl font-bold tracking-tight text-foreground">
-                                {title}
+                                Oops! Something went wrong
                             </h2>
                             <p className="text-muted-foreground">
-                                {description}
+                                We encountered an unexpected error. Don't worry, it's not your fault.
                             </p>
                         </div>
 
                         {/* Action Buttons */}
                         <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
-                            <Button onClick={chunkLoadFailure ? () => window.location.reload() : this.handleRetry} size="lg" className="gap-2 shadow-md">
+                            <Button onClick={this.handleRetry} size="lg" className="gap-2 shadow-md">
                                 <RefreshCw className="w-4 h-4" />
-                                {retryLabel}
+                                Try Again
                             </Button>
                             <Button
                                 variant="outline"

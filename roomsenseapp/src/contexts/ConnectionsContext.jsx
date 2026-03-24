@@ -5,7 +5,6 @@ import { useToast } from '../hooks/use-toast';
 
 import { useAuth } from './AuthContext';
 import { DEV_MODE, DEV_CONNECTIONS } from '../config/devConfig';
-import { buildLocalHttpsRecoveryMessage, isLikelyLocalHttpsTransportFailure } from '../lib/runtimeRecovery';
 
 const ConnectionsContext = createContext(null);
 
@@ -71,12 +70,9 @@ export const ConnectionsProvider = ({ children }) => {
             if (requestId === lastRequestId.current) {
                 console.error('Failed to fetch active connections:', error);
                 if (!silent) {
-                    const likelyTrustIssue = isLikelyLocalHttpsTransportFailure(error);
                     toast({
-                        title: likelyTrustIssue ? 'Local HTTPS Needs Trust' : 'Error',
-                        description: likelyTrustIssue
-                            ? buildLocalHttpsRecoveryMessage('RoomSense could not load active connections.')
-                            : 'Failed to load active connections',
+                        title: "Error",
+                        description: "Failed to load active connections",
                         variant: "destructive",
                     });
                 }
