@@ -7,13 +7,14 @@
 
 // Enable development mode (bypasses login, uses mock data)
 // Enable development mode (bypasses login, uses mock data)
-export const DEV_MODE = false;
+export const DEV_MODE = true;
 
 // Mock user for development
 export const DEV_USER = {
     id: 1,
     username: 'dev_user',
     role: 'admin',
+    is_admin: true,
     email: 'dev@roomsense.local'
 };
 
