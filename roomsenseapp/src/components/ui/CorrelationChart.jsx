@@ -18,6 +18,11 @@ const CorrelationChart = ({
     data,
     xMetric,
     yMetric,
+    xLabel,
+    yLabel,
+    xUnit,
+    yUnit,
+    chartColor,
     onRangeChange,
     initialRange = DEFAULT_CHART_RANGE,
     rangeOptions = CHART_RANGE_OPTIONS
@@ -30,11 +35,11 @@ const CorrelationChart = ({
         }
     }, [selectedRange, onRangeChange]);
 
-    const xName = getSensorName(xMetric);
-    const xUnit = getSensorUnit(xMetric);
-    const yName = getSensorName(yMetric);
-    const yUnit = getSensorUnit(yMetric);
-    const color = getSensorColor(xMetric) || "#8884d8";
+    const xName = xLabel || getSensorName(xMetric);
+    const resolvedXUnit = xUnit ?? getSensorUnit(xMetric);
+    const yName = yLabel || getSensorName(yMetric);
+    const resolvedYUnit = yUnit ?? getSensorUnit(yMetric);
+    const color = chartColor || getSensorColor(xMetric) || "#8884d8";
 
     // Data Downsampling
     const displayData = React.useMemo(() => {
@@ -45,8 +50,7 @@ const CorrelationChart = ({
     }, [data]);
 
     // Formatters
-    const formatX = (value) => `${value.toFixed(1)}${xUnit}`;
-    const formatY = (value) => `${value.toFixed(1)}${yUnit}`;
+    const axisLabel = (label, unit) => unit ? `${label} (${unit.trim()})` : label;
 
     const CustomTooltip = ({ active, payload }) => {
         if (active && payload && payload.length) {
@@ -58,10 +62,10 @@ const CorrelationChart = ({
                     </p>
                     <div className="flex flex-col gap-1">
                         <span className="text-muted-foreground">
-                            {xName}: <span className="font-medium text-foreground">{dataPoint.x.toFixed(2)}{xUnit}</span>
+                            {xName}: <span className="font-medium text-foreground">{dataPoint.x.toFixed(2)}{resolvedXUnit}</span>
                         </span>
                         <span className="text-muted-foreground">
-                            {yName}: <span className="font-medium text-foreground">{dataPoint.y.toFixed(2)}{yUnit}</span>
+                            {yName}: <span className="font-medium text-foreground">{dataPoint.y.toFixed(2)}{resolvedYUnit}</span>
                         </span>
                     </div>
                 </div>
@@ -102,8 +106,8 @@ const CorrelationChart = ({
                                     type="number"
                                     dataKey="x"
                                     name={xName}
-                                    unit={xUnit}
-                                    label={{ value: `${xName} (${xUnit})`, position: 'bottom', offset: 0 }}
+                                    unit={resolvedXUnit}
+                                    label={{ value: axisLabel(xName, resolvedXUnit), position: 'bottom', offset: 0 }}
                                     tick={{ fontSize: 12 }}
                                     domain={['auto', 'auto']}
                                 />
@@ -111,8 +115,8 @@ const CorrelationChart = ({
                                     type="number"
                                     dataKey="y"
                                     name={yName}
-                                    unit={yUnit}
-                                    label={{ value: `${yName} (${yUnit})`, angle: -90, position: 'insideLeft' }}
+                                    unit={resolvedYUnit}
+                                    label={{ value: axisLabel(yName, resolvedYUnit), angle: -90, position: 'insideLeft' }}
                                     tick={{ fontSize: 12 }}
                                     domain={['auto', 'auto']}
                                 />

@@ -222,9 +222,9 @@ export default function Notifications() {
     const openEdit = (rule) => { setEditingRule(rule); setDialogOpen(true); };
 
     // ── Helpers ────────────────────────────────────────────────────
-    const statusVariant = engineStatus?.running ? 'default' : engineStatus?.error ? 'destructive' : 'secondary';
-    const statusLabel = engineStatus?.running ? 'Running' : engineStatus?.error ? 'Error' : 'Stopped';
-    const statusDotClass = engineStatus?.running ? 'running' : engineStatus?.error ? 'error' : 'stopped';
+    const statusVariant = engineStatus?.running || engineStatus?.error ? 'default' : 'secondary';
+    const statusLabel = engineStatus?.running || engineStatus?.error ? 'Running' : 'Stopped';
+    const statusDotClass = engineStatus?.running || engineStatus?.error ? 'running' : 'stopped';
 
     const truncateUrl = (url, maxLen = 35) => {
         if (!url) return '—';

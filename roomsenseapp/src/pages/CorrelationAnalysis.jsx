@@ -1,12 +1,22 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { CloudSun, Droplets, Loader2 } from 'lucide-react';
 import { useConnections } from '../contexts/ConnectionsContext';
+import { useWeather } from '../contexts/WeatherContext';
 import { useSensorData } from '../hooks/useSensorData';
 import {
-    calculateHeatIndex,
-    calculateDewPoint,
     calculateCorrelation,
-    pairSensorData
+    calculateDewPoint,
+    calculateHeatIndex,
+    pairSensorData,
 } from '../lib/correlationUtils';
+import { getRangeStartDate } from '../lib/timeRange';
+import {
+    DATA_LIMITS,
+    getSensorColor,
+    getSensorIcon,
+    getSensorName,
+    getSensorUnit,
+} from '../config/sensorConfig';
 import MetricSelector from '../components/ui/MetricSelector';
 import CorrelationChart from '../components/ui/CorrelationChart';
 import DerivedValueCard from '../components/ui/DerivedValueCard';
@@ -16,13 +26,96 @@ import {
     SelectItem,
     SelectTrigger,
     SelectValue,
-} from "../components/ui/select";
+} from '../components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
-import { Loader2, GitCompareArrows } from 'lucide-react';
 import { getConnectionBoxId, getConnectionDisplayName } from '../lib/connectionIdentity';
+
+const DEFAULT_INDOOR_METRICS = ['temperature', 'humidity', 'pressure', 'light'];
+const SENSOR_PAIR_TOLERANCE_MS = 60 * 1000;
+const WEATHER_PAIR_TOLERANCE_MS = 30 * 60 * 1000;
+
+const OUTDOOR_METRIC_OPTIONS = [
+    {
+        value: 'outdoor_temp',
+        label: 'Outside Temperature',
+        icon: CloudSun,
+        unit: ' C',
+        color: '#0ea5e9',
+        source: 'outdoor',
+        sensorType: 'temperature',
+    },
+    {
+        value: 'outdoor_humidity',
+        label: 'Outside Humidity',
+        icon: Droplets,
+        unit: '%',
+        color: '#38bdf8',
+        source: 'outdoor',
+        sensorType: 'humidity',
+    },
+];
+
+const formatHistoryDate = (date) => date.toISOString().split('T')[0];
+
+const normalizeIndoorSeries = (readings, metricKey, startTimestamp) => (
+    Array.isArray(readings)
+        ? readings
+            .filter((reading) => reading?.sensor_type === metricKey)
+            .map((reading) => ({
+                timestamp: new Date(reading.timestamp).getTime(),
+                value: Number(reading.value),
+            }))
+            .filter((reading) => (
+                Number.isFinite(reading.timestamp)
+                && Number.isFinite(reading.value)
+                && reading.timestamp >= startTimestamp
+            ))
+            .sort((left, right) => left.timestamp - right.timestamp)
+        : []
+);
+
+const normalizeOutdoorSeries = (readings, metricKey, startTimestamp) => {
+    const weatherKey = metricKey === 'outdoor_temp' ? 'outdoor_temp' : 'outdoor_humidity';
+
+    return Array.isArray(readings)
+        ? readings
+            .map((reading) => ({
+                timestamp: Number(reading?.timestamp),
+                value: Number(reading?.[weatherKey]),
+            }))
+            .filter((reading) => (
+                Number.isFinite(reading.timestamp)
+                && Number.isFinite(reading.value)
+                && reading.timestamp >= startTimestamp
+            ))
+            .sort((left, right) => left.timestamp - right.timestamp)
+        : [];
+};
+
+const describeCorrelation = (correlation, pairCount) => {
+    if (pairCount < 2 || correlation == null) {
+        return 'Not enough paired readings yet';
+    }
+
+    if (correlation > 0.7) {
+        return 'Strong positive correlation';
+    }
+
+    if (correlation < -0.7) {
+        return 'Strong negative correlation';
+    }
+
+    if (Math.abs(correlation) < 0.3) {
+        return 'Weak or no correlation';
+    }
+
+    return 'Moderate correlation';
+};
 
 const CorrelationAnalysis = () => {
     const { activeConnections } = useConnections();
+    const { getHistory, location, locationLoading } = useWeather();
+
     const availableBoxes = useMemo(() =>
         activeConnections
             .map((connection) => {
@@ -40,11 +133,13 @@ const CorrelationAnalysis = () => {
         [activeConnections]
     );
 
-    // State
     const [selectedBoxId, setSelectedBoxId] = useState('');
     const [xMetric, setXMetric] = useState('temperature');
     const [yMetric, setYMetric] = useState('humidity');
     const [timeRange, setTimeRange] = useState('24h');
+    const [weatherHistory, setWeatherHistory] = useState([]);
+    const [weatherLoading, setWeatherLoading] = useState(false);
+    const [weatherError, setWeatherError] = useState(null);
 
     useEffect(() => {
         if (!availableBoxes.length) {
@@ -58,55 +153,174 @@ const CorrelationAnalysis = () => {
         }
     }, [availableBoxes, selectedBoxId]);
 
-    // Fetch data for the selected box
-    const { data, loading, error } = useSensorData({
+    const indoorMetricOptions = useMemo(() => {
+        const keys = new Set(DEFAULT_INDOOR_METRICS);
+
+        return Array.from(keys).map((metric) => ({
+            value: metric,
+            label: getSensorName(metric),
+            icon: getSensorIcon(metric),
+            unit: getSensorUnit(metric),
+            color: getSensorColor(metric),
+            source: 'indoor',
+            sensorType: metric,
+        }));
+    }, []);
+
+    const metricOptions = useMemo(
+        () => [...indoorMetricOptions, ...OUTDOOR_METRIC_OPTIONS],
+        [indoorMetricOptions]
+    );
+
+    const metricOptionMap = useMemo(
+        () => new Map(metricOptions.map((option) => [option.value, option])),
+        [metricOptions]
+    );
+
+    useEffect(() => {
+        if (!metricOptionMap.has(xMetric)) {
+            setXMetric(metricOptions[0]?.value || 'temperature');
+        }
+
+        if (!metricOptionMap.has(yMetric)) {
+            setYMetric(metricOptions[1]?.value || metricOptions[0]?.value || 'humidity');
+        }
+    }, [metricOptionMap, metricOptions, xMetric, yMetric]);
+
+    const xMetricMeta = metricOptionMap.get(xMetric) || metricOptions[0];
+    const yMetricMeta = metricOptionMap.get(yMetric) || metricOptions[1] || metricOptions[0];
+    const usesIndoorData = [xMetricMeta, yMetricMeta].some((metric) => metric?.source === 'indoor');
+    const usesOutdoorData = [xMetricMeta, yMetricMeta].some((metric) => metric?.source === 'outdoor');
+
+    const {
+        data,
+        loading: indoorLoading,
+        error: indoorError,
+    } = useSensorData({
         sensor_box: selectedBoxId,
-        timeRange: `-${timeRange}`, // Hook expects "-24h" format for some reason, or handle in lib
-        limit: 2000 // Fetch enough points
+        timeRange: `-${timeRange}`,
+        limit: DATA_LIMITS.export,
+        enabled: usesIndoorData && Boolean(selectedBoxId),
     });
 
-    // Process data
+    useEffect(() => {
+        if (!usesOutdoorData) {
+            setWeatherHistory([]);
+            setWeatherLoading(false);
+            setWeatherError(null);
+            return;
+        }
+
+        if (locationLoading) {
+            return;
+        }
+
+        let active = true;
+
+        const loadWeatherHistory = async () => {
+            setWeatherLoading(true);
+            setWeatherError(null);
+
+            try {
+                const endDate = new Date();
+                const startDate = getRangeStartDate(timeRange, endDate) || new Date(endDate.getTime() - (24 * 60 * 60 * 1000));
+                const history = await getHistory(formatHistoryDate(startDate), formatHistoryDate(endDate));
+
+                if (!active) {
+                    return;
+                }
+
+                const nextHistory = Array.isArray(history) ? history : [];
+                setWeatherHistory(nextHistory);
+
+                if (nextHistory.length === 0) {
+                    setWeatherError(
+                        location?.name
+                            ? `No outdoor weather history is available for the selected ${timeRange} range.`
+                            : 'Outdoor weather data is unavailable. Set or refresh the weather location first.'
+                    );
+                }
+            } catch (err) {
+                console.error('Failed to load outdoor weather history for correlation analysis', err);
+                if (active) {
+                    setWeatherHistory([]);
+                    setWeatherError('Failed to load outdoor weather history.');
+                }
+            } finally {
+                if (active) {
+                    setWeatherLoading(false);
+                }
+            }
+        };
+
+        loadWeatherHistory();
+
+        return () => {
+            active = false;
+        };
+    }, [getHistory, location?.latitude, location?.longitude, location?.name, locationLoading, timeRange, usesOutdoorData]);
+
     const processedData = useMemo(() => {
-        if (!data || data.length === 0) return { paired: [], correlation: null, stats: null };
+        const startDate = getRangeStartDate(timeRange, new Date());
+        const startTimestamp = startDate?.getTime() ?? 0;
 
-        // Filter by metric
-        const xData = data.filter(d => d.sensor_type === xMetric).sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
-        const yData = data.filter(d => d.sensor_type === yMetric).sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+        const xSeries = xMetricMeta?.source === 'outdoor'
+            ? normalizeOutdoorSeries(weatherHistory, xMetric, startTimestamp)
+            : normalizeIndoorSeries(data, xMetric, startTimestamp);
+        const ySeries = yMetricMeta?.source === 'outdoor'
+            ? normalizeOutdoorSeries(weatherHistory, yMetric, startTimestamp)
+            : normalizeIndoorSeries(data, yMetric, startTimestamp);
 
-        // Pair data
-        const paired = pairSensorData(xData, yData);
+        if (!xSeries.length || !ySeries.length) {
+            return {
+                paired: [],
+                correlation: null,
+                heatIndex: null,
+                dewPoint: null,
+                xCount: xSeries.length,
+                yCount: ySeries.length,
+            };
+        }
 
-        // Calculate correlation
+        const toleranceMs = xMetricMeta?.source === 'outdoor' || yMetricMeta?.source === 'outdoor'
+            ? WEATHER_PAIR_TOLERANCE_MS
+            : SENSOR_PAIR_TOLERANCE_MS;
+
+        const paired = pairSensorData(xSeries, ySeries, toleranceMs);
         const correlation = calculateCorrelation(paired);
 
-        // Calculate derived stats (Heat Index / Dew Point) if applicable
         let heatIndex = null;
         let dewPoint = null;
 
-        if (
-            (xMetric === 'temperature' && yMetric === 'humidity') ||
-            (xMetric === 'humidity' && yMetric === 'temperature')
-        ) {
-            // Get latest reading
-            const last = paired[paired.length - 1];
-            if (last) {
-                const t = xMetric === 'temperature' ? last.x : last.y;
-                const h = xMetric === 'humidity' ? last.x : last.y;
+        const sameSource = xMetricMeta?.source === yMetricMeta?.source;
+        const includesTemperature = [xMetricMeta?.sensorType, yMetricMeta?.sensorType].includes('temperature');
+        const includesHumidity = [xMetricMeta?.sensorType, yMetricMeta?.sensorType].includes('humidity');
 
-                heatIndex = calculateHeatIndex(t, h);
-                dewPoint = calculateDewPoint(t, h);
+        if (sameSource && includesTemperature && includesHumidity) {
+            const lastPair = paired[paired.length - 1];
+            if (lastPair) {
+                const temperature = xMetricMeta?.sensorType === 'temperature' ? lastPair.x : lastPair.y;
+                const humidity = xMetricMeta?.sensorType === 'humidity' ? lastPair.x : lastPair.y;
+
+                heatIndex = calculateHeatIndex(temperature, humidity);
+                dewPoint = calculateDewPoint(temperature, humidity);
             }
         }
 
-        return { paired, correlation, heatIndex, dewPoint };
-    }, [data, xMetric, yMetric]);
+        return {
+            paired,
+            correlation,
+            heatIndex,
+            dewPoint,
+            xCount: xSeries.length,
+            yCount: ySeries.length,
+        };
+    }, [data, timeRange, weatherHistory, xMetric, xMetricMeta, yMetric, yMetricMeta]);
 
-    // Available sensor types in the fetched data
-    const availableSensors = useMemo(() => {
-        if (!data) return ['temperature', 'humidity'];
-        const types = new Set(data.map(d => d.sensor_type));
-        return Array.from(types);
-    }, [data]);
+    const isLoading = indoorLoading || (usesOutdoorData && (weatherLoading || locationLoading));
+    const primaryError = indoorError?.message
+        || (usesIndoorData && !selectedBoxId ? 'Select a sensor box to use indoor metrics.' : null)
+        || weatherError;
 
     if (!activeConnections.length) {
         return <div className="p-8 text-center text-muted-foreground">No active sensor connections found.</div>;
@@ -117,12 +331,11 @@ const CorrelationAnalysis = () => {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-3xl font-bold tracking-tight">Correlation Analysis</h1>
-                    <p className="text-muted-foreground">Analyze relationships between sensor metrics.</p>
+                    <p className="text-muted-foreground">Analyze relationships between indoor sensor metrics and outside weather conditions.</p>
                 </div>
 
-                {/* Box Selector */}
                 <Select value={selectedBoxId} onValueChange={setSelectedBoxId}>
-                    <SelectTrigger className="w-[200px]">
+                    <SelectTrigger className="w-[220px]">
                         <SelectValue placeholder="Select Sensor Box" />
                     </SelectTrigger>
                     <SelectContent>
@@ -135,7 +348,12 @@ const CorrelationAnalysis = () => {
                 </Select>
             </div>
 
-            {/* Controls & Metrics */}
+            <Card className="border-dashed">
+                <CardContent className="pt-6 text-sm text-muted-foreground">
+                    Indoor metrics use the selected sensor box. Outdoor metrics use the saved weather location from the Weather page{location?.name ? ` (${location.name})` : ''}.
+                </CardContent>
+            </Card>
+
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <Card>
                     <CardHeader className="pb-2">
@@ -145,7 +363,7 @@ const CorrelationAnalysis = () => {
                         <MetricSelector
                             value={xMetric}
                             onChange={setXMetric}
-                            options={availableSensors}
+                            options={metricOptions}
                             label=""
                         />
                     </CardContent>
@@ -159,47 +377,50 @@ const CorrelationAnalysis = () => {
                         <MetricSelector
                             value={yMetric}
                             onChange={setYMetric}
-                            options={availableSensors}
+                            options={metricOptions}
                             label=""
                         />
                     </CardContent>
                 </Card>
 
-                {/* Derived Values or Correlation */}
                 <DerivedValueCard
                     type="correlation"
                     label="Correlation (r)"
                     value={processedData.correlation}
-                    description={
-                        processedData.correlation > 0.7 ? "Strong positive correlation" :
-                            processedData.correlation < -0.7 ? "Strong negative correlation" :
-                                Math.abs(processedData.correlation) < 0.3 ? "Weak or no correlation" : "Moderate correlation"
-                    }
+                    description={describeCorrelation(processedData.correlation, processedData.paired.length)}
                 />
 
                 {processedData.heatIndex !== null && (
                     <DerivedValueCard
                         type="heatIndex"
-                        label="Av. Heat Index"
+                        label={`${xMetricMeta?.source === 'outdoor' ? 'Outdoor' : 'Indoor'} Heat Index`}
                         value={processedData.heatIndex}
-                        unit="°C"
+                        unit=" C"
                         description="Feels-like temperature"
                     />
                 )}
+
                 {processedData.dewPoint !== null && (
                     <DerivedValueCard
                         type="dewPoint"
                         label="Dew Point"
                         value={processedData.dewPoint}
-                        unit="°C"
+                        unit=" C"
                         description="Temperature where dew forms"
                     />
                 )}
             </div>
 
-            {/* Main Chart */}
+            {primaryError && (
+                <Card className="border-dashed">
+                    <CardContent className="pt-6 text-sm text-muted-foreground">
+                        {primaryError}
+                    </CardContent>
+                </Card>
+            )}
+
             <div className="min-h-[400px]">
-                {loading && !processedData.paired.length ? (
+                {isLoading && !processedData.paired.length ? (
                     <div className="h-[400px] flex items-center justify-center border rounded-xl bg-card/50">
                         <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
                     </div>
@@ -208,6 +429,11 @@ const CorrelationAnalysis = () => {
                         data={processedData.paired}
                         xMetric={xMetric}
                         yMetric={yMetric}
+                        xLabel={xMetricMeta?.label}
+                        yLabel={yMetricMeta?.label}
+                        xUnit={xMetricMeta?.unit}
+                        yUnit={yMetricMeta?.unit}
+                        chartColor={xMetricMeta?.color}
                         initialRange={timeRange}
                         onRangeChange={setTimeRange}
                     />

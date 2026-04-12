@@ -5,6 +5,8 @@ import { Button } from './ui/button';
 import { aiAPI } from '../services/aiAPI';
 import { sensorsAPI } from '../services/sensorsAPI';
 import { useWeather } from '../contexts/WeatherContext';
+import { DEV_MODE } from '../config/devConfig';
+import { getMockWeatherHistory } from '../services/devAiContext';
 
 const TIME_RANGES = [
     { label: 'Last 1 Minute', value: '-1m', hours: 1 / 60 },
@@ -187,7 +189,12 @@ export function AiInsights({ activeBoxes = [] }) {
             // 2. Fetch weather history
             const end = new Date();
             const start = new Date(end.getTime() - (timeRange.hours * 60 * 60 * 1000));
-            const weatherData = await getHistory(start.toISOString(), end.toISOString());
+            const weatherData = DEV_MODE
+                ? getMockWeatherHistory({
+                    startTime: start.toISOString(),
+                    endTime: end.toISOString(),
+                })
+                : await getHistory(start.toISOString(), end.toISOString());
 
             const sensorSummary = buildSensorSummary(flatSensorData);
             const weatherSummary = buildWeatherSummary(weatherData);
