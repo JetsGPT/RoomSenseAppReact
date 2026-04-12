@@ -1,7 +1,7 @@
 import { useQuery, useQueries, keepPreviousData } from '@tanstack/react-query';
 import { sensorsAPI, sensorHelpers } from '../services/sensorsAPI';
 import { DEFAULT_TIME_RANGE_VALUE, DEFAULT_DATA_LIMIT } from '../config/sensorConfig';
-import { DEV_MODE, getMockSensorData, groupMockDataByBox, resolveMockSensorBoxId } from '../config/devConfig';
+import { DEV_MODE, generateMockSensorData, groupMockDataByBox } from '../config/devConfig';
 import { getConnectionBoxId } from '../lib/connectionIdentity';
 
 // Query Keys
@@ -12,6 +12,21 @@ export const sensorKeys = {
     data: (boxId, params) => [...sensorKeys.all, 'data', boxId, params],
     dashboard: (activeConnections) => [...sensorKeys.all, 'dashboard', activeConnections.map(getConnectionBoxId).filter(Boolean).sort()],
 };
+
+// Cache for mock data (regenerate periodically to simulate real updates)
+let mockDataCache = null;
+let mockDataTimestamp = 0;
+const MOCK_DATA_TTL = 30000; // Regenerate mock data every 30 seconds
+
+function getMockData() {
+    const now = Date.now();
+    if (!mockDataCache || (now - mockDataTimestamp) > MOCK_DATA_TTL) {
+        console.log('[DEV MODE] Generating fresh mock sensor data');
+        mockDataCache = generateMockSensorData();
+        mockDataTimestamp = now;
+    }
+    return mockDataCache;
+}
 
 /**
  * Hook to fetch available sensor types
@@ -61,9 +76,8 @@ export const useSensorDataQuery = (boxId, params = {}, options = {}) => {
         queryFn: () => {
             // DEV MODE: Return filtered mock data for specific box
             if (DEV_MODE) {
-                const resolvedBoxId = resolveMockSensorBoxId(boxId);
-                const allData = getMockSensorData();
-                let boxData = allData.filter(d => d.sensor_box === resolvedBoxId);
+                const allData = getMockData();
+                let boxData = allData.filter(d => d.sensor_box === boxId);
 
                 // Apply sensor_type filter if specified
                 if (sensor_type) {
@@ -99,17 +113,17 @@ export const useDashboardData = (activeConnections = [], options = {}) => {
 
     // DEV MODE: Return all mock data
     if (DEV_MODE) {
-        const fallbackData = getMockSensorData();
+        const allData = getMockData();
+        const latestReadings = sensorHelpers.getLatestReadings(allData);
+        const groupedData = groupMockDataByBox(allData);
+
+        // Use a simple query to manage the dev data state
         const devQuery = useQuery({
             queryKey: ['dev-dashboard-data'],
-            queryFn: () => getMockSensorData({ forceRefresh: true }),
+            queryFn: () => allData,
             refetchInterval: refreshInterval,
             enabled: enabled
         });
-
-        const allData = Array.isArray(devQuery.data) ? devQuery.data : fallbackData;
-        const latestReadings = sensorHelpers.getLatestReadings(allData);
-        const groupedData = groupMockDataByBox(allData);
 
         return {
             data: allData,

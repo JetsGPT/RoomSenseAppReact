@@ -7,7 +7,7 @@
 
 // Enable development mode (bypasses login, uses mock data)
 // Enable development mode (bypasses login, uses mock data)
-export const DEV_MODE = true;
+export const DEV_MODE = false;
 
 // Mock user for development
 export const DEV_USER = {
@@ -23,47 +23,6 @@ export const DEV_CONNECTIONS = [
     { address: 'AA:BB:CC:DD:EE:02', name: 'Bedroom', connected: true },
     { address: 'AA:BB:CC:DD:EE:03', name: 'Kitchen', connected: true }
 ];
-
-// Mock Wi-Fi Networks
-export const DEV_WIFI_NETWORKS = {
-    networks: [
-        { ssid: 'Dev_Network_5GHz', signal: 95, security: 'WPA3', requiresPassword: true, isSaved: true, isCurrent: true },
-        { ssid: 'Dev_Network_2.4GHz', signal: 82, security: 'WPA2', requiresPassword: true, isSaved: false },
-        { ssid: 'Guest_WiFi', signal: 60, security: '', requiresPassword: false, isSaved: false },
-    ],
-    wifiSupported: true,
-    current: { connected: true, ssid: 'Dev_Network_5GHz', interface: 'wlan0' }
-};
-
-// Mock Scanned Devices
-export const DEV_SCANNED_DEVICES = [
-    { address: 'FF:EE:DD:CC:BB:01', name: 'RoomSense Demo Box' },
-    { address: 'FF:EE:DD:CC:BB:02', name: 'New Sensor Hub' }
-];
-
-// Mock Pairing Mode (Triggers PIN requirement when connecting to scanned devices in dev mode)
-export const DEV_MOCK_PAIRING_MODE = true;
-
-const MOCK_SENSOR_DATA_TTL_MS = 30000;
-let mockSensorDataCache = null;
-let mockSensorDataTimestamp = 0;
-
-export function resolveMockSensorBoxId(boxId) {
-    const normalizedBoxId = String(boxId || '').trim().toLowerCase();
-
-    if (!normalizedBoxId) {
-        return '';
-    }
-
-    const matchingConnection = DEV_CONNECTIONS.find((connection) =>
-        [connection.name, connection.original_name, connection.box_name, connection.address]
-            .filter(Boolean)
-            .some((value) => String(value).trim().toLowerCase() === normalizedBoxId)
-    );
-
-    return matchingConnection?.name || String(boxId);
-}
-
 
 /**
  * Generate mock sensor data for development
@@ -112,33 +71,36 @@ export function generateMockSensorData() {
     return readings;
 }
 
-export function getMockSensorData({ forceRefresh = false } = {}) {
-    const now = Date.now();
-
-    if (forceRefresh || !mockSensorDataCache || (now - mockSensorDataTimestamp) > MOCK_SENSOR_DATA_TTL_MS) {
-        mockSensorDataCache = generateMockSensorData();
-        mockSensorDataTimestamp = now;
-    }
-
-    return mockSensorDataCache;
-}
-
 /**
  * Get the latest reading for each sensor in development mode
  */
 export function getLatestMockReadings() {
-    const latestBySeries = new Map();
+    const now = new Date();
+    const readings = [];
+    const boxes = DEV_CONNECTIONS.map(c => c.name);
+    const sensorTypes = ['temperature', 'humidity', 'pressure', 'light'];
 
-    getMockSensorData().forEach((reading) => {
-        const key = `${reading.sensor_box}-${reading.sensor_type}`;
-        const current = latestBySeries.get(key);
+    boxes.forEach(boxName => {
+        sensorTypes.forEach(sensorType => {
+            const config = getSensorBaseConfig(sensorType);
+            const hourOfDay = now.getHours();
+            const dailyVariation = Math.sin((hourOfDay - 6) * Math.PI / 12);
+            const randomNoise = (Math.random() - 0.5) * config.noise;
 
-        if (!current || new Date(reading.timestamp) > new Date(current.timestamp)) {
-            latestBySeries.set(key, reading);
-        }
+            let value = config.base + (dailyVariation * config.dailySwing) + randomNoise;
+            value = Math.max(config.min, Math.min(config.max, value));
+
+            readings.push({
+                id: `${boxName}-${sensorType}-latest`,
+                sensor_box: boxName,
+                sensor_type: sensorType,
+                value: parseFloat(value.toFixed(2)),
+                timestamp: now.toISOString()
+            });
+        });
     });
 
-    return Array.from(latestBySeries.values());
+    return readings;
 }
 
 /**
@@ -172,15 +134,3 @@ export function groupMockDataByBox(data) {
         return acc;
     }, {});
 }
-
-// Mock System Health
-export const DEV_SYSTEM_HEALTH = DEV_CONNECTIONS.map(conn => ({
-    ...conn,
-    status: 'online',
-    last_seen: new Date().toISOString(),
-    sensors: ['temperature', 'humidity', 'pressure', 'light'].map(type => ({
-        type,
-        status: 'online',
-        last_seen: new Date().toISOString()
-    }))
-}));

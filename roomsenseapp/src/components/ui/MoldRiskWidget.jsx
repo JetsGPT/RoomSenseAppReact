@@ -28,17 +28,7 @@ export const MoldRiskWidget = ({ sensorBoxId, className }) => {
                 }
             } catch (err) {
                 console.error("Failed to fetch mold risk:", err);
-                if (isMounted) {
-                    setRiskData({
-                        status: 'green',
-                        riskScore: 10,
-                        explanation: 'Placeholder data: Environment appears stable.',
-                        dangerDurationHours: 0,
-                        warningDurationHours: 0,
-                        isStale: false
-                    });
-                    setError(null);
-                }
+                if (isMounted) setError("Failed to load risk data");
             } finally {
                 if (isMounted) setLoading(false);
             }

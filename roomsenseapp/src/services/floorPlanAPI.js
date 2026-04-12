@@ -10,7 +10,6 @@
 // - CSRF token header setup
 // - Proper base URL configuration
 import api from './api.js';
-import { DEV_MODE } from '../config/devConfig';
 
 // ============================================================================
 // Floor Plan API Functions
@@ -22,7 +21,6 @@ export const floorPlanAPI = {
      * @returns {Promise<Array>} Array of floor plan objects
      */
     async getFloorPlans() {
-        if (DEV_MODE) return floorPlanStorage.getAll();
         const response = await api.get('/floor-plans');
         return response.data;
     },
@@ -33,7 +31,6 @@ export const floorPlanAPI = {
      * @returns {Promise<Object>} Floor plan object with elements and sensors
      */
     async getFloorPlan(id) {
-        if (DEV_MODE) return floorPlanStorage.get(id);
         const response = await api.get(`/floor-plans/${id}`);
         return response.data;
     },
@@ -47,7 +44,6 @@ export const floorPlanAPI = {
      * @returns {Promise<Object>} Created floor plan with ID
      */
     async createFloorPlan(floorPlan) {
-        if (DEV_MODE) return floorPlanStorage.save(floorPlan);
         const response = await api.post('/floor-plans', floorPlan);
         return response.data;
     },
@@ -59,11 +55,6 @@ export const floorPlanAPI = {
      * @returns {Promise<Object>} Updated floor plan
      */
     async updateFloorPlan(id, updates) {
-        if (DEV_MODE) {
-            const plan = floorPlanStorage.get(id);
-            if (!plan) throw new Error("Floor plan not found");
-            return floorPlanStorage.save({ ...plan, ...updates });
-        }
         const response = await api.put(`/floor-plans/${id}`, updates);
         return response.data;
     },
@@ -74,10 +65,6 @@ export const floorPlanAPI = {
      * @returns {Promise<void>}
      */
     async deleteFloorPlan(id) {
-        if (DEV_MODE) {
-            floorPlanStorage.remove(id);
-            return;
-        }
         await api.delete(`/floor-plans/${id}`);
     },
 

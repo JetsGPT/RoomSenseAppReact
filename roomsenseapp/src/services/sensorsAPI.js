@@ -6,9 +6,7 @@
  */
 
 import axios from 'axios';
-import { DEV_MODE, DEV_SYSTEM_HEALTH, getMockSensorData, resolveMockSensorBoxId } from '../config/devConfig';
 import { DEFAULT_TIME_RANGE_VALUE, DEFAULT_DATA_LIMIT } from '../config/sensorConfig';
-import { calculateDewPoint } from '../lib/correlationUtils';
 
 // ============================================================================
 // Configuration
@@ -26,153 +24,6 @@ const api = axios.create({
         'Content-Type': 'application/json',
     },
 });
-
-const DEV_SENSOR_TYPES = ['temperature', 'humidity', 'pressure', 'light'];
-
-function parseMockTimeBoundary(value, fallbackTimestamp) {
-    if (!value || value === 'now()') {
-        return fallbackTimestamp;
-    }
-
-    const relativeMatch = String(value).trim().match(/^-(\d+)([mhd])$/i);
-    if (relativeMatch) {
-        const [, rawAmount, rawUnit] = relativeMatch;
-        const amount = Number(rawAmount);
-        const multipliers = {
-            m: 60 * 1000,
-            h: 60 * 60 * 1000,
-            d: 24 * 60 * 60 * 1000,
-        };
-
-        return fallbackTimestamp - (amount * multipliers[rawUnit.toLowerCase()]);
-    }
-
-    const parsed = new Date(value).getTime();
-    return Number.isFinite(parsed) ? parsed : fallbackTimestamp;
-}
-
-function getMockBoxReadings(sensorBox, params = {}) {
-    const resolvedBoxId = resolveMockSensorBoxId(sensorBox);
-    const {
-        sensor_type,
-        start_time,
-        end_time,
-        limit,
-        sort = 'desc',
-    } = params;
-
-    const now = Date.now();
-    const startTimestamp = parseMockTimeBoundary(start_time, now - (24 * 60 * 60 * 1000));
-    const endTimestamp = parseMockTimeBoundary(end_time, now);
-
-    let readings = getMockSensorData().filter((reading) => reading.sensor_box === resolvedBoxId);
-
-    if (sensor_type) {
-        readings = readings.filter((reading) => reading.sensor_type === sensor_type);
-    }
-
-    readings = readings.filter((reading) => {
-        const timestamp = new Date(reading.timestamp).getTime();
-        return Number.isFinite(timestamp) && timestamp >= startTimestamp && timestamp <= endTimestamp;
-    });
-
-    readings.sort((left, right) => {
-        const difference = new Date(right.timestamp) - new Date(left.timestamp);
-        return sort === 'desc' ? difference : -difference;
-    });
-
-    return typeof limit === 'number' ? readings.slice(0, limit) : readings;
-}
-
-function aggregateMockReadingsByDay(readings, aggregation = 'mean') {
-    const dayMap = new Map();
-
-    readings.forEach((reading) => {
-        const dayKey = String(reading.timestamp).slice(0, 10);
-        if (!dayMap.has(dayKey)) {
-            dayMap.set(dayKey, []);
-        }
-
-        dayMap.get(dayKey).push(Number(reading.value));
-    });
-
-    return Array.from(dayMap.entries())
-        .map(([date, values]) => {
-            const validValues = values.filter((value) => Number.isFinite(value));
-            if (!validValues.length) {
-                return null;
-            }
-
-            let value;
-            switch (aggregation) {
-                case 'min':
-                    value = Math.min(...validValues);
-                    break;
-                case 'max':
-                    value = Math.max(...validValues);
-                    break;
-                case 'last':
-                    value = validValues[validValues.length - 1];
-                    break;
-                default:
-                    value = validValues.reduce((sum, current) => sum + current, 0) / validValues.length;
-                    break;
-            }
-
-            return {
-                date,
-                value: Number(value.toFixed(2)),
-            };
-        })
-        .filter(Boolean)
-        .sort((left, right) => left.date.localeCompare(right.date));
-}
-
-function buildMockMoldRisk(sensorBox) {
-    const latestReadings = sensorHelpers.getLatestReadings(getMockBoxReadings(sensorBox));
-    const temperature = Number(latestReadings.find((reading) => reading.sensor_type === 'temperature')?.value);
-    const humidity = Number(latestReadings.find((reading) => reading.sensor_type === 'humidity')?.value);
-    const dewPoint = calculateDewPoint(temperature, humidity);
-
-    if (!Number.isFinite(temperature) || !Number.isFinite(humidity)) {
-        return {
-            status: 'green',
-            riskScore: 10,
-            explanation: 'Not enough mock temperature and humidity data is available yet.',
-            dangerDurationHours: 0,
-            warningDurationHours: 0,
-            isStale: false,
-        };
-    }
-
-    let status = 'green';
-    let riskScore = Math.min(100, Math.max(5, Math.round(((humidity - 35) * 1.8) + ((dewPoint ?? 0) * 1.4))));
-    let explanation = `Humidity is stable at ${humidity.toFixed(0)}% with a dew point near ${dewPoint?.toFixed(1) ?? 'n/a'} C.`;
-    let dangerDurationHours = 0;
-    let warningDurationHours = 0;
-
-    if (humidity >= 72 || (dewPoint ?? -Infinity) >= 18) {
-        status = 'red';
-        riskScore = Math.max(riskScore, 82);
-        dangerDurationHours = 3;
-        warningDurationHours = 8;
-        explanation = `Sustained humidity around ${humidity.toFixed(0)}% suggests elevated mold risk in ${resolveMockSensorBoxId(sensorBox)}.`;
-    } else if (humidity >= 60 || (dewPoint ?? -Infinity) >= 15) {
-        status = 'yellow';
-        riskScore = Math.max(riskScore, 52);
-        warningDurationHours = 4;
-        explanation = `Humidity is trending high at ${humidity.toFixed(0)}%. Keep an eye on airflow and colder surfaces.`;
-    }
-
-    return {
-        status,
-        riskScore,
-        explanation,
-        dangerDurationHours,
-        warningDurationHours,
-        isStale: false,
-    };
-}
 
 // ============================================================================
 // Helper Functions
@@ -235,10 +86,6 @@ export const sensorsAPI = {
      * @returns {Promise<Array>} Array of sensor readings
      */
     getSensorDataByBox: async (sensor_box, params = {}) => {
-        if (DEV_MODE) {
-            return getMockBoxReadings(sensor_box, params);
-        }
-
         const {
             sensor_type,
             start_time = DEFAULT_TIME_RANGE_VALUE,
@@ -269,23 +116,6 @@ export const sensorsAPI = {
      * @returns {Promise<Array>} Array of { date, value } objects
      */
     getAggregatedData: async (sensor_box, sensor_type, params = {}) => {
-        if (DEV_MODE) {
-            const {
-                start_time = '-365d',
-                end_time = 'now()',
-                aggregation = 'mean'
-            } = params;
-
-            const readings = getMockBoxReadings(sensor_box, {
-                sensor_type,
-                start_time,
-                end_time,
-                sort: 'asc',
-            });
-
-            return aggregateMockReadingsByDay(readings, aggregation);
-        }
-
         const { start_time = '-365d', end_time = 'now()', aggregation = 'mean' } = params;
         // manually build query params for specific endpoint args
         const queryParams = new URLSearchParams();
@@ -303,10 +133,6 @@ export const sensorsAPI = {
      * @returns {Promise<Array>} Array of sensor box identifiers
      */
     getSensorBoxes: async () => {
-        if (DEV_MODE) {
-            return Array.from(new Set(getMockSensorData().map((reading) => reading.sensor_box))).sort();
-        }
-
         const response = await api.get('/sensors/boxes');
         return response.data;
     },
@@ -316,10 +142,6 @@ export const sensorsAPI = {
      * @returns {Promise<Array>} Array of sensor type identifiers
      */
     getSensorTypes: async () => {
-        if (DEV_MODE) {
-            return DEV_SENSOR_TYPES;
-        }
-
         const response = await api.get('/sensors/types');
         return response.data;
     },
@@ -330,10 +152,6 @@ export const sensorsAPI = {
      * @returns {Promise<Object>} Mold risk assessment object
      */
     getMoldRisk: async (sensor_box) => {
-        if (DEV_MODE) {
-            return buildMockMoldRisk(sensor_box);
-        }
-
         const response = await api.get(`/sensors/data/mold-risk/${encodeURIComponent(sensor_box)}`);
         return response.data;
     },
@@ -343,7 +161,6 @@ export const sensorsAPI = {
      * @returns {Promise<Array>} Array of device health objects
      */
     getSystemHealth: async () => {
-        if (DEV_MODE) return DEV_SYSTEM_HEALTH;
         const response = await api.get('/sensors/health-status');
         return response.data;
     },
