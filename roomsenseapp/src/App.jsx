@@ -265,9 +265,17 @@ function AppContent() {
     );
 }
 
+const getBasename = () => {
+    // If we are served under /proxy/<uuid>/, use that as the basename for the router.
+    const match = window.location.pathname.match(/^(\/proxy\/[^/]+)/);
+    return match ? match[1] : '';
+};
+
 function App() {
+    const basename = useMemo(() => getBasename(), []);
+
     return (
-        <BrowserRouter>
+        <BrowserRouter basename={basename}>
             <ThemeProvider>
                 <SettingsProvider>
                     <AuthProvider>
@@ -284,3 +292,4 @@ function App() {
 }
 
 export default App;
+

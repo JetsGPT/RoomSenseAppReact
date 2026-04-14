@@ -13,7 +13,16 @@ import { DEFAULT_TIME_RANGE_VALUE, DEFAULT_DATA_LIMIT } from '../config/sensorCo
 // ============================================================================
 
 /** Sensors API base URL */
-const SENSORS_API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
+const getSensorsApiUrl = () => {
+    const defaultApi = import.meta.env.VITE_API_URL || '/api';
+    if (defaultApi !== '/api') return defaultApi; 
+    
+    const match = window.location.pathname.match(/^(\/proxy\/[^/]+)/);
+    const prefix = match ? match[1] : '';
+    return prefix + '/api';
+};
+
+const SENSORS_API_BASE_URL = getSensorsApiUrl();
 
 
 /** Create axios instance with default configuration */

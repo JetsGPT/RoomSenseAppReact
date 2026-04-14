@@ -2,8 +2,16 @@ import axios from 'axios';
 
 // Hardcoded API base URL
 // API base URL from environment variables
-const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
+const getBaseApiUrl = () => {
+    const defaultApi = import.meta.env.VITE_API_URL || '/api';
+    if (defaultApi !== '/api') return defaultApi; 
+    
+    const match = window.location.pathname.match(/^(\/proxy\/[^/]+)/);
+    const prefix = match ? match[1] : '';
+    return prefix + '/api';
+};
 
+const API_BASE_URL = getBaseApiUrl();
 
 // Create axios instance
 const api = axios.create({
