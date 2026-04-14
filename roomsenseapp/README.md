@@ -1,108 +1,108 @@
 # RoomSenseApp
 
-Frontend der **RoomSense**-Plattform – einer Anwendung zur Überwachung, Visualisierung und Analyse von Raumklima- und Sensordaten. Das Projekt ist als moderne React-SPA umgesetzt, läuft auf Desktop und Mobilgeräten (via Capacitor als iOS-/Android-App) und kommuniziert mit einem separaten Backend, das Authentifizierung, Sensorik-Daten, KI-Insights und Wetterdaten bereitstellt.
+Frontend of the **RoomSense** platform — an application for monitoring, visualizing, and analyzing indoor climate and sensor data. Built as a modern React SPA, it runs on desktop and mobile (via Capacitor as an iOS/Android app) and communicates with a separate backend that provides authentication, sensor data, AI insights, and weather data.
 
 ## Features
 
-- OS-inspiriertes Dashboard mit Fenstern, Floor-Plan-Editor und Kiosk-Modus
-- Echtzeit-Sensorwerte (Temperatur, Luftfeuchte, CO₂ etc.) mit Charts & Gauges
-- KI-Chatbot und automatische Insights zu Raumklima-Daten
-- Korrelationsanalyse und Heatmap-Ansicht
-- Benachrichtigungen und System-Health-Monitoring
-- Wetter-Integration
-- Box-Management, Pairing-Flow und Geräte-Umbenennung
-- Rollenbasierte Zugriffskontrolle (User / Admin) mit Server-Side-Authentifizierung via Session-Cookies
-- Native Builds für iOS und Android über Capacitor
+- OS-inspired dashboard with a floor plan editor and kiosk mode
+- Real-time sensor values (temperature, humidity, CO₂, etc.) with charts & gauges
+- AI chatbot and automatic insights for indoor climate data
+- Correlation analysis and heatmap view
+- Notifications and system health monitoring
+- Weather integration
+- Box management, pairing flow, and device renaming
+- Role-based access control (User / Admin) with server-side authentication via session cookies
+- Native builds for iOS and Android via Capacitor
 
-## Tech-Stack
+## Tech Stack
 
 - **React 19** + **Vite 7**
-- **React Router 7** für das Routing
-- **TanStack Query** für Server-State
-- **Tailwind CSS 4** + shadcn/ui-artige Komponenten auf Basis von **Radix UI**
-- **Framer Motion** für Animationen
-- **Recharts** und **react-gauge-component** für Visualisierung
-- **Axios** für HTTP-Calls
-- **Capacitor 7** für iOS-/Android-Builds
-- **ESLint** für Linting
+- **React Router 7** for routing
+- **TanStack Query** for server state management
+- **Tailwind CSS 4** + shadcn/ui-style components built on **Radix UI**
+- **Framer Motion** for animations
+- **Recharts** and **react-gauge-component** for data visualization
+- **Axios** for HTTP requests
+- **Capacitor 7** for iOS/Android builds
+- **ESLint** for linting
 
-## Projektstruktur
+## Project Structure
 
 ```
 roomsenseapp/
-├── android/                 # Capacitor-Android-Projekt
-├── ios/                     # Capacitor-iOS-Projekt
-├── certificates/            # Lokale Dev-Zertifikate (HTTPS)
-├── docs/                    # Zusatzdokumentation (Auth, Routen, Frontend)
-├── public/                  # Statische Assets
+├── android/                 # Capacitor Android project
+├── ios/                     # Capacitor iOS project
+├── certificates/            # Local dev certificates (HTTPS)
+├── docs/                    # Additional documentation (auth, routes, frontend)
+├── public/                  # Static assets
 ├── src/
-│   ├── assets/              # Bilder, Icons
-│   ├── components/          # Wiederverwendbare UI-Komponenten
-│   │   ├── box-detail/      # Detailansicht einer Sensor-Box
-│   │   ├── floor-plan/      # Floor-Plan-Editor-Komponenten
-│   │   ├── notifications/   # Benachrichtigungs-UI
-│   │   └── ui/              # shadcn-style Basiskomponenten
-│   ├── config/              # Konfiguration (API-URLs etc.)
-│   ├── contexts/            # React-Contexts (Auth, Theme, Weather, …)
-│   ├── hooks/               # Eigene Hooks
-│   ├── lib/                 # Hilfsbibliotheken
-│   ├── pages/               # Seiten / Top-Level-Routen
-│   ├── services/            # API-Clients (api, aiAPI, sensorsAPI, …)
-│   ├── shared/              # Gemeinsam genutzte Module
-│   ├── styles/              # Globale Styles
-│   ├── utils/               # Utilities
-│   ├── App.jsx              # Routing + Provider
-│   └── main.jsx             # Einstiegspunkt
-├── capacitor.config.json    # Capacitor-Konfiguration
-├── vite.config.js           # Vite-Konfiguration (inkl. HTTPS)
-├── eslint.config.js         # ESLint-Konfiguration
-├── components.json          # shadcn/ui-Konfiguration
+│   ├── assets/              # Images, icons
+│   ├── components/          # Reusable UI components
+│   │   ├── box-detail/      # Sensor box detail view
+│   │   ├── floor-plan/      # Floor plan editor components
+│   │   ├── notifications/   # Notification UI
+│   │   └── ui/              # shadcn-style base components
+│   ├── config/              # Configuration (API URLs, etc.)
+│   ├── contexts/            # React contexts (Auth, Theme, Weather, …)
+│   ├── hooks/               # Custom hooks
+│   ├── lib/                 # Helper libraries
+│   ├── pages/               # Pages / top-level routes
+│   ├── services/            # API clients (api, aiAPI, sensorsAPI, …)
+│   ├── shared/              # Shared modules
+│   ├── styles/              # Global styles
+│   ├── utils/               # Utility functions
+│   ├── App.jsx              # Routing + providers
+│   └── main.jsx             # Entry point
+├── capacitor.config.json    # Capacitor configuration
+├── vite.config.js           # Vite configuration (incl. HTTPS)
+├── eslint.config.js         # ESLint configuration
+├── components.json          # shadcn/ui configuration
 ├── index.html
 ├── package.json
 └── tsconfig*.json
 ```
 
-## Seiten (Auswahl)
+## Pages
 
-- `Login` – Login- und Registrierungsformular
-- `Dashboard` – Haupt-Dashboard mit Übersicht, Charts und KI-Insights
-- `BoxManagement` – Verwaltung der Sensor-Boxen
-- `FloorPlanEditor` – Editor für den Grundriss inkl. Box-Platzierung
-- `HeatmapView` – Heatmap-Visualisierung
-- `CorrelationAnalysis` – Korrelationen zwischen Sensor-Metriken
-- `KioskView` – Vollbild-Ansicht für stationäre Displays
-- `Weather` – Wetterdaten und Außenvergleich
-- `Notifications` – Benachrichtigungs-Center
-- `SystemHealth` – Status aller Komponenten
+- `Login` — Login and registration form
+- `Dashboard` — Main dashboard with overview, charts, and AI insights
+- `BoxManagement` — Manage sensor boxes
+- `FloorPlanEditor` — Floor plan editor including box placement
+- `HeatmapView` — Heatmap visualization of sensor data
+- `CorrelationAnalysis` — Correlations between sensor metrics
+- `KioskView` — Full-screen view for stationary displays
+- `Weather` — Weather data and outdoor comparison
+- `Notifications` — Notification center
+- `SystemHealth` — Status overview of all system components
 - `Setup` / `Download` / `Admin` / `AboutMe` / `Unauthorized`
 
-## Services (API-Layer)
+## Services (API Layer)
 
-Die Kommunikation mit dem Backend ist in `src/services/` gekapselt:
+All backend communication is encapsulated in `src/services/`:
 
-- `api.js` – Basis-Client (Axios-Instanz, Session-Cookies, Interceptors)
-- `sensorsAPI.js` – Sensor- und Box-Daten
-- `aiAPI.js` – KI-Chatbot & Insights
-- `floorPlanAPI.js` – Grundrisse
-- `notificationsAPI.js` – Benachrichtigungen
-- `setupAPI.js` – Onboarding/Setup
-- `weatherAPI.js` – Wetter
+- `api.js` — Base client (Axios instance, session cookies, interceptors)
+- `sensorsAPI.js` — Sensor and box data
+- `aiAPI.js` — AI chatbot & insights
+- `floorPlanAPI.js` — Floor plans
+- `notificationsAPI.js` — Notifications
+- `setupAPI.js` — Onboarding / setup
+- `weatherAPI.js` — Weather data
 
-## Authentifizierung
+## Authentication
 
-Authentifizierung läuft vollständig über das Backend (siehe `docs/AUTH_MIDDLEWARE_DOCUMENTATION.md` und `docs/PROTECTED_ROUTES_DOCUMENTATION.md`):
+Authentication is handled entirely by the backend (see `docs/AUTH_MIDDLEWARE_DOCUMENTATION.md` and `docs/PROTECTED_ROUTES_DOCUMENTATION.md`):
 
-- Session-Cookies (HTTP-Only) vom Backend
-- Client trifft keine sicherheitsrelevanten Entscheidungen
-- `AuthContext` hält den aktuellen User-Status (aus Backend-Validierung)
-- `ProtectedRoute` schützt Routen auf UI-Ebene und prüft Rollen
+- HTTP-only session cookies issued by the backend
+- The client makes no security-relevant decisions
+- `AuthContext` holds the current user state (derived from backend validation)
+- `ProtectedRoute` guards routes at the UI level and enforces role checks
 
-## Voraussetzungen
+## Prerequisites
 
 - Node.js ≥ 20
-- npm (oder ein kompatibler Paketmanager)
-- Laufendes RoomSense-Backend (für echte Daten)
-- Optional für Mobile Builds: Xcode (iOS) bzw. Android Studio (Android)
+- npm (or a compatible package manager)
+- A running RoomSense backend (for real data)
+- Optional for mobile builds: Xcode (iOS) or Android Studio (Android)
 
 ## Installation
 
@@ -114,51 +114,51 @@ npm install
 
 ## Scripts
 
-| Script              | Beschreibung                                                      |
-| ------------------- | ----------------------------------------------------------------- |
-| `npm run dev`       | Startet den Vite-Dev-Server                                       |
-| `npm run dev:https` | Startet den Dev-Server mit HTTPS und Netzwerkfreigabe (`--host`)  |
-| `npm run build`     | Erstellt den Produktions-Build in `dist/`                         |
-| `npm run preview`   | Vorschau des Produktions-Builds                                   |
-| `npm run lint`      | ESLint über das Projekt laufen lassen                             |
+| Script              | Description                                              |
+| ------------------- | -------------------------------------------------------- |
+| `npm run dev`       | Start the Vite development server                        |
+| `npm run dev:https` | Start the dev server with HTTPS and network access (`--host`) |
+| `npm run build`     | Create a production build in `dist/`                     |
+| `npm run preview`   | Preview the production build                             |
+| `npm run lint`      | Run ESLint across the project                            |
 
-## Konfiguration
+## Configuration
 
-API-Endpunkte und Umgebungsparameter werden in `src/config/` bzw. über Vite-Umgebungsvariablen (`.env`, `.env.local`) gesetzt. Typische Variablen:
+API endpoints and environment parameters are set in `src/config/` or via Vite environment variables (`.env`, `.env.local`). Typical variables:
 
 ```
 VITE_API_BASE_URL=https://api.example.com
 ```
 
-Für HTTPS im Dev-Modus werden Zertifikate aus `certificates/` verwendet (siehe `vite.config.js`).
+For HTTPS in development, certificates from `certificates/` are used (see `vite.config.js`).
 
 ## Mobile Builds (Capacitor)
 
-Nach einem `npm run build` kann der Web-Build in die nativen Projekte synchronisiert werden:
+After running `npm run build`, sync the web build into the native projects:
 
 ```bash
 npx cap sync
-npx cap open ios      # öffnet Xcode
-npx cap open android  # öffnet Android Studio
+npx cap open ios      # opens Xcode
+npx cap open android  # opens Android Studio
 ```
 
-Die Capacitor-Konfiguration liegt in `capacitor.config.json`.
+Capacitor configuration is in `capacitor.config.json`.
 
-## Dokumentation
+## Additional Documentation
 
-Zusätzliche Dokumente im Ordner `docs/`:
+Further documents can be found in the `docs/` folder:
 
-- `FRONTEND_README.md` – Detaillierte Frontend-Doku
-- `AUTH_MIDDLEWARE_DOCUMENTATION.md` – Auth-Middleware
-- `PROTECTED_ROUTES_DOCUMENTATION.md` – Geschützte Routen & Rollen
+- `FRONTEND_README.md` — Detailed frontend documentation
+- `AUTH_MIDDLEWARE_DOCUMENTATION.md` — Auth middleware
+- `PROTECTED_ROUTES_DOCUMENTATION.md` — Protected routes & roles
 
-## Entwicklungsschritte (typischer Flow)
+## Typical Development Flow
 
-1. Backend starten (liefert API + Session-Cookies).
-2. `npm run dev:https` ausführen und im Browser öffnen.
-3. Über `/login` anmelden oder registrieren.
-4. Im Dashboard Boxen pairen, Floor-Plan anlegen und Sensordaten visualisieren.
+1. Start the backend (provides the API + session cookies).
+2. Run `npm run dev:https` and open the app in your browser.
+3. Log in or register at `/login`.
+4. Pair boxes, create a floor plan, and start visualizing sensor data in the dashboard.
 
-## Lizenz
+## License
 
-Intern / Proprietär – sofern nicht anders angegeben.
+Internal / Proprietary — unless otherwise stated.
